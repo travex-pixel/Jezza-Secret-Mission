@@ -1,0 +1,29 @@
+# Fly.io: `fly launch --copy-config --no-deploy && fly volumes create jezza_data -s 1 && fly deploy`
+app = "project-jezza"
+primary_region = "syd"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8787"
+  DATA_DIR = "/data"
+
+[http_service]
+  internal_port = 8787
+  force_https = true
+  auto_stop_machines = "off"     # keep the room alive all weekend
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[mounts]]
+  source = "jezza_data"
+  destination = "/data"
+
+[checks]
+  [checks.health]
+    type = "http"
+    port = 8787
+    path = "/api/health"
+    interval = "30s"
+    timeout = "5s"

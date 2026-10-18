@@ -1,0 +1,18 @@
+# Render.com blueprint: one web service + a persistent disk for party state and photos.
+services:
+  - type: web
+    name: project-jezza
+    runtime: node
+    plan: starter            # free plan has no persistent disk; starter (~US$7/mo) keeps state across restarts
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: DATA_DIR
+        value: /var/data
+    disk:
+      name: jezza-data
+      mountPath: /var/data
+      sizeGB: 1

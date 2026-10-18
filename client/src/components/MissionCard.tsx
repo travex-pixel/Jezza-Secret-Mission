@@ -1,0 +1,120 @@
+import { useRef, useState } from 'react';
+import { CATEGORY_META, METHOD_META, MISSION_BY_ID, type Mission } from '@shared/missions';
+import type { MissionAssignment, PlayerPublic } from '@shared/types';
+import { Button, Sheet } from './ui';
+import { Creature } from './Creature';
+import { newClaimId, request } from '../net';
+import { useStore } from '../store';
+import { sfx } from '../audio';
+
+const DIFF = ['', 'Easy', 'Spicy', 'Legendary'];
+
+async function compressImage(file: File, maxSide = 900, quality = 0.72): Promise<string> {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+    const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+    const c = document.createElement('canvas'); c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
+    c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height);
+    let q = quality; let out = c.toDataURL('image/jpeg', q);
+    while (out.length > 420_000 && q > 0.3) { q -= 0.1; out = c.toDataURL('image/jpeg', q); }
+    return out;
+  } finally { URL.revokeObjectURL(url); }
+}
+
+export function MissionCard({ mission, assignment, compact, onDone, showReroll, group }: { mission: Mission; assignment?: MissionAssignment; compact?: boolean; onDone?: () => void; showReroll?: boolean; group?: boolean }) {
+  const meta = CATEGORY_META[mission.category];
+  const method = METHOD_META[mission.method];
+  const status = assignment?.status ?? 'active';
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [pickWitness, setPickWitness] = useState(false);
+  const [note, setNote] = useState('');
+  const fileRef = useRef<HTMLInputElement>(null);
+  const party = useStore((s) => s.party);
+  const myId = useStore((s) => s.identity.playerId);
+  const priv = useStore((s) => s.priv);
+  const toast = useStore((s) => s.toast);
+  const completed = group ? !!priv?.completedMissionIds.includes(mission.id) : status === 'done';
+  const claimIdRef = useRef<string>(newClaimId());
+
+  const submit = async (extra: { photo?: string; witnessId?: string } = {}) => {
+    setBusy(true); setErr(null);
+    try {
+      const res = await request<{ status: string; duplicate?: boolean }>({ type: 'claimMission', missionId: mission.id, claimId: claimIdRef.current, note: note || undefined, ...extra });
+      claimIdRef.current = newClaimId();
+      if (res.status === 'pending') { sfx.select(); toast(mission.method === 'witness' ? 'Sent to your witness. Hassle them.' : 'Submitted to the host for approval.', '📨', 'success'); }
+      else sfx.mission();
+      onDone?.();
+    } catch (e) { setErr((e as Error).message); sfx.error(); }
+    finally { setBusy(false); }
+  };
+
+  const onFile = async (f: File | undefined) => {
+    if (!f) return;
+    setBusy(true); setErr(null);
+    try { const photo = await compressImage(f); await submit({ photo }); }
+    catch (e) { setErr((e as Error).message || 'Could not read that photo.'); setBusy(false); }
+  };
+
+  const reroll = async () => {
+    setBusy(true); setErr(null);
+    try { await request({ type: 'rerollMission', missionId: mission.id }); sfx.tap(); }
+    catch (e) { setErr((e as Error).message); sfx.error(); }
+    finally { setBusy(false); }
+  };
+
+  const cta = () => {
+    if (completed) return <span className="pill pill-ok">✓ Done</span>;
+    if (status === 'pending') return <span className="pill pill-gold">⏳ Awaiting {mission.method === 'witness' ? 'witness' : 'host'}</span>;
+    switch (mission.method) {
+      case 'self': return <Button size="sm" onClick={() => submit()} disabled={busy}>{busy ? '…' : method.cta}</Button>;
+      case 'photo': return (<><input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} /><Button size="sm" onClick={() => fileRef.current?.click()} disabled={busy}>{busy ? 'Uploading…' : `📸 ${method.cta}`}</Button></>);
+      case 'witness': return <Button size="sm" onClick={() => setPickWitness(true)} disabled={busy}>{busy ? '…' : `👀 ${method.cta}`}</Button>;
+      case 'host': return <Button size="sm" onClick={() => submit()} disabled={busy}>{busy ? '…' : `📨 ${method.cta}`}</Button>;
+    }
+  };
+
+  const witnesses = (party?.players ?? []).filter((p) => p.id !== myId && p.creature).sort((a, b) => Number(b.online) - Number(a.online) || a.nickname.localeCompare(b.nickname));
+
+  return (
+    <div className={`mission-card ${mission.secret ? 'secret' : ''} ${completed ? 'done' : ''} ${status === 'pending' ? 'pending' : ''}`} style={{ ['--hue' as any]: meta.hue }}>
+      <div className="mc-head">
+        <span className="row" style={{ gap: 6 }}>
+          <span className="pill pill-xs" style={{ borderColor: meta.hue, color: 'var(--cream)' }}>{meta.emoji} {mission.secret ? 'SECRET' : meta.label}</span>
+          {group && <span className="pill pill-xs pill-ok">GROUP</span>}
+        </span>
+        <span className="row" style={{ gap: 6 }}>
+          <span className="pill pill-xs">{DIFF[mission.difficulty]}</span>
+          <span className="pill pill-xs pill-gold">+{mission.points} pts · {mission.xp} XP</span>
+        </span>
+      </div>
+      <div className="mc-title">{mission.id === 'm001' ? 'MISSION 001: ' : ''}{mission.title}</div>
+      <div className={`mc-body ${compact ? 'clamp' : ''}`}>{mission.instruction}</div>
+      {err && <div className="field-error" style={{ padding: '0 14px' }}>{err}</div>}
+      <div className="mc-foot">
+        <span className="tiny faint" style={{ maxWidth: '45%', lineHeight: 1.2 }}>{method.label}{mission.timeLimitMin ? ` · ${mission.timeLimitMin} min` : ''}{showReroll && status === 'active' && !mission.starter ? <><br /><button className="bold" style={{ color: 'var(--rose)', textDecoration: 'underline' }} onClick={reroll} disabled={busy || (priv?.rerollsLeft ?? 0) <= 0}>Swap ({priv?.rerollsLeft ?? 0} left)</button></> : null}</span>
+        <span className="row" style={{ gap: 6 }}>{cta()}</span>
+      </div>
+      {pickWitness && (
+        <Sheet onClose={() => setPickWitness(false)}>
+          <div className="eyebrow center">Who saw it happen?</div>
+          <h3 className="display title-md center" style={{ margin: '6px 0 10px' }}>Pick your witness</h3>
+          <div className="scroll-y stack-6" style={{ maxHeight: '45vh' }}>
+            {witnesses.length === 0 && <div className="center dim small pad">No mates have joined yet. Lonely.</div>}
+            {witnesses.map((w: PlayerPublic) => (
+              <button key={w.id} className="list-row" style={{ width: '100%', textAlign: 'left' }} onClick={() => { setPickWitness(false); submit({ witnessId: w.id }); }}>
+                <span className="avatar sm"><Creature creature={w.creature!} colorway={w.equipped.colorway} bare /></span>
+                <span className="grow"><div className="bold">{w.nickname}</div><div className="tiny faint">{w.creatureName} · Lv {w.level}</div></span>
+                <span className={`pill pill-xs ${w.online ? 'pill-ok' : ''}`}>{w.online ? 'online' : 'away'}</span>
+              </button>
+            ))}
+          </div>
+          <Button variant="ghost" onClick={() => setPickWitness(false)}>Cancel</Button>
+        </Sheet>
+      )}
+    </div>
+  );
+}
+
+export function missionOf(id: string): Mission | undefined { return MISSION_BY_ID[id]; }
