@@ -142,8 +142,8 @@ async function main() {
   }
   const done = a.party!.battles.find((x) => x.id === battleId)!;
   check(done.status === 'finished' && !!done.winnerId, `battle finished in ${rounds} rounds, winner ${done.winnerId === a.id ? 'A' : 'B'} by ${done.reason}`);
+  check(await until(() => host.party!.players.find((p) => p.id === done.winnerId)!.wins === 1 && host.party!.players.find((p) => p.id === done.loserId)!.losses === 1), 'records updated on both sides (seen by a third client)');
   const w = host.party!.players.find((p) => p.id === done.winnerId)!; const l = host.party!.players.find((p) => p.id === done.loserId)!;
-  check(w.wins === 1 && l.losses === 1, 'records updated on both sides');
   check((done.rewards?.[w.id]?.points ?? 0) === 15 && (done.rewards?.[l.id]?.points ?? 0) === 5, 'bounded rewards: +15 / +5');
 
   console.log('\n[reconnection + identity]');

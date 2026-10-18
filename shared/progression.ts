@@ -122,7 +122,7 @@ export const AWARDS: AwardDef[] = [
 export function computeAwards(
   players: PlayerPublic[],
   battles: Battle[],
-  fridayPoints: Record<string, number>,
+  fridayPoints: Record<string, number> | null,
   overrides: Record<string, string | null>,
 ): AwardResult[] {
   const alive = players.filter((p) => !p.removed && p.creature);
@@ -139,6 +139,7 @@ export function computeAwards(
       case 'assassin': r = pick((p) => p.missionsCompleted, (p, s) => `${s} missions completed`); break;
       case 'champion': r = pick((p) => p.wins * 3 - p.losses + (p.wins + p.losses > 0 ? 1 : 0), (p) => `${p.wins}W ${p.losses}L`); break;
       case 'mvp': {
+        if (!fridayPoints) { r = { playerId: null, reason: 'Saturday never officially began. No climb to measure.' }; break; }
         const friRank = rankMap(alive.map((p) => ({ id: p.id, v: fridayPoints[p.id] ?? 0 })));
         const satRank = rankMap(alive.map((p) => ({ id: p.id, v: p.points })));
         r = pick((p) => (friRank[p.id] ?? alive.length) - (satRank[p.id] ?? alive.length), (p, s) => `Climbed ${s} place${s === 1 ? '' : 's'} on Saturday`);

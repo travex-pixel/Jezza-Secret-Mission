@@ -39,11 +39,11 @@ export default function Host() {
   return (
     <div className="screen with-nav">
       <div className="topbar"><button className="display title-md" onClick={() => setTab('home')}>‹ Host controls</button><span className="pill pill-gold">👑 {party.code}</span></div>
-      <div className="tabs" style={{ marginBottom: 10 }}>
-        <button className={`tab ${section === 'event' ? 'on' : ''}`} onClick={() => setSection('event')}>Event</button>
-        <button className={`tab ${section === 'approvals' ? 'on' : ''}`} onClick={() => setSection('approvals')}>Approve{approvals.length ? ` (${approvals.length})` : ''}</button>
-        <button className={`tab ${section === 'players' ? 'on' : ''}`} onClick={() => setSection('players')}>Players</button>
-        <button className={`tab ${section === 'awards' ? 'on' : ''}`} onClick={() => setSection('awards')}>Awards</button>
+      <div className="tabs" style={{ marginBottom: 10, fontSize: 11 }}>
+        <button className={`tab ${section === 'event' ? 'on' : ''}`} style={{ fontSize: 11, letterSpacing: '.04em' }} onClick={() => setSection('event')}>Event</button>
+        <button className={`tab ${section === 'approvals' ? 'on' : ''}`} style={{ fontSize: 11, letterSpacing: '.04em' }} onClick={() => setSection('approvals')}>Queue{approvals.length ? ` · ${approvals.length}` : ''}</button>
+        <button className={`tab ${section === 'players' ? 'on' : ''}`} style={{ fontSize: 11, letterSpacing: '.04em' }} onClick={() => setSection('players')}>Players</button>
+        <button className={`tab ${section === 'awards' ? 'on' : ''}`} style={{ fontSize: 11, letterSpacing: '.04em' }} onClick={() => setSection('awards')}>Awards</button>
       </div>
       <div className="screen-body scroll-y stack-10">
         {section === 'event' && (

@@ -141,6 +141,7 @@ this event; if you ever need multi-instance scale, the engine is already pure an
 | `npm run test:multiplayer` | 15 real WebSocket clients against a running server (`WS_URL`, default `ws://localhost:8787/ws`) |
 | `npm run test:viewports` | Playwright walkthrough at 4 phone viewports → `test-results/screenshots/` (curated copies live in `docs/screenshots/`), fails on overflow/scroll/console errors |
 | `npx tsx tests/e2e.live.ts` | Two separate browser sessions playing together against a built server (`BASE_URL`) |
+| `npx tsx tests/e2e.host.ts` | Host UI against a built server: phases, group reveal, photo approval → feed, witness confirmation, finale awards |
 | `npx tsx tests/persistence.sim.ts` | Boots a server, creates a party, restarts it, verifies the party is restored |
 | `npx tsx scripts/balance.ts` | Prints simulated win rates for every creature |
 

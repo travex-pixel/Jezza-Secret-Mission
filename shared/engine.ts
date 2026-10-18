@@ -128,7 +128,7 @@ export class Engine {
       revealedGroupMissions: party.revealedGroupMissions,
       battles,
       pendingApprovals: Object.values(party.claims).filter((c) => c.status === 'pending' && c.method !== 'witness').length,
-      awards: showAwards ? computeAwards(players, Object.values(party.battles), party.fridayPoints ?? {}, party.awardOverrides) : null,
+      awards: showAwards ? computeAwards(players, Object.values(party.battles), party.fridayPoints, party.awardOverrides) : null,
       finalized: party.finalized,
       serverTime: now,
     };
@@ -326,9 +326,12 @@ export class Engine {
     while (p.hand.length < HAND_SIZE) {
       const pool = this.drawPool(party, p);
       if (!pool.length) break;
-      // Weight toward easier missions early, harder as the creature levels.
-      const weighted = pool.filter((m) => m.difficulty <= Math.min(3, 1 + Math.floor(p.level / 3) + (this.rng() < 0.35 ? 1 : 0)));
-      const src = weighted.length ? weighted : pool;
+      // Weight toward easier missions early, harder as the creature levels; prefer category variety.
+      const inHandCats = new Set(p.hand.filter((h) => h.status !== 'done').map((h) => MISSION_BY_ID[h.missionId]?.category));
+      const varied = pool.filter((m) => !inHandCats.has(m.category));
+      const base = varied.length ? varied : pool;
+      const weighted = base.filter((m) => m.difficulty <= Math.min(3, 1 + Math.floor(p.level / 3) + (this.rng() < 0.35 ? 1 : 0)));
+      const src = weighted.length ? weighted : base;
       const m = src[Math.floor(this.rng() * src.length)];
       p.hand.push({ missionId: m.id, assignedAt: this.now(), status: 'active' });
     }
