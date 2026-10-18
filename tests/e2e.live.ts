@@ -76,12 +76,12 @@ async function main() {
   await host.page.waitForSelector('.actions', { timeout: 8000 });
   check(true, 'arena opens for both players');
   await mate.page.locator('.action-btn.attack').click();
-  await host.page.waitForTimeout(400);
+  await host.page.getByText(/🔒 ready/).waitFor({ timeout: 5000 }).catch(() => undefined);
   check((await host.page.getByText(/🔒 ready/).count()) > 0, 'host sees the mate locked in (without the action)');
   await host.page.locator('.action-btn.special').click();
-  await host.page.waitForTimeout(2600);
-  const hp = await mate.page.locator('.hpcard').allTextContents();
-  check(hp.some((t) => !/(\d+)\/\1\b/.test(t)), 'HP changed after the server resolved round 1');
+  let hpChanged = false;
+  for (let i = 0; i < 30 && !hpChanged; i++) { await mate.page.waitForTimeout(250); const hp = await mate.page.locator('.hpcard').allTextContents(); hpChanged = hp.some((t) => !/(\d+)\/\1\b/.test(t)); }
+  check(hpChanged, 'HP changed after the server resolved round 1');
   await mate.page.screenshot({ path: path.join(OUT, 'mate-battle.png') });
   await host.page.screenshot({ path: path.join(OUT, 'host-battle.png') });
 

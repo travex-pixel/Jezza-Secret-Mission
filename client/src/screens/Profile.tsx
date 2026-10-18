@@ -4,6 +4,7 @@ import { ACHIEVEMENTS, COSMETICS, colorwaysUnlocked, LEVEL_UNLOCKS, COSMETIC_BY_
 import type { CosmeticSlot } from '@shared/types';
 import { Creature, type CreatureState } from '../components/Creature';
 import { Button, XPBar } from '../components/ui';
+import { isMuted, toggleMuted } from '../audio';
 import { useStore, useMe } from '../store';
 import { request } from '../net';
 import { sfx } from '../audio';
@@ -19,6 +20,7 @@ export default function Profile() {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState('');
   const [anim, setAnim] = useState<{ s: CreatureState; k: number }>({ s: 'idle', k: 0 });
+  const [muted, setMutedState] = useState(isMuted());
   if (!me?.creature) return null;
   const def = CREATURES[me.creature];
   const cwMax = colorwaysUnlocked(me.level);
@@ -35,7 +37,7 @@ export default function Profile() {
 
   return (
     <div className="screen with-nav">
-      <div className="topbar"><h2 className="display title-md">Your legend</h2><span className="pill pill-gold">{me.points} pts</span></div>
+      <div className="topbar"><h2 className="display title-md">Your legend</h2><span className="row" style={{ gap: 8 }}><button className="pill" aria-label={muted ? 'Unmute sounds' : 'Mute sounds'} onClick={() => setMutedState(toggleMuted())}>{muted ? '🔇 Muted' : '🔊 Sound'}</button><span className="pill pill-gold">{me.points} pts</span></span></div>
       <div className="screen-body" style={{ gap: 10, minHeight: 0 }}>
         <div className="row" style={{ gap: 12, alignItems: 'stretch' }}>
           <button className="stage" style={{ width: '42%', flex: '0 0 auto' }} onClick={poke} aria-label="Poke your creature">

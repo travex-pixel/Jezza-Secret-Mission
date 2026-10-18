@@ -83,6 +83,7 @@ export interface AchievementDef {
 const cat = (p: PlayerPublic, c: MissionCategory) => p.categoryCounts[c] ?? 0;
 
 export const ACHIEVEMENTS: AchievementDef[] = [
+  { id: 'first_steps', name: 'First Steps', blurb: 'Adopted a creature. The vineyard has noticed you.', xp: 10, points: 0, check: (p) => !!p.creature },
   { id: 'first_blood', name: 'The Legend Begins', blurb: 'Completed your first mission.', xp: 10, points: 0, check: (p) => p.missionsCompleted >= 1 },
   { id: 'five_missions', name: 'Getting Involved', blurb: 'Five missions down.', xp: 25, points: 10, check: (p) => p.missionsCompleted >= 5 },
   { id: 'ten_missions', name: 'Mission Assassin', blurb: 'Ten missions. Unstoppable.', xp: 50, points: 20, cosmetic: 'face_shades', check: (p) => p.missionsCompleted >= 10 },

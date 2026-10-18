@@ -267,7 +267,9 @@ export class Engine {
     p.hand = [{ missionId: STARTER_MISSION.id, assignedAt: this.now(), status: 'active' }];
     this.refillHand(party, p);
     this.feed(party, { kind: 'join', text: `${p.nickname} adopted ${nm.name} the ${CREATURES[creature].name}. ${CREATURES[creature].cry}!`, playerId, emoji: '✨' });
-    return this.ok(party, { starterBadge: 'first_steps', cosmetic: 'hat_party' });
+    const direct: Outbound[] = [];
+    const ach = this.checkAchievements(party, p, direct.filter(() => false)); // award silently: the reveal screen shows the badge
+    return this.ok(party, { starterBadge: ach.ids[0] ?? 'first_steps', cosmetic: 'hat_party' });
   }
 
   private renameCreature(playerId: string, creatureName: string): HandleResult {

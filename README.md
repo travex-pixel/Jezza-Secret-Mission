@@ -25,7 +25,7 @@ More screenshots at every tested viewport live in [`docs/screenshots/`](docs/scr
 | Turn-based creature battles resolved on the server, timeouts, surrender, rematch, practice mode | ✅ |
 | Host controls: phases, pause missions, approvals, group missions, rename/remove, reset, grant, awards, finalise | ✅ |
 | Friday → Saturday → Finale → Ended event structure with host recovery | ✅ |
-| 18 achievements, 10 data-driven weekend awards (+1 host pick), compact leaderboard, finale recap | ✅ |
+| 19 achievements, 10 data-driven weekend awards (+1 host pick), compact leaderboard, finale recap | ✅ |
 | Original synthesised audio with mute, haptics, reduced-motion support | ✅ |
 | Persistence across server restarts (JSON snapshot + photo files) | ✅ |
 
