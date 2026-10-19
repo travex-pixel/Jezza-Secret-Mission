@@ -47,10 +47,10 @@ server.listen(PORT, async () => {
   await page.locator('.bottom-nav').getByRole('button', { name: 'Battle' }).click();
   await page.getByRole('button', { name: /challenge a mate/i }).click();
   await page.locator('.sheet .list-row').first().click();
-  await page.waitForSelector('.actions', { timeout: 8000 });
-  await page.locator('.action-btn.attack').click();
-  await page.waitForTimeout(2500);
-  check((await page.locator('.log-line').count()) > 0, 'bot accepted and a round resolved in-browser');
+  await page.waitForSelector('.plans', { timeout: 8000 });
+  await page.locator('.plan-btn.plan-balanced').click(); await page.waitForSelector('.pt-screen'); await page.waitForTimeout(650); await page.locator('.pt-screen').click({ position: { x: 20, y: 200 } });
+  await page.getByText(/^(VICTORY|DEFEATED)$/).waitFor({ timeout: 25000 });
+  check(true, 'bot accepted, picked a plan, and the quick battle played out in-browser');
   check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
   check(failed.length === 0, `no failed asset requests (${failed.join(' | ')})`);
   await browser.close(); server.close();

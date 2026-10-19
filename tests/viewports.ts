@@ -76,11 +76,16 @@ async function run() {
     await page.waitForTimeout(300);
     await page.getByRole('button', { name: /challenge a mate/i }).click();
     await page.locator('.sheet .list-row').first().click();
-    await page.waitForSelector('.actions', { timeout: 8000 });
+    await page.waitForSelector('.plans', { timeout: 8000 });
+    await page.waitForTimeout(900);
     await shot(page, vp, '09-battle-arena');
-    await page.locator('.action-btn.attack').click();
-    await page.waitForTimeout(2600);
+    await page.locator('.plan-btn.plan-balanced').click(); await page.waitForSelector('.pt-screen'); await page.waitForTimeout(650); await page.locator('.pt-screen').click({ position: { x: 20, y: 200 } });
+    await page.getByRole('button', { name: /skip/i }).waitFor({ timeout: 8000 });
+    await page.waitForTimeout(2200);
     await shot(page, vp, '10-battle-round');
+    await page.getByText(/^(VICTORY|DEFEATED)$/).waitFor({ timeout: 25000 });
+    await shot(page, vp, '10b-battle-result');
+    for (let i = 0; i < 5 && (await page.locator('.reward').count()); i++) { await page.locator('.reward').first().click(); await page.waitForTimeout(500); }
     await page.locator('.bottom-nav').getByRole('button', { name: 'Ranks' }).click();
     await shot(page, vp, '11-ranks');
     await page.locator('.bottom-nav').getByRole('button', { name: 'Me' }).click();

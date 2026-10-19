@@ -102,16 +102,17 @@ async function main() {
     await page.waitForTimeout(400);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
     check(!overflow, 'no horizontal overflow');
-    // a live manual fight animates too
+    // a quick battle with a mate plays the same animation
     await page.locator('.bottom-nav').getByRole('button', { name: 'Battle' }).click();
     await page.screenshot({ path: path.join(OUT, `${vp}-battle-tab.png`) });
     await page.getByRole('button', { name: /challenge a mate/i }).click();
     await page.locator('.sheet .list-row:not([disabled])').first().click();
-    await page.waitForSelector('.actions', { timeout: 8000 });
-    await page.locator('.action-btn.counter').click();
+    await page.waitForSelector('.plans', { timeout: 8000 });
+    await page.locator('.plan-btn.plan-balanced').click(); await page.waitForSelector('.pt-screen'); await page.waitForTimeout(650); await page.locator('.pt-screen').click({ position: { x: 20, y: 200 } });
+    await page.getByRole('button', { name: /skip/i }).waitFor({ timeout: 8000 });
     const lx: number[] = [];
     for (let i = 0; i < 16; i++) { const b = await page.locator('.fighter.foe').boundingBox(); if (b) lx.push(b.x); if (i === 4) await page.screenshot({ path: path.join(OUT, `${vp}-live-round.png`) }); await page.waitForTimeout(150); }
-    check(Math.max(...lx) - Math.min(...lx) > 8 || true, `live round: foe moved ${Math.round(Math.max(...lx) - Math.min(...lx))}px (0 if it countered too)`);
+    check(Math.max(...lx) - Math.min(...lx) > 8, `quick battle with a mate animates (foe moved ${Math.round(Math.max(...lx) - Math.min(...lx))}px)`);
     check(errors.length === 0, `no console errors (${errors.slice(0, 2).join(' / ')})`);
     await page.context().close();
   }

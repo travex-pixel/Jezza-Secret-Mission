@@ -363,6 +363,16 @@ img, svg { display: block; max-width: 100%; }
 .action-btn.special { border-color: rgba(229,173,72,.7); background: rgba(229,173,72,.18); }
 .action-btn.chosen { outline: 2px solid var(--cream); outline-offset: -2px; }
 .action-btn:disabled { opacity: .4; }
+.plans { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.plan-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 92px; padding: 8px 6px; border-radius: 16px; border: 1px solid var(--line); background: var(--panel-2); text-align: center; transition: transform 120ms; }
+.plan-btn b { font-family: var(--font-display); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; }
+.plan-btn small { font-weight: 700; font-size: 10px; line-height: 1.25; color: var(--text-dim); }
+.plan-btn .plan-emoji { font-size: 22px; line-height: 1; }
+.plan-btn:active:not(:disabled) { transform: scale(.96); }
+.plan-btn:disabled { opacity: .4; }
+.plan-balanced { border-color: rgba(229,173,72,.6); background: rgba(229,173,72,.14); }
+.plan-aggro { border-color: rgba(240,120,66,.6); background: rgba(240,120,66,.16); }
+.plan-sneaky { border-color: rgba(185,130,134,.7); background: rgba(185,130,134,.16); }
 .log-line { font-size: 13px; font-weight: 700; color: var(--text-dim); animation: fade-in 300ms both; }
 .dmg-pop { position: absolute; font-family: var(--font-display); font-weight: 800; font-size: 26px; color: var(--ember); text-shadow: 0 2px 0 #000; animation: dmg 900ms ease-out both; pointer-events: none; }
 .dmg-pop.heal { color: #a8e58f; }
@@ -519,6 +529,8 @@ img, svg { display: block; max-width: 100%; }
   .mission-card .mc-title { font-size: 15px; }
   .stat b { font-size: 16px; }
   .action-btn { min-height: 58px; }
+  .plan-btn { min-height: 78px; }
+  .plan-btn small { display: none; }
 }
 @media (max-height: 580px) {
   .hero-creature { width: min(40vw, 160px); bottom: 42%; }

@@ -26,7 +26,7 @@ More screenshots at every tested viewport live in [`docs/screenshots/`](docs/scr
 | Boss raids on Friday (Bin Chicken King) and Saturday (Hangover Hydra): 15 min, loot for everyone who swings | ✅ |
 | Evolutions at Lv4 and Lv8, max one on Friday, teased ahead ("twitching…", mystery silhouette), full reveal animation | ✅ |
 | Saturday arrivals: Fresh Legs (2× points on first 6 challenges, 2× XP until caught up) | ✅ |
-| Battles: Attack / Counter / Special + power tap, ranked ladder, win streaks, bounty on the leader | ✅ |
+| Quick battles with mates: pick a game plan + one charge-up tap, then watch the fight play itself (~10 s). Ranked ladder, win streaks, bounty on the leader | ✅ |
 | **Animated battles**: creatures enter, dash across the arena, hit-stop, knockback, per-creature specials, KO and victory, all replayed from the engine's real round log; Fast / Skip / replay; reduced motion respected | ✅ |
 | **Auto-battles**: every avatar fights a mate's avatar about every 45 min, phones away or not; "While you were away" summary with replays | ✅ |
 | Rivalries (head-to-head, nemesis / bunny), battle highlights, Battles tab on the leaderboard | ✅ |
@@ -183,16 +183,21 @@ remove. Awards tab: override any award, pick *Most Unhinged*.
 
 ### Battles
 
-Three actions, chosen simultaneously each round (25 s timer, auto-Counter on timeout):
+**Quick battles (with a mate).** Challenge → they accept → each of you makes **one** choice: a game plan and a
+single charge-up power tap. Then the whole fight plays itself and both phones show the same ~8–10 s animated fight
+(skippable). About three taps, then phones down. Nobody can stall it: if someone doesn't pick within 20 s they get
+*Balanced* with no charge, and it plays out anyway.
 
-* **Attack**: straight damage.
-* **Counter**: take half damage and throw 45% of what you took back. Does nothing if they didn't hit you.
-* **Special**: creature-specific with a stated trade-off and a 2-round recharge.
-
-Attack and Special start a **power tap**: a marker slides across a bar for about a second, tap to stop it. The gold
-zone is a crit (+22%), the wider zone is +8%, a miss is normal damage. Missing never hurts you. The server only
-trusts a hit that arrives after the bar could physically have been crossed, and the bonus is capped, so a tampered
-client gains a few points at most.
+* **Game plans** change *how* your creature fights, not whether it wins: *Balanced* (a bit of everything, the odd
+  counter), *All-out* (never blocks, keeps swinging), *Sneaky* (specials whenever they're ready). They're tuned to
+  within a few percent of each other (`npx tsx scripts/plans-balance.ts`), so the creature, the charge and luck decide it.
+* **Charge-up tap**: a marker slides across a bar; stop it in the gold zone for +22% on every hit that fight,
+  the wider zone for +8%, a miss is normal damage. The server ignores a tap that arrives faster than the bar can move.
+* Every round is still resolved by the same engine (Attack / Counter / Special, the creature specials, reflect
+  damage); the plan only decides which move the creature picks each round. Rewards, bounty, streaks, ratings and
+  the 3-scored-bouts-per-opponent rule are unchanged. The result pop-up and achievements wait until the fight has
+  played out on screen, so nothing spoils it.
+* **Practice** against a sparring bot works the same way, on your phone only, with no rewards.
 
 **Auto-battles and scoring.** Auto-battles call the same `resolveRound` and the same `grant()` as everything else,
 but pay **XP (win 15 / loss 8), battle rating, streaks and win/loss records only, never weekend points or bounties**,

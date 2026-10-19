@@ -180,11 +180,29 @@ export function finish(battle: Battle, winnerId: string, loserId: string, reason
   battle.roundDeadline = undefined;
 }
 
-/** How an avatar fights when nobody's holding the phone: same moves as a person, sensible odds. */
-export function autoPick(side: BattleCreatureState, rng: Rng): { action: BattleAction; tap: TapQuality } {
-  const action: BattleAction = side.specialCooldown === 0 && rng() < 0.35 ? 'special' : rng() < 0.72 ? 'attack' : 'counter';
+// ---------- Quick battles: pick a game plan, the fight plays itself ----------
+export type GamePlan = 'balanced' | 'aggro' | 'sneaky';
+export const PLAN_SECONDS = 20; // time to pick a plan before Balanced is picked for you
+// Plans change HOW a creature fights, not how likely it is to win: they're tuned to within a few % of each
+// other (scripts/plans-balance.ts), so the creature, the charge-up tap and luck still decide it.
+export const PLANS: Record<GamePlan, { name: string; emoji: string; blurb: string; special: number; attack: number }> = {
+  balanced: { name: 'Balanced', emoji: '⚖️', blurb: 'A bit of everything, the odd counter.', special: 0.35, attack: 0.8 },
+  aggro:    { name: 'All-out', emoji: '🔥', blurb: 'Never blocks. Just keeps swinging.', special: 0.25, attack: 1 },
+  sneaky:   { name: 'Sneaky', emoji: '🦊', blurb: 'Saves nothing: specials whenever it can.', special: 0.55, attack: 0.7 },
+};
+export const isPlan = (p: unknown): p is GamePlan => typeof p === 'string' && p in PLANS;
+
+/**
+ * How a creature fights on its own: same three moves a person has, weighted by its game plan.
+ * `charge` is the power-tap result locked in before a quick battle (used on every damaging move);
+ * without one (auto-battles) each swing gets a random tap.
+ */
+export function autoPick(side: BattleCreatureState, rng: Rng, plan: GamePlan = 'balanced', charge?: TapQuality): { action: BattleAction; tap: TapQuality } {
+  const w = PLANS[plan];
+  const action: BattleAction = side.specialCooldown === 0 && rng() < w.special ? 'special' : rng() < w.attack ? 'attack' : 'counter';
   const r = rng();
-  return { action, tap: action === 'counter' ? 'miss' : r < 0.15 ? 'perfect' : r < 0.5 ? 'good' : 'miss' };
+  const tap: TapQuality = charge ?? (r < 0.15 ? 'perfect' : r < 0.5 ? 'good' : 'miss');
+  return { action, tap: action === 'counter' ? 'miss' : tap };
 }
 
 /** Simple seeded RNG (mulberry32) for tests and replays. */
@@ -200,6 +218,9 @@ export function seededRng(seed: number): Rng {
 
 /** Hide the opponent's pending action from a viewer. */
 export function redactBattle(battle: Battle, viewerId: string): Battle {
-  const hide = (s: BattleCreatureState): BattleCreatureState => s.playerId === viewerId ? { ...s, locked: !!s.action } : { ...s, action: undefined, locked: !!s.action };
+  const live = battle.status === 'active';
+  const hide = (s: BattleCreatureState): BattleCreatureState => s.playerId === viewerId
+    ? { ...s, locked: !!s.action || !!s.plan }
+    : { ...s, action: undefined, plan: live ? undefined : s.plan, charge: live ? undefined : s.charge, locked: !!s.action || !!s.plan };
   return { ...battle, a: hide(battle.a), b: hide(battle.b), log: [...battle.log] };
 }

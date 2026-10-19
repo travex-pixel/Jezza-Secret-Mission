@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
-import type { Battle, BattleAction, PlayerPublic, TapQuality } from '@shared/types';
+import { useEffect, useState } from 'react';
+import type { Battle, PlayerPublic, TapQuality } from '@shared/types';
 import { CREATURES } from '@shared/creatures';
-import { makeCreatureState, resolveRound, ROUND_SECONDS } from '@shared/battle';
+import { autoPick, makeCreatureState, resolveRound, PLANS, PLAN_SECONDS, type GamePlan } from '@shared/battle';
 import { rankFor, sortLeaderboard } from '@shared/progression';
 import { Creature } from '../components/Creature';
 import { Button, Sheet, useCountdown } from '../components/ui';
@@ -12,53 +12,58 @@ import { request } from '../net';
 import { sfx } from '../audio';
 
 // ---------- Arena (shared by live + practice) ----------
+// Quick battle: each side picks a game plan and does one charge-up tap, then the engine plays the whole
+// fight and everyone watches it (skippable). About 3 taps and 10 seconds, then phones down.
 interface ArenaProps {
   battle: Battle;
   meId: string;
   names: Record<string, { nick: string; name: string; level: number; colorway: number; equipped: PlayerPublic['equipped'] }>;
-  onAction: (a: BattleAction, tap?: TapQuality) => Promise<void> | void;
+  onPlan: (plan: GamePlan, tap: TapQuality) => Promise<void> | void;
   onSurrender?: () => void;
   onRematch?: () => void;
   onExit: () => void;
   practice?: boolean;
 }
 
-function Arena({ battle, meId, names, onAction, onSurrender, onRematch, onExit, practice }: ArenaProps) {
+function Arena({ battle, meId, names, onPlan, onSurrender, onRematch, onExit, practice }: ArenaProps) {
   const mine = battle.a.playerId === meId ? battle.a : battle.b;
   const foe = battle.a.playerId === meId ? battle.b : battle.a;
   const [busy, setBusy] = useState(false);
-  const [shownRounds, setShownRounds] = useState(battle.log.length);
+  const [shownRounds, setShownRounds] = useState(0);
   const [skip, setSkip] = useState(0);
-  const [resultReady, setResultReady] = useState(battle.status === 'finished');
+  const [resultReady, setResultReady] = useState(false);
   const left = useCountdown(battle.status === 'active' ? battle.roundDeadline : undefined);
   const [confirmSurrender, setConfirmSurrender] = useState(false);
-
-  const [tapping, setTapping] = useState<BattleAction | null>(null);
-  const commit = async (a: BattleAction, tap?: TapQuality) => { setTapping(null); setBusy(true); try { await onAction(a, tap); } finally { setBusy(false); } };
-  const act = (a: BattleAction) => { if (busy || tapping || mine.action || mine.locked) return; sfx.tap(); if (a === 'counter') void commit(a); else setTapping(a); };
+  const [charging, setCharging] = useState<GamePlan | null>(null);
+  const watchBattle = useStore((s) => s.watchBattle);
+  // Hold this battle's reward pop-up until the fight has played out on screen.
+  useEffect(() => { if (practice) return; watchBattle(battle.id); return () => watchBattle(null); }, [battle.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (resultReady && !practice) watchBattle(null); }, [resultReady]); // eslint-disable-line react-hooks/exhaustive-deps
+  const commit = async (plan: GamePlan, tap: TapQuality) => { setCharging(null); setBusy(true); try { await onPlan(plan, tap); } finally { setBusy(false); } };
+  const pick = (plan: GamePlan) => { if (busy || charging || mine.locked || mine.plan) return; sfx.tap(); setCharging(plan); };
   const myInfo = names[mine.playerId]; const foeInfo = names[foe.playerId];
+  const finished = battle.status === 'finished';
   const lastLog = shownRounds > 0 ? battle.log[Math.min(shownRounds, battle.log.length) - 1] : undefined;
-  // The result card waits for the animation, so the KO isn't spoiled by text.
-  const finished = battle.status === 'finished' && resultReady;
   const won = battle.winnerId === meId;
-  const locked = !!mine.action || !!mine.locked;
+  const locked = !!mine.plan || !!mine.locked;
 
   return (
     <div className="screen-body" style={{ gap: 8 }}>
       <BattleStage
-        battle={battle} info={names} nearId={meId} mode="live" skip={skip} nearLabel="You"
+        key={`${battle.id}-${finished ? 'fight' : 'plan'}`}
+        battle={battle} info={names} nearId={meId} mode={finished ? 'replay' : 'live'} skip={skip} nearLabel="You"
         onRound={setShownRounds} onDone={() => setResultReady(true)}
-        top={battle.status === 'active' && <div className={`countdown ${left <= 5 ? 'urgent' : ''}`}>{left || '–'}</div>}
-        status={(who) => battle.status !== 'active' ? null : who === 'far'
-          ? <span className="pill pill-xs status">{foe.locked || foe.action ? '🔒 ready' : '🤔 choosing'}</span>
-          : <span className="pill pill-xs status">{locked ? '🔒 locked in' : 'your move'}</span>}
-        overlay={tapping && <PowerTap label={tapping === 'special' ? CREATURES[mine.creature].special.name : 'Attack'} onDone={(q) => commit(tapping, q)} />}
+        top={!finished && <div className={`countdown ${left <= 5 ? 'urgent' : ''}`}>{left || '–'}</div>}
+        status={(who) => finished ? null : who === 'far'
+          ? <span className="pill pill-xs status">{foe.locked || foe.plan ? '🔒 ready' : '🤔 picking'}</span>
+          : <span className="pill pill-xs status">{locked ? '🔒 locked in' : 'your call'}</span>}
+        overlay={charging && <PowerTap label={`${PLANS[charging].emoji} Charge up!`} onDone={(q) => commit(charging, q)} />}
       />
-      <div className="arena-log">
-        {lastLog ? lastLog.lines.slice(-2).map((l, i) => <div key={`${lastLog.round}-${i}`} className="log-line ellipsis">{l}</div>) : <div className="log-line">{practice ? 'Practice bout. Nothing at stake but pride.' : battle.scored ? 'Winner +15 · loser +5. Tap the gold zone for a crit.' : 'Friendly bout: you two have battled enough for points.'}</div>}
-      </div>
-      {battle.status === 'finished' && !finished ? (
-        <div className="row-between"><span className="tiny faint">Watching the fight play out…</span><button className="tiny bold" style={{ color: 'var(--rose)' }} onClick={() => setSkip((x) => x + 1)}>Skip ⏭</button></div>
+      {finished ? (
+        <div className="arena-log">{lastLog ? lastLog.lines.slice(-2).map((l, i) => <div key={`${lastLog.round}-${i}`} className="log-line ellipsis">{l}</div>) : <div className="log-line">Here we go…</div>}</div>
+      ) : null}
+      {finished && !resultReady ? (
+        <div className="row-between"><span className="tiny faint">{PLANS[mine.plan ?? 'balanced'].emoji} You went {PLANS[mine.plan ?? 'balanced'].name}{foe.plan ? ` · they went ${PLANS[foe.plan].name}` : ''}</span><button className="tiny bold" style={{ color: 'var(--rose)' }} onClick={() => setSkip((x) => x + 1)}>Skip ⏭</button></div>
       ) : finished ? (
         <div className="panel panel-gold pad center stack-6 fade-up">
           <div className="display title-lg gold-text">{won ? 'VICTORY' : 'DEFEATED'}</div>
@@ -66,14 +71,21 @@ function Arena({ battle, meId, names, onAction, onSurrender, onRematch, onExit, 
           {battle.rewards?.[meId] && !practice && <span className="pill pill-gold">+{battle.rewards[meId].points} pts · +{battle.rewards[meId].xp} XP</span>}
           <div className="btn-row">{onRematch && <Button variant="secondary" size="sm" onClick={onRematch}>Rematch</Button>}<Button size="sm" onClick={onExit}>Done</Button></div>
         </div>
+      ) : locked ? (
+        <div className="panel pad center stack-6">
+          <div className="bold">🔒 {PLANS[mine.plan ?? 'balanced'].emoji} {PLANS[mine.plan ?? 'balanced'].name} locked in{mine.charge && mine.charge !== 'miss' ? ` · ${mine.charge === 'perfect' ? 'perfect charge ⚡' : 'good charge'}` : ''}</div>
+          <div className="small dim">Waiting on {foeInfo?.nick ?? 'them'}. It plays out automatically in {left}s either way.</div>
+        </div>
       ) : (
         <>
-          <div className="actions">
-            <button className={`action-btn attack ${mine.action === 'attack' ? 'chosen' : ''}`} disabled={locked || busy} onClick={() => act('attack')}>ATTACK<small>Tap to power up</small></button>
-            <button className={`action-btn counter ${mine.action === 'counter' ? 'chosen' : ''}`} disabled={locked || busy} onClick={() => act('counter')}>COUNTER<small>Half damage, hit back</small></button>
-            <button className={`action-btn special ${mine.action === 'special' ? 'chosen' : ''}`} disabled={locked || busy || mine.specialCooldown > 0} onClick={() => act('special')}>{CREATURES[mine.creature].special.name.toUpperCase()}<small>{mine.specialCooldown > 0 ? `Recharging (${mine.specialCooldown})` : CREATURES[mine.creature].special.blurb}</small></button>
+          <div className="row-between"><span className="eyebrow">Pick a game plan</span><span className="tiny faint">then one charge-up tap</span></div>
+          <div className="plans">
+            {(Object.keys(PLANS) as GamePlan[]).map((p) => (
+              <button key={p} className={`plan-btn plan-${p}`} disabled={busy} onClick={() => pick(p)}>
+                <span className="plan-emoji">{PLANS[p].emoji}</span><b>{PLANS[p].name}</b><small>{PLANS[p].blurb}</small>
+              </button>))}
           </div>
-          <div className="row-between"><span className="tiny faint">Counter: take half, throw 45% back. Nothing if they don't hit you.</span>{onSurrender && <button className="tiny bold" style={{ color: 'var(--rose)' }} onClick={() => setConfirmSurrender(true)}>Surrender</button>}</div>
+          <div className="row-between"><span className="tiny faint">Then sit back: the fight plays itself (about 10 seconds).</span>{onSurrender && <button className="tiny bold" style={{ color: 'var(--rose)' }} onClick={() => setConfirmSurrender(true)}>Surrender</button>}</div>
         </>
       )}
       {confirmSurrender && <Sheet center onClose={() => setConfirmSurrender(false)}><div className="center stack-10"><div className="display title-md">Wave the white flag?</div><div className="small dim">Your opponent takes the win. You keep your dignity. Mostly.</div><div className="btn-row"><Button variant="secondary" size="sm" onClick={() => setConfirmSurrender(false)}>Keep fighting</Button><Button variant="danger" size="sm" onClick={() => { setConfirmSurrender(false); onSurrender?.(); }}>Surrender</Button></div></div></Sheet>}
@@ -85,32 +97,34 @@ function Arena({ battle, meId, names, onAction, onSurrender, onRematch, onExit, 
 function usePractice(me: PlayerPublic | undefined) {
   const [battle, setBattle] = useState<Battle | null>(null);
   const [foeCreature, setFoeCreature] = useState<Battle['b']['creature']>('goblin');
-  const timer = useRef<number | undefined>(undefined);
   const start = (creature: Battle['b']['creature']) => {
     if (!me?.creature) return;
     setFoeCreature(creature);
-    const b: Battle = { id: 'practice', challengerId: me.id, opponentId: 'bot', status: 'active', createdAt: Date.now(), startedAt: Date.now(), round: 1, roundDeadline: Date.now() + ROUND_SECONDS * 1000, a: makeCreatureState(me.id, me.creature, me.level), b: makeCreatureState('bot', creature, Math.max(1, me.level)), log: [], scored: false };
-    setBattle(b);
+    const now = Date.now();
+    setBattle({ id: `practice-${now}`, challengerId: me.id, opponentId: 'bot', status: 'active', quick: true, createdAt: now, startedAt: now, round: 1, roundDeadline: now + PLAN_SECONDS * 1000, a: makeCreatureState(me.id, me.creature, me.level), b: makeCreatureState('bot', creature, Math.max(1, me.level)), log: [], scored: false });
   };
-  const act = (a: BattleAction, tap?: TapQuality) => {
+  const play = (plan: GamePlan, tap: TapQuality) => {
     setBattle((cur) => {
       if (!cur || cur.status !== 'active') return cur;
       const b: Battle = JSON.parse(JSON.stringify(cur));
-      b.a.action = a; b.a.tap = a === 'counter' ? 'miss' : (tap ?? 'miss');
-      b.b.action = b.b.specialCooldown === 0 && Math.random() < 0.4 ? 'special' : Math.random() < 0.7 ? 'attack' : 'counter';
-      b.b.tap = b.b.action === 'counter' ? 'miss' : Math.random() < 0.3 ? 'perfect' : Math.random() < 0.5 ? 'good' : 'miss';
-      resolveRound(b, Math.random, { [b.a.playerId]: me?.creatureName ?? 'You', bot: `Sparring ${CREATURES[b.b.creature].name}` }, Date.now());
+      const plans = Object.keys(PLANS) as GamePlan[];
+      b.a.plan = plan; b.a.charge = tap;
+      b.b.plan = plans[Math.floor(Math.random() * plans.length)]; b.b.charge = Math.random() < 0.3 ? 'perfect' : Math.random() < 0.5 ? 'good' : 'miss';
+      const names = { [b.a.playerId]: me?.creatureName ?? 'You', bot: `Sparring ${CREATURES[b.b.creature].name}` };
+      for (let guard = 0; b.status === 'active' && guard < 20; guard++) {
+        for (const s of [b.a, b.b]) { const p = autoPick(s, Math.random, s.plan, s.charge); s.action = p.action; s.tap = p.tap; }
+        resolveRound(b, Math.random, names, Date.now());
+      }
       return b;
     });
   };
   useEffect(() => {
-    // auto-defend on timeout
+    // nobody picked in time: Balanced, no charge
     if (!battle || battle.status !== 'active') return;
-    clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => act('counter'), ROUND_SECONDS * 1000);
-    return () => clearTimeout(timer.current);
-  }, [battle?.round, battle?.status]); // eslint-disable-line react-hooks/exhaustive-deps
-  return { battle, start, act, stop: () => setBattle(null), rematch: () => start(foeCreature) };
+    const t = window.setTimeout(() => play('balanced', 'miss'), PLAN_SECONDS * 1000);
+    return () => clearTimeout(t);
+  }, [battle?.id, battle?.status]); // eslint-disable-line react-hooks/exhaustive-deps
+  return { battle, start, play, stop: () => setBattle(null), rematch: () => start(foeCreature) };
 }
 
 // ---------- Screen ----------
@@ -137,7 +151,7 @@ export default function BattleScreen() {
 
   if (practice.battle) {
     const n = { ...names, bot: { nick: 'Sparring bot', name: `Sparring ${CREATURES[practice.battle.b.creature].name}`, level: practice.battle.b.maxHp > 0 ? me.level : 1, colorway: 1, equipped: { colorway: 1 } } };
-    return <div className="screen with-nav"><div className="topbar"><h2 className="display title-md">Practice bout</h2><span className="pill">no rewards</span></div><Arena key={practice.battle.id + practice.battle.createdAt} battle={practice.battle} meId={me.id} names={n} onAction={practice.act} onExit={practice.stop} onRematch={practice.rematch} practice /></div>;
+    return <div className="screen with-nav"><div className="topbar"><h2 className="display title-md">Practice bout</h2><span className="pill">no rewards</span></div><Arena key={practice.battle.id} battle={practice.battle} meId={me.id} names={n} onPlan={practice.play} onExit={practice.stop} onRematch={practice.rematch} practice /></div>;
   }
 
   if (myBattle?.status === 'active' || recentMine) {
@@ -146,7 +160,7 @@ export default function BattleScreen() {
     return (
       <div className="screen with-nav">
         <div className="topbar"><h2 className="display title-md">Battle arena</h2><span className="pill pill-ember">⚔️ vs {names[foeId]?.nick ?? '?'}</span></div>
-        <Arena key={b.id} battle={b} meId={me.id} names={names} onAction={(a, tap) => request({ type: 'battleAction', battleId: b.id, round: b.round, action: a, tap }).then(() => undefined).catch((e) => toast((e as Error).message, '⚠️', 'warn'))} onSurrender={() => request({ type: 'surrender', battleId: b.id }).catch(() => undefined)} onExit={() => setDismissed(b.id)} onRematch={() => { setDismissed(b.id); challenge(foeId); }} />
+        <Arena key={b.id} battle={b} meId={me.id} names={names} onPlan={(plan, tap) => request({ type: 'battlePlan', battleId: b.id, plan, tap }).then(() => undefined).catch((e) => toast((e as Error).message, '⚠️', 'warn'))} onSurrender={() => request({ type: 'surrender', battleId: b.id }).catch(() => undefined)} onExit={() => setDismissed(b.id)} onRematch={() => { setDismissed(b.id); challenge(foeId); }} />
       </div>
     );
   }
@@ -170,6 +184,7 @@ export default function BattleScreen() {
         ) : (
           <>
             <Button onClick={() => setPicking(true)} disabled={!liveEvent}>⚔️ Challenge a mate</Button>
+            <div className="center tiny faint">Quick battles: pick a game plan, one charge-up tap, then watch it play out. About 10 seconds.</div>
             {!liveEvent && <div className="center tiny faint">Battles open when the host starts the event. Practice meanwhile.</div>}
             <Button variant="secondary" onClick={() => setShowPractice(true)}>Practice vs a sparring bot</Button>
           </>

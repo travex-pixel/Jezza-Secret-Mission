@@ -214,6 +214,8 @@ export interface BattleCreatureState {
   tap?: TapQuality;      // power-tap result submitted with the action
   lastAction?: BattleAction;
   locked?: boolean; // redacted view: has this side chosen this round?
+  plan?: 'balanced' | 'aggro' | 'sneaky'; // quick battle: chosen game plan (hidden from the opponent until it's over)
+  charge?: TapQuality;                    // quick battle: the one power tap, applied to every damaging move
 }
 
 export interface BattleRoundLog {
@@ -241,6 +243,7 @@ export interface Battle {
   reason?: 'ko' | 'rounds' | 'timeout' | 'surrender' | 'disconnect';
   scored: boolean;
   auto?: boolean;     // resolved automatically by the matchmaker
+  quick?: boolean;    // pick a game plan, then the whole fight plays itself
   bountyOn?: string; // the leader's id if the leader is in this fight
   rewards?: Record<string, { points: number; xp: number }>;
 }
@@ -337,6 +340,7 @@ export type ClientMessage =
   | { type: 'votePhoto'; reqId: string; claimId: string; up: boolean }
   | { type: 'ackAway'; reqId: string }
   | { type: 'setAutoBattles'; reqId: string; on: boolean }
+  | { type: 'battlePlan'; reqId: string; battleId: string; plan: 'balanced' | 'aggro' | 'sneaky'; tap?: TapQuality }
   | { type: 'surrender'; reqId: string; battleId: string }
   | { type: 'host'; reqId: string; action: HostAction }
   | { type: 'ping'; t: number };
@@ -370,7 +374,7 @@ export type ServerMessage =
   | { type: 'private'; priv: PlayerPrivate | null; hostView?: HostView }
   | { type: 'ack'; reqId: string; ok: true; data?: unknown }
   | { type: 'ack'; reqId: string; ok: false; error: string }
-  | { type: 'reward'; points: number; xp: number; levelUp?: number; unlocked?: string[]; achievements?: string[]; title: string; evolved?: { from: number; to: number }; capped?: boolean; bonus?: string }
+  | { type: 'reward'; points: number; xp: number; levelUp?: number; unlocked?: string[]; achievements?: string[]; title: string; evolved?: { from: number; to: number }; capped?: boolean; bonus?: string; battleId?: string }
   | { type: 'toast'; text: string; emoji?: string; tone?: 'info' | 'success' | 'warn' }
   | { type: 'kicked'; reason: string }
   | { type: 'pong'; t: number; serverTime: number };

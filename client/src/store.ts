@@ -7,7 +7,7 @@ export type Flow = 'opening' | 'join' | 'choose' | 'reveal' | 'firstMission' | '
 export type ConnStatus = 'connecting' | 'online' | 'offline' | 'demo';
 
 export interface Toast { id: number; text: string; emoji?: string; tone?: 'info' | 'success' | 'warn' }
-export interface Reward { points: number; xp: number; levelUp?: number; unlocked?: string[]; achievements?: string[]; title: string; evolved?: { from: number; to: number }; capped?: boolean; bonus?: string }
+export interface Reward { points: number; xp: number; levelUp?: number; unlocked?: string[]; achievements?: string[]; title: string; evolved?: { from: number; to: number }; capped?: boolean; bonus?: string; battleId?: string }
 
 interface State {
   identity: { playerId: string; secret: string };
@@ -26,6 +26,9 @@ interface State {
   replay: Battle | null;   // battle being replayed in the overlay
   awayOpen: boolean;       // "while you were away" sheet
   photo: { src: string; caption?: string; sub?: string } | null; // full-screen photo viewer
+  watchingBattle: string | null; // battle whose fight is playing on screen: its reward waits for the result
+  heldRewards: Reward[];
+  heldToasts: Omit<Toast, 'id'>[];
   // actions
   setConn: (c: ConnStatus) => void;
   setFlow: (f: Flow) => void;
@@ -39,6 +42,7 @@ interface State {
   setReplay: (b: Battle | null) => void;
   setAwayOpen: (open: boolean) => void;
   openPhoto: (p: { src: string; caption?: string; sub?: string } | null) => void;
+  watchBattle: (id: string | null) => void;
 }
 
 let toastSeq = 1;
@@ -59,6 +63,9 @@ export const useStore = create<State>((set, get) => ({
   replay: null,
   awayOpen: false,
   photo: null,
+  watchingBattle: null,
+  heldRewards: [],
+  heldToasts: [],
   pendingCode: new URLSearchParams(location.search).get('p')?.toUpperCase() ?? null,
 
   setConn: (conn) => set({ conn }),
@@ -80,7 +87,8 @@ export const useStore = create<State>((set, get) => ({
       }
       case 'private': set({ priv: m.priv, hostView: m.hostView ?? null }); break;
       case 'reward': {
-        const r: Reward = { points: m.points, xp: m.xp, levelUp: m.levelUp, unlocked: m.unlocked, achievements: m.achievements, title: m.title, evolved: m.evolved, capped: m.capped, bonus: m.bonus };
+        const r: Reward = { points: m.points, xp: m.xp, levelUp: m.levelUp, unlocked: m.unlocked, achievements: m.achievements, title: m.title, evolved: m.evolved, capped: m.capped, bonus: m.bonus, battleId: m.battleId };
+        if (r.battleId && r.battleId === get().watchingBattle) { set({ heldRewards: [...get().heldRewards, r] }); break; } // don't spoil the fight
         if (get().reward) set({ rewardQueue: [...get().rewardQueue, r] }); else set({ reward: r });
         break;
       }
@@ -90,6 +98,8 @@ export const useStore = create<State>((set, get) => ({
     }
   },
   toast: (text, emoji, tone = 'info') => {
+    // "Achievement: Taste of Victory" mid-fight would give the result away; it waits with the reward.
+    if (get().watchingBattle && text.startsWith('Achievement')) { set({ heldToasts: [...get().heldToasts, { text, emoji, tone }] }); return; }
     const id = toastSeq++;
     set({ toasts: [...get().toasts.slice(-3), { id, text, emoji, tone }] });
     setTimeout(() => get().dismissToast(id), 3800);
@@ -101,6 +111,13 @@ export const useStore = create<State>((set, get) => ({
   setReplay: (replay) => set({ replay }),
   setAwayOpen: (awayOpen) => set({ awayOpen }),
   openPhoto: (photo) => set({ photo }),
+  watchBattle: (id) => {
+    // Stop holding: release anything kept back for the battle we were watching.
+    const held = get().heldRewards; const toasts = get().heldToasts;
+    set({ watchingBattle: id, heldRewards: [], heldToasts: [] });
+    for (const r of held) { if (get().reward) set({ rewardQueue: [...get().rewardQueue, r] }); else set({ reward: r }); }
+    for (const t of toasts) get().toast(t.text, t.emoji, t.tone);
+  },
 }));
 
 /** Find a battle for replay: recent public ones first, then the player's own away log. */

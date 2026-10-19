@@ -163,20 +163,17 @@ async function main() {
   await mates[9].req({ type: 'respondChallenge', battleId, accept: true }).then(() => check(false, 'third party cannot accept a challenge'), () => check(true, 'third party cannot accept a challenge'));
   await b.req({ type: 'respondChallenge', battleId, accept: true });
   check(await until(() => a.party!.battles.find((x) => x.id === battleId)?.status === 'active'), 'battle is active for both');
-  await a.req({ type: 'battleAction', battleId, round: 1, action: 'attack' });
+  await sleep(800); // the charge-up bar takes a moment to cross
+  await a.req({ type: 'battlePlan', battleId, plan: 'aggro', tap: 'good' });
   await sleep(150);
   const bView = b.party!.battles.find((x) => x.id === battleId)!;
   const aSide = bView.a.playerId === a.id ? bView.a : bView.b;
-  check(aSide.action === undefined && aSide.locked === true, 'opponent sees "locked in" but not the chosen action');
-  await mates[9].req({ type: 'battleAction', battleId, round: 1, action: 'attack' }).then(() => check(false, 'outsider cannot act in a battle'), () => check(true, 'outsider cannot act in a battle'));
-  let rounds = 0;
-  while (a.party!.battles.find((x) => x.id === battleId)?.status === 'active' && rounds < 12) {
-    const bt = a.party!.battles.find((x) => x.id === battleId)!;
-    const r = bt.round;
-    await Promise.allSettled([a.req({ type: 'battleAction', battleId, round: r, action: 'attack' }), b.req({ type: 'battleAction', battleId, round: r, action: rounds % 3 === 0 ? 'special' : 'attack' })]);
-    await until(() => (a.party!.battles.find((x) => x.id === battleId)?.round ?? 0) > r || a.party!.battles.find((x) => x.id === battleId)?.status !== 'active', 3000);
-    rounds++;
-  }
+  check(aSide.plan === undefined && aSide.locked === true, 'opponent sees "locked in" but not the chosen game plan');
+  await mates[9].req({ type: 'battlePlan', battleId, plan: 'aggro' }).then(() => check(false, 'outsider cannot pick a plan in a battle'), () => check(true, 'outsider cannot pick a plan in a battle'));
+  await a.req({ type: 'battleAction', battleId, round: 1, action: 'attack' }).then(() => check(false, 'no tap-every-round in quick battles'), () => check(true, 'no tap-every-round in quick battles'));
+  await b.req({ type: 'battlePlan', battleId, plan: 'sneaky' });
+  check(await until(() => a.party!.battles.find((x) => x.id === battleId)?.status === 'finished'), 'both locked in: the whole fight resolves at once for everyone');
+  const rounds = a.party!.battles.find((x) => x.id === battleId)!.log.length;
   const done = a.party!.battles.find((x) => x.id === battleId)!;
   check(done.status === 'finished' && !!done.winnerId, `battle finished in ${rounds} rounds, winner ${done.winnerId === a.id ? 'A' : 'B'} by ${done.reason}`);
   check(await until(() => host.party!.players.find((p) => p.id === done.winnerId)!.wins === 1 && host.party!.players.find((p) => p.id === done.loserId)!.losses === 1), 'records updated on both sides (seen by a third client)');

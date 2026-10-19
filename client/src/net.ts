@@ -189,7 +189,15 @@ function connectDemo(): Transport {
     for (const p of Object.values(engine.state.parties)) {
       for (const b of Object.values(p.battles)) {
         if (b.status === 'challenge' && mateIds.includes(b.opponentId) && Date.now() - b.createdAt > 1200) { engine.handle(b.opponentId, { type: 'respondChallenge', reqId: 'x', battleId: b.id, accept: true }); changed = true; }
-        if (b.status === 'active') {
+        if (b.status === 'active' && b.quick) {
+          // bots pick a plan after a moment (with a plausible charge-up tap)
+          for (const side of [b.a, b.b]) {
+            if (mateIds.includes(side.playerId) && !side.plan && Date.now() - (b.startedAt ?? 0) > 1800) {
+              const r = engine.handle(side.playerId, { type: 'battlePlan', reqId: 'x', battleId: b.id, plan: pick(['balanced', 'aggro', 'sneaky'] as const), tap: chance(0.3) ? 'perfect' : chance(0.5) ? 'good' : 'miss' });
+              deliver(r.direct); changed = true;
+            }
+          }
+        } else if (b.status === 'active') {
           for (const side of [b.a, b.b]) {
             if (mateIds.includes(side.playerId) && !side.action) {
               const act = side.specialCooldown === 0 && chance(0.4) ? 'special' : chance(0.7) ? 'attack' : 'counter';

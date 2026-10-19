@@ -79,47 +79,48 @@ describe('engine', () => {
     expect(eng.hostView(party()).approvals.length).toBe(0); // no host needed
     expect(party().feed.some((f) => f.photoUrl)).toBe(true);
   });
-  it('battles: challenge, accept, server-resolved rounds, bounded rewards, timeouts', () => {
+  it('quick battles: challenge, accept, pick a plan, the fight plays itself; rewards and timeouts', () => {
     const { eng, ids, party, advance } = setup();
     eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'setPhase', phase: 'friday' } });
     expect(eng.handle(ids[1], { type: 'challenge', reqId: 'b', opponentId: ids[1] }).ack?.ok).toBe(false);
     const ch = eng.handle(ids[1], { type: 'challenge', reqId: 'b', opponentId: ids[2] });
     expect(ch.ack?.ok).toBe(true);
     const battleId = (ch.ack as any).data.battleId as string;
-    // third party cannot accept
-    expect(eng.handle(ids[3], { type: 'respondChallenge', reqId: 'r', battleId, accept: true }).ack?.ok).toBe(false);
+    expect(eng.handle(ids[3], { type: 'respondChallenge', reqId: 'r', battleId, accept: true }).ack?.ok).toBe(false); // third party
     expect(eng.handle(ids[2], { type: 'respondChallenge', reqId: 'r', battleId, accept: true }).ack?.ok).toBe(true);
     let b = party().battles[battleId];
-    expect(b.status).toBe('active');
-    // opponent view must not leak the pending action
-    eng.handle(ids[1], { type: 'battleAction', reqId: 'a', battleId, round: 1, action: 'attack' });
+    expect(b.status).toBe('active'); expect(b.quick).toBe(true);
+    // no more tap-every-round
+    expect(eng.handle(ids[1], { type: 'battleAction', reqId: 'a', battleId, round: 1, action: 'attack' }).ack?.ok).toBe(false);
+    expect(eng.handle(ids[3], { type: 'battlePlan', reqId: 'p', battleId, plan: 'aggro' }).ack?.ok).toBe(false); // outsider
+    expect(eng.handle(ids[1], { type: 'battlePlan', reqId: 'p', battleId, plan: 'nonsense' as any }).ack?.ok).toBe(false);
+    advance(1500);
+    eng.handle(ids[1], { type: 'battlePlan', reqId: 'p', battleId, plan: 'aggro', tap: 'perfect' });
+    // opponent sees "locked in" but not the plan
     const view = eng.publicView(party(), ids[2]).battles.find((x) => x.id === battleId)!;
-    expect(view.a.action).toBeUndefined(); expect(view.a.locked).toBe(true);
-    // wrong round rejected
-    expect(eng.handle(ids[2], { type: 'battleAction', reqId: 'a', battleId, round: 5, action: 'attack' }).ack?.ok).toBe(false);
-    let guard = 0;
-    while (party().battles[battleId].status === 'active' && guard++ < 20) {
-      b = party().battles[battleId];
-      eng.handle(ids[1], { type: 'battleAction', reqId: 'a', battleId, round: b.round, action: 'attack' });
-      eng.handle(ids[2], { type: 'battleAction', reqId: 'a', battleId, round: b.round, action: b.b.specialCooldown ? 'attack' : 'special' });
-    }
+    expect(view.a.plan).toBeUndefined(); expect(view.a.locked).toBe(true);
+    expect(party().battles[battleId].status).toBe('active');
+    eng.handle(ids[2], { type: 'battlePlan', reqId: 'p', battleId, plan: 'sneaky' });
     b = party().battles[battleId];
-    expect(b.status).toBe('finished');
+    expect(b.status).toBe('finished'); // both locked in → resolved at once with the normal round resolver
+    expect(b.log.length).toBeGreaterThanOrEqual(1); expect(b.log.length).toBeLessThanOrEqual(7);
+    expect(b.a.charge).toBe('perfect'); expect(b.b.charge).toBe('miss');
+    expect(b.log.every((r) => r.a.action === 'counter' || r.a.tap === 'perfect')).toBe(true); // the charge applies to every swing
     const w = party().players[b.winnerId!]; const l = party().players[b.loserId!];
     expect(w.wins).toBe(1); expect(l.losses).toBe(1);
     expect(w.points).toBe(20); // 15 battle + 5 'first_win' achievement
     expect(l.points).toBe(5);
-    // timeout path: unanswered rounds auto-resolve, three misses forfeits
-    const ch2 = eng.handle(ids[5], { type: 'challenge', reqId: 'b', opponentId: ids[6] });
-    const id2 = (ch2.ack as any).data.battleId as string;
+    // once it's over, both plans are public for the replay
+    expect(eng.publicView(party(), ids[2]).battles.find((x) => x.id === battleId)!.a.plan).toBe('aggro');
+    // nobody picks: after the timer both go Balanced and it still resolves (no forfeits, no one stuck)
+    const id2 = (eng.handle(ids[5], { type: 'challenge', reqId: 'b', opponentId: ids[6] }).ack as any).data.battleId as string;
     eng.handle(ids[6], { type: 'respondChallenge', reqId: 'r', battleId: id2, accept: true });
-    for (let i = 0; i < 3; i++) {
-      eng.handle(ids[5], { type: 'battleAction', reqId: 'a', battleId: id2, round: party().battles[id2].round, action: 'counter' });
-      advance(26_000); eng.tick();
-    }
+    advance(19_000); eng.tick();
+    expect(party().battles[id2].status).toBe('active');
+    advance(2_000); eng.tick();
     expect(party().battles[id2].status).toBe('finished');
-    expect(party().battles[id2].reason).toBe('timeout');
-    expect(party().battles[id2].winnerId).toBe(ids[5]);
+    expect(party().battles[id2].a.plan).toBe('balanced');
+    expect(party().battles[id2].rewards).toBeTruthy();
   });
   it('host can remove players, reset claims and advance/recover phases; awards are computed from data', () => {
     const { eng, ids, party } = setup();
@@ -194,22 +195,17 @@ describe('engine', () => {
     expect(party().players[ids[7]].points).toBe(before7 - STARTER_MISSION.points);
     expect(party().claims['bs-claim-02'].status).toBe('rejected');
   });
-  it('power tap: a hit reported faster than the bar can slide is downgraded; counter never taps', () => {
+  it('charge-up tap: one reported faster than the bar can slide is downgraded', () => {
     const { eng, ids, party, advance } = setup();
     eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'setPhase', phase: 'friday' } });
     const id = (eng.handle(ids[1], { type: 'challenge', reqId: 'b', opponentId: ids[2] }).ack as any).data.battleId as string;
     eng.handle(ids[2], { type: 'respondChallenge', reqId: 'r', battleId: id, accept: true });
-    // instant "perfect" right as the round starts → not plausible
-    eng.handle(ids[1], { type: 'battleAction', reqId: 'a', battleId: id, round: 1, action: 'attack', tap: 'perfect' });
-    expect(party().battles[id].a.tap).toBe('miss');
+    eng.handle(ids[1], { type: 'battlePlan', reqId: 'p', battleId: id, plan: 'balanced', tap: 'perfect' }); // instant: not plausible
+    expect(party().battles[id].a.charge).toBe('miss');
     advance(1500);
-    eng.handle(ids[2], { type: 'battleAction', reqId: 'a', battleId: id, round: 1, action: 'counter', tap: 'perfect' });
-    // both acted → round 1 resolved; the log records the validated taps
-    expect(party().battles[id].log[0].a.tap).toBe('miss');
-    expect(party().battles[id].log[0].b.tap).toBe('miss'); // counter has no tap
-    advance(2000);
-    eng.handle(ids[1], { type: 'battleAction', reqId: 'a', battleId: id, round: 2, action: 'attack', tap: 'perfect' });
-    expect(party().battles[id].a.tap).toBe('perfect'); // plausible timing → accepted
+    eng.handle(ids[2], { type: 'battlePlan', reqId: 'p', battleId: id, plan: 'balanced', tap: 'good' });
+    expect(party().battles[id].b.charge).toBe('good');
+    expect(party().battles[id].log.every((r) => r.b.action === 'counter' ? r.b.tap === 'miss' : r.b.tap === 'good')).toBe(true); // counter never taps
   });
   it('host PIN: claim from another phone, wrong guesses are limited and reported', () => {
     let t = 5_000_000;

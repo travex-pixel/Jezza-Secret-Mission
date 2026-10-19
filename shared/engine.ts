@@ -14,7 +14,7 @@ import {
 } from './progression';
 import { isClean, validateCreatureName, validateNickname } from './names';
 import {
-  BATTLE_REWARDS, CHALLENGE_TTL_MS, MAX_SCORED_VS_SAME_OPPONENT, ROUND_SECONDS, TAP_BAR_MS, TAP_MULT, autoPick, finish, makeCreatureState, redactBattle, resolveRound,
+  BATTLE_REWARDS, CHALLENGE_TTL_MS, MAX_SCORED_VS_SAME_OPPONENT, PLAN_SECONDS, ROUND_SECONDS, TAP_BAR_MS, TAP_MULT, autoPick, finish, isPlan, makeCreatureState, redactBattle, resolveRound, type GamePlan,
 } from './battle';
 import {
   BOSSES, RAID_DURATION_MS, RAID_HIT_COOLDOWN_MS, RAID_HP_PER_PLAYER, RAID_MISSION_DMG_MULT, RAID_MVP_POINTS, RAID_REWARD, RAID_THRESHOLD,
@@ -171,6 +171,7 @@ export class Engine {
       party.raids ??= []; party.wall ??= []; party.cellar ??= [];
       party.phaseMissions ??= { friday: 0, saturday: 0 };
       party.photoMode ??= 'vote';
+      for (const b of Object.values(party.battles)) if (b.status === 'active' && !b.quick && !b.auto) { b.quick = true; b.roundDeadline = Math.min(b.roundDeadline ?? Infinity, this.now() + PLAN_SECONDS * 1000); }
       party.nextAutoAt ??= this.now() + FIRST_AUTO_DELAY_MS;
       for (const p of Object.values(party.players)) {
         p.rating ??= START_RATING; p.streak ??= 0; p.bestStreak ??= 0; p.bounties ??= 0;
@@ -301,6 +302,7 @@ export class Engine {
         case 'challenge': return this.challenge(playerId, msg.opponentId);
         case 'respondChallenge': return this.respondChallenge(playerId, msg.battleId, msg.accept);
         case 'battleAction': return this.battleAction(playerId, msg.battleId, msg.round, msg.action, msg.tap);
+        case 'battlePlan': return this.battlePlan(playerId, msg.battleId, msg.plan, msg.tap);
         case 'flagClaim': return this.flagClaim(playerId, msg.claimId);
         case 'backClaim': return this.backClaim(playerId, msg.claimId);
         case 'react': return this.react(playerId, msg.eventId, msg.emoji);
@@ -1084,9 +1086,11 @@ export class Engine {
       id, challengerId: pa.id, opponentId: pb.id, status: 'active', createdAt: now, startedAt: now, round: 1,
       a: makeCreatureState(pa.id, pa.creature!, pa.level), b: makeCreatureState(pb.id, pb.creature!, pb.level), log: [], scored: true, auto: true,
     };
+    const plans: GamePlan[] = ['balanced', 'aggro', 'sneaky'];
+    b.a.plan = plans[Math.floor(this.rng() * plans.length)]; b.b.plan = plans[Math.floor(this.rng() * plans.length)];
     const names = { [pa.id]: pa.creatureName || CREATURES[pa.creature!].name, [pb.id]: pb.creatureName || CREATURES[pb.creature!].name };
     for (let guard = 0; b.status === 'active' && guard < 20; guard++) {
-      for (const side of [b.a, b.b]) { const pick = autoPick(side, this.rng); side.action = pick.action; side.tap = pick.tap; }
+      for (const side of [b.a, b.b]) { const pick = autoPick(side, this.rng, side.plan); side.action = pick.action; side.tap = pick.tap; }
       resolveRound(b, this.rng, names, now);
     }
     party.battles[id] = b;
@@ -1203,17 +1207,49 @@ export class Engine {
     const now = this.now();
     if (!accept) { b.status = 'declined'; b.finishedAt = now; return this.ok(party, undefined, [{ to: b.challengerId, msg: { type: 'toast', text: `${party.players[playerId]?.nickname} declined. Cowardice noted.`, emoji: '🐔', tone: 'warn' } }]); }
     if (this.liveBattleFor(party, playerId)?.id !== b.id && this.liveBattleFor(party, playerId)) return this.fail('You are already in a battle.');
-    b.status = 'active'; b.startedAt = now; b.round = 1; b.roundDeadline = now + ROUND_SECONDS * 1000;
+    // Quick battle: both pick a game plan (and one charge-up tap), then the whole fight plays itself.
+    b.status = 'active'; b.quick = true; b.startedAt = now; b.round = 1; b.roundDeadline = now + PLAN_SECONDS * 1000;
     const pa = party.players[b.a.playerId]; const pb = party.players[b.b.playerId];
     if (pa) pa.missedRounds = 0; if (pb) pb.missedRounds = 0;
-    this.feed(party, { kind: 'battle', text: `${pa?.nickname} vs ${pb?.nickname}: battle begins!`, emoji: '⚔️' });
-    return this.ok(party);
+    const nudge = (to: string) => ({ to, msg: { type: 'toast' as const, text: `Fight on! Pick your game plan (${PLAN_SECONDS}s)`, emoji: '⚔️', tone: 'info' as const } });
+    return this.ok(party, undefined, [nudge(b.challengerId)]);
+  }
+
+  private battlePlan(playerId: string, battleId: string, plan: GamePlan, tap?: TapQuality): HandleResult {
+    const party = this.partyOf(playerId);
+    const b = party?.battles[battleId];
+    if (!party || !b || b.status !== 'active' || !b.quick) return this.fail('That battle is not waiting on a plan.');
+    const side = b.a.playerId === playerId ? b.a : b.b.playerId === playerId ? b.b : null;
+    if (!side) return this.fail('Not your battle.');
+    if (!isPlan(plan)) return this.fail('Pick a game plan.');
+    if (side.plan) return { ack: { ok: true, data: { locked: true } }, changed: false, direct: [] };
+    // The charge-up tap can't arrive faster than the bar can physically slide.
+    const sinceStart = this.now() - (b.startedAt ?? this.now());
+    side.plan = plan;
+    side.charge = (tap === 'perfect' || tap === 'good') && sinceStart >= TAP_BAR_MS * 0.6 ? tap : 'miss';
+    const direct: Outbound[] = [];
+    if (b.a.plan && b.b.plan) this.resolveQuick(party, b, direct);
+    return this.ok(party, undefined, direct);
+  }
+
+  /** Play out a quick battle with the same round resolver a hand-played fight uses. */
+  private resolveQuick(party: PartyState, b: Battle, direct: Outbound[]) {
+    if (b.status !== 'active') return;
+    for (const s of [b.a, b.b]) { s.plan ??= 'balanced'; s.charge ??= 'miss'; s.action = undefined; s.tap = undefined; }
+    const names: Record<string, string> = {};
+    for (const s of [b.a, b.b]) names[s.playerId] = party.players[s.playerId]?.creatureName ?? CREATURES[s.creature].name;
+    for (let guard = 0; b.status === 'active' && guard < 20; guard++) {
+      for (const s of [b.a, b.b]) { const p = autoPick(s, this.rng, s.plan, s.charge); s.action = p.action; s.tap = p.tap; }
+      resolveRound(b, this.rng, names, this.now());
+    }
+    if (b.winnerId && b.loserId) this.settleBattle(party, b, direct);
   }
 
   private battleAction(playerId: string, battleId: string, round: number, action: BattleAction, tap?: TapQuality): HandleResult {
     const party = this.partyOf(playerId);
     const b = party?.battles[battleId];
     if (!party || !b || b.status !== 'active') return this.fail('That battle is not live.');
+    if (b.quick) return this.fail('Quick battle: pick a game plan instead.');
     const side = b.a.playerId === playerId ? b.a : b.b.playerId === playerId ? b.b : null;
     if (!side) return this.fail('Not your battle.');
     if (round !== b.round) return this.fail('That round already resolved.');
@@ -1270,8 +1306,8 @@ export class Engine {
       b.rewards[w.id] = { points: winPts, xp: BATTLE_REWARDS.win.xp };
       b.rewards[l.id] = lossy ? { points: 0, xp: 0 } : { ...BATTLE_REWARDS.lose };
       const bonus = [bounty ? '👑 Bounty: double points' : '', streakBonus ? `🔥 ${w.streak}-win streak +${streakBonus}` : ''].filter(Boolean).join(' · ') || undefined;
-      direct.push({ to: w.id, msg: { type: 'reward', points: winPts, xp: BATTLE_REWARDS.win.xp, ...rw, title: `Victory over ${l.nickname}`, bonus } });
-      if (b.rewards[l.id].xp > 0) direct.push({ to: l.id, msg: { type: 'reward', points: BATTLE_REWARDS.lose.points, xp: BATTLE_REWARDS.lose.xp, ...rl, title: `Honourable defeat to ${w.nickname}` } });
+      direct.push({ to: w.id, msg: { type: 'reward', points: winPts, xp: BATTLE_REWARDS.win.xp, ...rw, title: `Victory over ${l.nickname}`, bonus, battleId: b.id } });
+      if (b.rewards[l.id].xp > 0) direct.push({ to: l.id, msg: { type: 'reward', points: BATTLE_REWARDS.lose.points, xp: BATTLE_REWARDS.lose.xp, ...rl, title: `Honourable defeat to ${w.nickname}`, battleId: b.id } });
     } else {
       b.rewards[w.id] = { points: 0, xp: 0 }; b.rewards[l.id] = { points: 0, xp: 0 };
       this.checkAchievements(party, w, direct); this.checkAchievements(party, l, direct);
@@ -1333,6 +1369,7 @@ export class Engine {
       let dirty = false;
       for (const b of Object.values(party.battles)) {
         if (b.status === 'challenge' && now - b.createdAt > CHALLENGE_TTL_MS) { b.status = 'expired'; b.finishedAt = now; dirty = true; }
+        if (b.status === 'active' && b.quick && b.roundDeadline && now >= b.roundDeadline) { this.resolveQuick(party, b, direct); dirty = true; continue; }
         if (b.status === 'active' && b.roundDeadline && now >= b.roundDeadline) {
           const pa = party.players[b.a.playerId]; const pb = party.players[b.b.playerId];
           if (!b.a.action && pa) pa.missedRounds += 1; else if (pa) pa.missedRounds = 0;

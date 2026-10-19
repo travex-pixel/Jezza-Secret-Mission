@@ -70,28 +70,42 @@ async function main() {
   check(true, 'host receives the challenge modal');
   await host.page.screenshot({ path: path.join(OUT, 'host-challenge.png') });
   await host.page.getByRole('button', { name: /accept/i }).click();
-  await mate.page.waitForSelector('.actions', { timeout: 8000 });
-  await host.page.waitForSelector('.actions', { timeout: 8000 });
-  check(true, 'arena opens for both players');
-  await mate.page.locator('.action-btn.attack').click();
-  await host.page.getByText(/🔒 ready/).waitFor({ timeout: 5000 }).catch(() => undefined);
-  check((await host.page.getByText(/🔒 ready/).count()) > 0, 'host sees the mate locked in (without the action)');
-  await host.page.locator('.action-btn.special').click();
-  let hpChanged = false;
-  for (let i = 0; i < 30 && !hpChanged; i++) { await mate.page.waitForTimeout(250); const hp = await mate.page.locator('.hpcard').allTextContents(); hpChanged = hp.some((t) => !/(\d+)\/\1\b/.test(t)); }
-  if (!hpChanged) { await mate.page.screenshot({ path: path.join(OUT, 'DEBUG-mate.png') }); await host.page.screenshot({ path: path.join(OUT, 'DEBUG-host.png') }); console.log('DEBUG hp:', await mate.page.locator('.hpcard').allTextContents(), 'log:', await mate.page.locator('.log-line').allTextContents()); }
-  check(hpChanged, 'HP changed after the server resolved round 1');
-  await mate.page.screenshot({ path: path.join(OUT, 'mate-battle.png') });
-  await host.page.screenshot({ path: path.join(OUT, 'host-battle.png') });
-
-  // Refresh survives
+  await mate.page.waitForSelector('.plans', { timeout: 8000 });
+  await host.page.waitForSelector('.plans', { timeout: 8000 });
+  check(true, 'quick battle: both get the game-plan picker');
+  await mate.page.screenshot({ path: path.join(OUT, 'mate-plan.png') });
+  // Refresh mid-battle survives
   await mate.page.reload({ waitUntil: 'networkidle' });
   await mate.page.getByRole('button', { name: /enter the vineyard/i }).click();
   await mate.page.waitForSelector('.bottom-nav', { timeout: 8000 });
   check(true, 'mate refreshes and lands straight back in the game (identity + party persisted)');
   await mate.page.locator('.bottom-nav').getByRole('button', { name: 'Battle' }).click();
-  await mate.page.waitForSelector('.actions', { timeout: 8000 });
-  check(true, 'live battle resumes after refresh');
+  await mate.page.waitForSelector('.plans', { timeout: 8000 });
+  check(true, 'the battle resumes after refresh');
+  // Mate: plan + charge-up tap
+  await mate.page.locator('.plan-btn.plan-aggro').click();
+  await mate.page.waitForSelector('.pt-screen', { timeout: 3000 });
+  await mate.page.waitForTimeout(650);
+  await mate.page.locator('.pt-screen').click({ position: { x: 20, y: 300 } });
+  await mate.page.getByText(/locked in/).first().waitFor({ timeout: 5000 });
+  await host.page.getByText(/🔒 ready/).waitFor({ timeout: 5000 }).catch(() => undefined);
+  check((await host.page.getByText(/🔒 ready/).count()) > 0, 'host sees the mate locked in (without the plan)');
+  // Host: plan + charge-up tap → the fight plays itself for both
+  await host.page.locator('.plan-btn.plan-sneaky').click();
+  await host.page.waitForSelector('.pt-screen', { timeout: 3000 });
+  await host.page.waitForTimeout(650);
+  await host.page.locator('.pt-screen').click({ position: { x: 20, y: 300 } });
+  await mate.page.getByRole('button', { name: /skip/i }).waitFor({ timeout: 8000 });
+  check(true, 'both locked in: the fight starts playing straight away');
+  let hpChanged = false;
+  for (let i = 0; i < 40 && !hpChanged; i++) { await mate.page.waitForTimeout(250); const hp = await mate.page.locator('.hpcard').allTextContents(); hpChanged = hp.some((t) => !/(\d+)\/\1\b/.test(t)); }
+  check(hpChanged, 'HP drops as the fight plays out');
+  await mate.page.screenshot({ path: path.join(OUT, 'mate-battle.png') });
+  await mate.page.getByText(/^(VICTORY|DEFEATED)$/).waitFor({ timeout: 25000 });
+  await host.page.getByText(/^(VICTORY|DEFEATED)$/).waitFor({ timeout: 25000 });
+  const mateWon = (await mate.page.getByText(/^VICTORY$/).count()) === 1; const hostWon = (await host.page.getByText(/^VICTORY$/).count()) === 1;
+  check(mateWon !== hostWon, `exactly one winner (${mateWon ? 'mate' : 'host'}), same result on both phones`);
+  await host.page.screenshot({ path: path.join(OUT, 'host-battle.png') });
 
   await browser.close();
   console.log(failures ? `\n${failures} CHECK(S) FAILED` : '\nLIVE E2E PASSED');
