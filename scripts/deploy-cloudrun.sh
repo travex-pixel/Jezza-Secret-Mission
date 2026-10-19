@@ -15,6 +15,17 @@ BUCKET="${BUCKET:-${PROJECT_ID}-jezza-data}"
 
 echo "▶ project=$PROJECT_ID region=$REGION service=$SERVICE bucket=$BUCKET"
 gcloud config set project "$PROJECT_ID" >/dev/null
+
+# Preflight: Cloud Run and Cloud Build refuse to start without a billing account on the project.
+BILLING=$(gcloud billing projects describe "$PROJECT_ID" --format='value(billingEnabled)' 2>/dev/null || true)
+if [ "$BILLING" != "True" ]; then
+  echo
+  echo "✋ Billing isn't switched on for $PROJECT_ID yet, so Google won't let us start a server."
+  echo "   Fix: open https://console.cloud.google.com/billing/linkedaccount?project=$PROJECT_ID"
+  echo "        and click 'Link a billing account' (or finish the Blaze upgrade in the Firebase console)."
+  echo "   Then wait a minute and run this script again."
+  exit 1
+fi
 echo "▶ enabling Google Cloud services (first time takes ~1 min)"
 gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com storage.googleapis.com --quiet >/dev/null
 
