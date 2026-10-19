@@ -66,7 +66,7 @@ export function roundSteps(battle: Pick<Battle, 'a' | 'b'>, log: BattleRoundLog,
     run[foe] -= raw;
     const special = me.action === 'special';
     const weak = special && creature[s] === 'fox' && log[foe].action !== 'attack';
-    steps.push({ kind: 'strike', side: s, creature: creature[s], special, hits, crit: me.tap === 'perfect' && raw > 0, guarded: guarding(foe), pierce: special && creature[s] === 'owl', whiff: special && raw === 0, weak, ricochet: special && creature[s] === 'goblin' && log[foe].action === 'counter', hp: shown() });
+    steps.push({ kind: 'strike', side: s, creature: creature[s], special, hits, crit: me.tap === 'perfect' && raw > 0, guarded: guarding(foe), pierce: special && (creature[s] === 'owl' || creature[s] === 'stag'), whiff: special && raw === 0, weak, ricochet: special && creature[s] === 'goblin' && log[foe].action === 'counter', hp: shown() });
     // self-inflicted: dmgTaken = foe's raw + my self damage + foe's reflect
     const selfDmg = me.dmgTaken - rawDealt(log[foe]) - (log[foe].reflected ?? 0);
     if (selfDmg > 0) { run[s] -= selfDmg; steps.push({ kind: 'recoil', side: s, dmg: selfDmg, hp: shown() }); }

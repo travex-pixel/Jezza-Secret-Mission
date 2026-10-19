@@ -107,6 +107,11 @@ function resolveSide(me: BattleCreatureState, foe: BattleCreatureState, myAct: B
       out.lines.push(`${my} does a ${sp}! ${out.dealt} damage. Bumps its head for ${out.selfDmg}.`);
       break;
     }
+    case 'stag': {
+      out.dealt = mitigate(baseDamage(me, rng, 1.45), foe, foeAct, true);
+      out.lines.push(foeAct === 'counter' ? `${my}'s ${sp} smashes straight through the guard! ${out.dealt} damage!` : `${my} charges in: ${sp}! ${out.dealt} damage!`);
+      break;
+    }
     case 'fox': {
       if (foeAct === 'attack') { out.dealt = mitigate(baseDamage(me, rng, 1.6), foe, foeAct); out.lines.push(`${my} reads the attack and counters with ${sp}! ${out.dealt} damage.`); }
       else { out.dealt = mitigate(baseDamage(me, rng, 0.6), foe, foeAct); out.lines.push(`${my} springs the ${sp} but ${their} wasn't attacking. Only ${out.dealt}.`); }

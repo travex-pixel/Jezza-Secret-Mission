@@ -33,6 +33,7 @@ More screenshots at every tested viewport live in [`docs/screenshots/`](docs/scr
 | The Jezza Wall (roasts and toasts, votes, Jezza's ❤️, Roast Reel at the finale) | ✅ |
 | The Cellar: drink reviews with label photos (any drink counts; only 3 a day score) | ✅ |
 | 😂 🔥 reactions (❤️ for Jezza only) that drive the awards | ✅ |
+| The groom's own creature: the **Golden Stag** (groom only, given automatically) | ✅ |
 | Party camera roll; delete your own photos any time, ask the host to take down anyone else's | ✅ |
 | Host keepsake download (every roast, toast, review, award and the final board) and a scan-to-join QR code | ✅ |
 | **🟣 EPIC jobs**: the host posts real jobs (dinner, brekkie, food runs, designated driver, Chief Hydration Officers, clean-up…); first in fill the crew; everyone on it gets points, XP and a themed item. Bigger jobs pay more | ✅ |
@@ -117,7 +118,7 @@ shared/   The game. Pure TypeScript shared by server and client:
             types.ts        protocol + domain types
             engine.ts       authoritative rules engine (parties, missions, claims, battles, host actions)
             battle.ts       deterministic combat resolution (seedable RNG)
-            missions.ts     78 missions · creatures.ts 8 creatures · progression.ts XP/levels/cosmetics/achievements/awards
+            missions.ts     92 missions · creatures.ts 8 creatures + the groom's Golden Stag · progression.ts XP/levels/cosmetics/achievements/awards
             names.ts        nickname moderation
 server/   Node 22 + express + ws. Wraps the engine: WebSocket fan-out, per-viewer redaction, rate limiting,
           heartbeat presence, JSON persistence (debounced, atomic rename), photo storage.
@@ -183,6 +184,15 @@ Host → Event: pause/resume, summon a raid, reveal group challenges, and **Phot
 *I approve them* (photos wait in your Queue; anything left 45 min goes through), or *Instant*. The Queue also shows
 photos being voted on, so you can settle them early, plus any BS disputes. Players tab: rename, reset, grant points,
 remove. Awards tab: override any award, pick *Most Unhinged*.
+
+### The groom's Golden Stag
+
+Jezza gets a creature nobody else can have: the **Golden Stag** (gold antlers, a tux, light rays and twinkles; at
+Lv8 it gets wings and a halo like everyone else's final form). Whoever is the groom gets it automatically: a player
+called "Jezza" is offered only the Stag when they pick, and if the host taps **🤵 This is Jezza** on someone who has
+already adopted, their creature transforms (name, level and XP kept). Move the title to someone else and the old
+groom gets their original creature back. Its special, **Last Hurrah**, is a golden charge that goes straight through
+a counter stance. It's tuned to win about 55% of fights: a groom's edge, but the lads can absolutely beat him.
 
 ### Progression
 

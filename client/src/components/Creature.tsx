@@ -283,7 +283,54 @@ function fox(c: Colorway): Parts {
   };
 }
 
-const BUILDERS: Record<CreatureId, (c: Colorway) => Parts> = { dragon, wombat, possum, owl, goblin, sprite, barrel, fox };
+/** The groom's Golden Stag: gold antlers, a tux, light rays and twinkles. Deliberately the flashiest thing in the game. */
+function stag(c: Colorway): Parts {
+  const dark = shade(c.body, -40);
+  const antler = (m: 1 | -1) => {
+    const X = (x: number) => (m === 1 ? x : 200 - x);
+    const d = `M${X(90)} 62 C${X(84)} 46 ${X(76)} 34 ${X(62)} 18 M${X(84)} 47 L${X(68)} 44 M${X(79)} 38 L${X(84)} 20 M${X(71)} 28 L${X(56)} 30 M${X(66)} 23 L${X(66)} 10`;
+    return (<g key={m}><path d={d} stroke={shade(c.accent, -45)} strokeWidth="8" fill="none" strokeLinecap="round" strokeLinejoin="round" /><path d={d} stroke={c.accent} strokeWidth="5.5" fill="none" strokeLinecap="round" strokeLinejoin="round" /><path d={d} stroke="#fffbe8" strokeWidth="1.4" fill="none" strokeLinecap="round" opacity={0.75} /></g>);
+  };
+  const star = (x: number, y: number, r: number, i: number) => <path key={i} className="stag-twinkle" style={{ animationDelay: `${-i * 0.55}s` }} d={`M${x} ${y - r} Q${x} ${y} ${x + r} ${y} Q${x} ${y} ${x} ${y + r} Q${x} ${y} ${x - r} ${y} Q${x} ${y} ${x} ${y - r}Z`} fill="#fff6d6" />;
+  return {
+    anchors: { headTop: { x: 100, y: 60, w: 44 }, eyes: { lx: 91, rx: 109, y: 80, r: 5.5 }, shoulders: { y: 112, w: 58 } },
+    back: (
+      <g>
+        <g className="stag-rays" opacity={0.13}>{Array.from({ length: 10 }, (_, i) => <path key={i} d="M100 110 L94 20 L106 20 Z" fill={c.glow} transform={`rotate(${i * 36} 100 110)`} />)}</g>
+        {antler(1)}{antler(-1)}
+        <ellipse cx="132" cy="128" rx="7" ry="9" fill={c.belly} />
+      </g>
+    ),
+    body: (
+      <g>
+        {[72, 120].map((x) => <g key={x}><rect x={x} y="142" width="8" height="24" rx="3" fill={shade(dark, -25)} /><ellipse cx={x + 4} cy="167" rx="5.5" ry="3" fill="#1a1218" /></g>)}
+        {[85, 107].map((x) => <g key={x}><rect x={x} y="146" width="8" height="24" rx="3" fill={dark} /><ellipse cx={x + 4} cy="171" rx="6" ry="3.5" fill="#1a1218" /></g>)}
+        <ellipse cx="100" cy="134" rx="34" ry="26" fill={c.body} />
+        {/* the tux */}
+        <path d="M74 120 Q100 110 126 120 L122 156 Q100 163 78 156 Z" fill="#17131c" />
+        <path d="M92 114 L100 142 L108 114 Z" fill="#fffaf2" />
+        <path d="M91 114 L100 142 M109 114 L100 142" stroke={c.accent} strokeWidth="1.6" opacity={0.9} />
+        <circle cx="100" cy="148" r="1.8" fill={c.accent} /><circle cx="100" cy="154" r="1.8" fill={c.accent} />
+        <path d="M80 126 l8 3 M120 126 l-8 3" stroke={c.accent} strokeWidth="1.2" opacity={0.7} />
+        {/* neck + head */}
+        <path d="M89 118 L92 94 L108 94 L111 118 Z" fill={c.body} />
+        <ellipse cx="73" cy="74" rx="13" ry="6" fill={c.body} transform="rotate(-25 73 74)" /><ellipse cx="73" cy="74" rx="8" ry="3" fill={c.belly} transform="rotate(-25 73 74)" />
+        <ellipse cx="127" cy="74" rx="13" ry="6" fill={c.body} transform="rotate(25 127 74)" /><ellipse cx="127" cy="74" rx="8" ry="3" fill={c.belly} transform="rotate(25 127 74)" />
+        <ellipse cx="100" cy="82" rx="21" ry="23" fill={c.body} />
+        <path d="M100 62 L104 68 L100 74 L96 68 Z" fill={c.accent} stroke="#fffbe8" strokeWidth="0.8" />
+        <ellipse cx="100" cy="98" rx="13" ry="10" fill={c.belly} />
+        <ellipse cx="100" cy="93" rx="5.5" ry="3.6" fill="#2a1a10" /><ellipse cx="98.5" cy="92" rx="1.6" ry="1" fill="#fff" opacity={0.6} />
+        <path d="M94 102 Q101 107 107 101" stroke={dark} strokeWidth="2" fill="none" strokeLinecap="round" />
+        <Eye x={91} y={80} r={5.5} c={c} /><Eye x={109} y={80} r={5.5} c={c} />
+        {/* gold bow tie */}
+        <path d="M100 115 L88 109 L88 121 Z M100 115 L112 109 L112 121 Z" fill={c.accent} stroke={shade(c.accent, -50)} strokeWidth="1" /><circle cx="100" cy="115" r="2.6" fill={shade(c.accent, -30)} />
+      </g>
+    ),
+    front: <g>{star(36, 72, 6, 0)}{star(164, 58, 7, 1)}{star(156, 142, 5, 2)}{star(44, 148, 5, 3)}{star(132, 26, 4, 4)}</g>,
+  };
+}
+
+const BUILDERS: Record<CreatureId, (c: Colorway) => Parts> = { dragon, wombat, possum, owl, goblin, sprite, barrel, fox, stag };
 
 // ---------------- cosmetics ----------------
 function Hat({ id, a }: { id: string; a: Anchors }) {
@@ -357,7 +404,7 @@ export const Creature = memo(function Creature({ creature, colorway = 0, equippe
   const pose = !bare && equipped?.pose;
   const poseT = pose === 'pose_heroic' ? 'rotate(-5 100 170) scale(1.05) translate(-5 -8)' : pose === 'pose_lounge' ? 'rotate(-16 100 170) translate(6 4)' : undefined;
   return (
-    <div className={`creature evo-${stage} ${silhouette ? 'silhouette' : ''} ${flip ? 'flip' : ''} ${className ?? ''}`} data-state={state} style={style} key={animKey}>
+    <div className={`creature cre-${creature} evo-${stage} ${silhouette ? 'silhouette' : ''} ${flip ? 'flip' : ''} ${className ?? ''}`} data-state={state} style={style} key={animKey}>
       <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" aria-label={def.name}>
         <defs>
           <radialGradient id={`aura-${uid}`}><stop offset="0" stopColor={aura ?? cw.glow} stopOpacity="0.55" /><stop offset="0.6" stopColor={aura ?? cw.glow} stopOpacity="0.18" /><stop offset="1" stopColor={aura ?? cw.glow} stopOpacity="0" /></radialGradient>

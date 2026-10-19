@@ -486,6 +486,13 @@ img, svg { display: block; max-width: 100%; }
 .creature.evo-3 svg { filter: drop-shadow(0 0 9px rgba(243,205,122,.85)) drop-shadow(0 0 2px #fff6d6); }
 .creature .evo-halo { transform-box: fill-box; transform-origin: center; animation: halo-bob 3s ease-in-out infinite; }
 .creature .evo-wings { transform-origin: 100px 110px; animation: cre-wing 3s ease-in-out infinite alternate; }
+/* the groom's Golden Stag */
+.creature.cre-stag svg { filter: drop-shadow(0 0 4px rgba(255,216,107,.6)); }
+.creature.cre-stag.evo-3 svg { filter: drop-shadow(0 0 9px rgba(255,216,107,.85)) drop-shadow(0 0 1px #fff6d6); }
+.creature .stag-rays { transform-origin: 100px 110px; animation: stag-spin 18s linear infinite; }
+.creature .stag-twinkle { transform-box: fill-box; transform-origin: center; animation: stag-twinkle 2.2s ease-in-out infinite; }
+@keyframes stag-spin { to { transform: rotate(360deg); } }
+@keyframes stag-twinkle { 0%, 100% { opacity: 0; transform: scale(.3); } 50% { opacity: 1; transform: scale(1) rotate(45deg); } }
 @keyframes halo-bob { 50% { transform: translateY(-3px) scaleX(1.06); } }
 .creature.silhouette svg { filter: brightness(0) drop-shadow(0 0 10px rgba(229,173,72,.85)) !important; opacity: .92; }
 .creature.twitch .body-g { animation: cre-twitch 2.4s ease-in-out infinite !important; }
@@ -532,7 +539,8 @@ img, svg { display: block; max-width: 100%; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
-  .creature .body-g, .creature .wing, .creature .tail, .creature .lid, .creature .aura-g { animation: none !important; }
+  .creature .body-g, .creature .wing, .creature .tail, .creature .lid, .creature .aura-g, .creature .stag-rays { animation: none !important; }
+  .creature .stag-twinkle { animation: none !important; opacity: .8; }
 }
 
 .pick-info { height: 76px; overflow: hidden; }

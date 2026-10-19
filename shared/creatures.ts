@@ -158,8 +158,29 @@ export const CREATURES: Record<CreatureId, CreatureDef> = {
     defaultName: 'Dapper',
     cry: 'YIP',
   },
+  // The groom's creature. Nobody else can adopt it: whoever the host marks as the groom gets it automatically.
+  stag: {
+    id: 'stag',
+    name: 'Golden Stag',
+    species: 'Golden Stag',
+    tagline: 'One last ride. Make it legendary.',
+    personality: 'Antlers of solid gold, a tux under the fur, and absolutely no intention of behaving this weekend.',
+    stats: { hp: 99, atk: 12, def: 7, spd: 10 }, // tuned to win ~55%: a groom's edge, still very beatable
+    special: { name: 'Last Hurrah', blurb: 'Golden charge through any guard', tradeoff: 'Needs a breather after' },
+    colorways: [
+      { id: 'gold', name: '24 Carat', body: '#C8902E', belly: '#F6E3B4', accent: '#FFD86B', eye: '#2a1a10', glow: '#FFD86B' },
+      { id: 'tux', name: 'Midnight Tux', body: '#3B2F45', belly: '#D9C7A8', accent: '#F3CD7A', eye: '#F6EBDD', glow: '#c38cff' },
+      { id: 'diamond', name: 'Champagne Diamond', body: '#E3CFA6', belly: '#FFFDF6', accent: '#BFE9FF', eye: '#2a1a10', glow: '#BFE9FF' },
+    ],
+    defaultName: 'Goldhorn',
+    cry: 'HOOOO-RAH',
+  },
 };
 
+/** The groom's creature: never in the starter picks, given to whoever is the groom. */
+export const GROOM_CREATURE: CreatureId = 'stag';
+
+/** The eight creatures anyone can adopt. */
 export const CREATURE_IDS: CreatureId[] = ['dragon', 'wombat', 'possum', 'owl', 'goblin', 'sprite', 'barrel', 'fox'];
 
 export const ACTION_LABELS: Record<BattleAction, string> = { attack: 'ATTACK', counter: 'COUNTER', special: 'SPECIAL' };
@@ -174,6 +195,7 @@ export const FORMS: Record<CreatureId, [string, string, string]> = {
   sprite: ['Grapevine Sprite', 'Vine Sylph', 'Harvest Spirit'],
   barrel: ['Barrel Beast', 'Keg Titan', 'Cask Colossus'],
   fox: ['Hunter Fox', 'Silver Fox', 'Nine-Tail Fox'],
+  stag: ['Golden Stag', 'Royal Stag', 'Stag King'],
 };
 
 /** Deterministic trio of starters for a given seed string; `offset` cycles to show the rest of the roster. */

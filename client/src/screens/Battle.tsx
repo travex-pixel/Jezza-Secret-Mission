@@ -138,7 +138,8 @@ export default function BattleScreen() {
   const [lastOpponent, setLastOpponent] = useState<string | null>(null);
   const [showPractice, setShowPractice] = useState(false);
   const practice = usePractice(me);
-  const [dismissed, setDismissed] = useState<string | null>(null);
+  const doneBattles = useStore((s) => s.doneBattles);
+  const doneBattle = useStore((s) => s.doneBattle);
   const liveEvent = party?.phase === 'friday' || party?.phase === 'saturday';
   if (!me?.creature || !party) return null;
 
@@ -146,8 +147,10 @@ export default function BattleScreen() {
   const challenge = async (opponentId: string) => { try { setLastOpponent(opponentId); await request({ type: 'challenge', opponentId }); setPicking(false); sfx.challenge(); } catch (e) { toast((e as Error).message, '⚠️', 'warn'); } };
   const respond = async (accept: boolean) => { if (!myBattle) return; try { await request({ type: 'respondChallenge', battleId: myBattle.id, accept }); } catch (e) { toast((e as Error).message, '⚠️', 'warn'); } };
 
-  // finished battle of mine most recent (not yet dismissed) shows the result
-  const recentMine = party.battles.find((b) => b.status === 'finished' && !b.auto && (b.a.playerId === me.id || b.b.playerId === me.id) && b.finishedAt && Date.now() - b.finishedAt < 3 * 60_000 && b.id !== dismissed);
+  // Only my latest finished fight can show its result, and only until I tap Done. (Looking further back used to
+  // bring an older fight back after Done, which looked like the battle restarting.)
+  const lastMine = party.battles.find((b) => b.status === 'finished' && !b.auto && (b.a.playerId === me.id || b.b.playerId === me.id));
+  const recentMine = lastMine?.finishedAt && Date.now() - lastMine.finishedAt < 3 * 60_000 && !doneBattles.includes(lastMine.id) ? lastMine : undefined;
 
   if (practice.battle) {
     const n = { ...names, bot: { nick: 'Sparring bot', name: `Sparring ${CREATURES[practice.battle.b.creature].name}`, level: practice.battle.b.maxHp > 0 ? me.level : 1, colorway: 1, equipped: { colorway: 1 } } };
@@ -160,7 +163,7 @@ export default function BattleScreen() {
     return (
       <div className="screen with-nav">
         <div className="topbar"><h2 className="display title-md">Battle arena</h2><span className="pill pill-ember">⚔️ vs {names[foeId]?.nick ?? '?'}</span></div>
-        <Arena key={b.id} battle={b} meId={me.id} names={names} onPlan={(plan, power, tap) => request({ type: 'battlePlan', battleId: b.id, plan, tap, power }).then(() => undefined).catch((e) => toast((e as Error).message, '⚠️', 'warn'))} onSurrender={() => request({ type: 'surrender', battleId: b.id }).catch(() => undefined)} onExit={() => setDismissed(b.id)} onRematch={() => { setDismissed(b.id); challenge(foeId); }} />
+        <Arena key={b.id} battle={b} meId={me.id} names={names} onPlan={(plan, power, tap) => request({ type: 'battlePlan', battleId: b.id, plan, tap, power }).then(() => undefined).catch((e) => toast((e as Error).message, '⚠️', 'warn'))} onSurrender={() => request({ type: 'surrender', battleId: b.id }).catch(() => undefined)} onExit={() => doneBattle(b.id)} onRematch={() => { doneBattle(b.id); challenge(foeId); }} />
       </div>
     );
   }

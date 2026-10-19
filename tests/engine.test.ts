@@ -258,3 +258,38 @@ describe('engine', () => {
     expect(eng.partyOf('host_phone_0001')?.code).toBe(second);
   });
 });
+
+describe('the groom\'s Golden Stag', () => {
+  it('only the groom can have it, and the groom always gets it', () => {
+    let t = 1_000_000;
+    const eng = new Engine({ now: () => t, rng: seededRng(7) });
+    const [host, jezza, mate] = ['player_host_0001', 'player_jezz_0001', 'player_mate_0001'];
+    for (const id of [host, jezza, mate]) eng.auth(id, 'secret-' + id);
+    const code = (eng.handle(host, { type: 'createParty', reqId: '1', nickname: 'Travis' }).ack as any).data.code;
+    eng.handle(jezza, { type: 'joinParty', reqId: 'j', code, nickname: 'Jezza' });
+    eng.handle(mate, { type: 'joinParty', reqId: 'j', code, nickname: 'Big Dave' });
+    expect(eng.handle(mate, { type: 'chooseCreature', reqId: 'c', creature: 'stag' }).ack?.ok).toBe(false);
+    expect(eng.handle(jezza, { type: 'chooseCreature', reqId: 'c', creature: 'dragon' }).ack?.ok).toBe(true);
+    const party = eng.state.parties[code];
+    expect(party.players[jezza].creature).toBe('stag');
+    expect(party.players[jezza].creatureName).toBe('Goldhorn');
+  });
+  it('setting the groom transforms his creature, and moving the title gives the old one back', () => {
+    const { eng, ids, party } = setup(4);
+    const before = party().players[ids[2]].creature;
+    eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'setGroom', playerId: ids[2] } });
+    expect(party().players[ids[2]].creature).toBe('stag');
+    expect(party().feed.some((f) => f.text.includes('GOLDEN STAG'))).toBe(true);
+    expect('creatureBefore' in eng.publicView(party(), ids[1]).players.find((p) => p.id === ids[2])!).toBe(false);
+    eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'setGroom', playerId: ids[3] } });
+    expect(party().players[ids[2]].creature).toBe(before);
+    expect(party().players[ids[3]].creature).toBe('stag');
+    expect(Object.values(party().players).filter((p) => p.creature === 'stag').length).toBe(1);
+  });
+  it('an older save where Jezza already adopted something gets the Stag on load', () => {
+    const { eng, ids, party } = setup(3);
+    party().groomId = ids[1];
+    const again = new Engine({ now: () => 2_000_000 }, eng.state);
+    expect(again.state.parties[party().code].players[ids[1]].creature).toBe('stag');
+  });
+});

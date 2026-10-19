@@ -1,6 +1,6 @@
 // Shared domain + protocol types used by client and server.
 
-export type CreatureId = 'dragon' | 'wombat' | 'possum' | 'owl' | 'goblin' | 'sprite' | 'barrel' | 'fox';
+export type CreatureId = 'dragon' | 'wombat' | 'possum' | 'owl' | 'goblin' | 'sprite' | 'barrel' | 'fox' | 'stag'; // stag: the groom's only
 export type Phase = 'lobby' | 'friday' | 'saturday' | 'finale' | 'ended';
 export type MissionCategory = 'laugh' | 'dance' | 'sing' | 'photo' | 'jezza' | 'cheers' | 'sneaky' | 'chill' | 'group';
 export type Reaction = '😂' | '🔥' | '❤️';

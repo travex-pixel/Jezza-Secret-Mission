@@ -34,8 +34,7 @@ async function main() {
   await page.getByRole('button', { name: /i'm the host/i }).click();
   await page.getByPlaceholder(/big dave/i).fill('HostJezza');
   await page.getByRole('button', { name: /create the party/i }).click();
-  await page.waitForSelector('.pick-grid');
-  await page.locator('.pick-card').first().click();
+  await page.getByText(/groom only/i).waitFor(); // "HostJezza" counts as the groom
   await page.getByRole('button', { name: /adopt/i }).click();
   await page.waitForTimeout(2000);
   await page.getByRole('button', { name: /first mission/i }).click();

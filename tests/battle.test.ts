@@ -141,3 +141,22 @@ describe('content', () => {
     expect(cleanPower(undefined, 'perfect')).toBe(1); // older phones still send a tier
   });
 });
+
+describe('Golden Stag balance', () => {
+  it('gives the groom a small edge, nothing silly: wins 45-62% against the field', () => {
+    let w = 0, n = 0;
+    for (const foe of CREATURE_IDS) for (let g = 0; g < 120; g++) {
+      const rng = seededRng(9000 + n);
+      const bt = g % 2 ? mk('stag', foe) : mk(foe, 'stag');
+      while (bt.status === 'active') {
+        bt.a.action = rng() < 0.6 ? 'attack' : rng() < 0.5 ? 'counter' : 'special';
+        bt.b.action = rng() < 0.6 ? 'attack' : rng() < 0.5 ? 'counter' : 'special';
+        resolveRound(bt, rng, {}, 0);
+      }
+      if (bt.winnerId === (g % 2 ? 'A' : 'B')) w++;
+      n++;
+    }
+    expect(w / n).toBeGreaterThan(0.45);
+    expect(w / n).toBeLessThan(0.62);
+  });
+});

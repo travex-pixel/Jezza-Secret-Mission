@@ -29,6 +29,7 @@ interface State {
   watchingBattle: string | null; // battle whose fight is playing on screen: its reward waits for the result
   heldRewards: Reward[];
   heldToasts: Omit<Toast, 'id'>[];
+  doneBattles: string[];   // finished battles the player tapped Done on (so the result never pops back up)
   // actions
   setConn: (c: ConnStatus) => void;
   setFlow: (f: Flow) => void;
@@ -43,9 +44,14 @@ interface State {
   setAwayOpen: (open: boolean) => void;
   openPhoto: (p: { src: string; caption?: string; sub?: string } | null) => void;
   watchBattle: (id: string | null) => void;
+  doneBattle: (id: string) => void;
 }
 
 let toastSeq = 1;
+const DONE_KEY = 'jezza.doneBattles';
+function loadDoneBattles(): string[] {
+  try { const v = JSON.parse(sessionStorage.getItem(DONE_KEY) ?? '[]'); return Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []; } catch { return []; }
+}
 
 export const useStore = create<State>((set, get) => ({
   identity: loadIdentity(),
@@ -66,6 +72,7 @@ export const useStore = create<State>((set, get) => ({
   watchingBattle: null,
   heldRewards: [],
   heldToasts: [],
+  doneBattles: loadDoneBattles(),
   pendingCode: new URLSearchParams(location.search).get('p')?.toUpperCase() ?? null,
 
   setConn: (conn) => set({ conn }),
@@ -111,6 +118,11 @@ export const useStore = create<State>((set, get) => ({
   setReplay: (replay) => set({ replay }),
   setAwayOpen: (awayOpen) => set({ awayOpen }),
   openPhoto: (photo) => set({ photo }),
+  doneBattle: (id) => {
+    const doneBattles = [...get().doneBattles.filter((x) => x !== id), id].slice(-30);
+    set({ doneBattles });
+    try { sessionStorage.setItem(DONE_KEY, JSON.stringify(doneBattles)); } catch { /* private mode: memory is enough */ }
+  },
   watchBattle: (id) => {
     // Stop holding: release anything kept back for the battle we were watching.
     const held = get().heldRewards; const toasts = get().heldToasts;

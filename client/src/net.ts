@@ -88,7 +88,7 @@ function connectLive(): Transport {
 
 // ---------------- demo ----------------
 const DEMO_MATES: { nick: string; creature: (typeof CREATURE_IDS)[number]; name: string; xp: number; pts: number; w: number; l: number }[] = [
-  { nick: 'Jezza', creature: 'dragon', name: 'Smoulder', xp: 310, pts: 120, w: 2, l: 1 },
+  { nick: 'Jezza', creature: 'stag', name: 'Goldhorn', xp: 310, pts: 120, w: 2, l: 1 },
   { nick: 'Tommo', creature: 'wombat', name: 'Bruce', xp: 180, pts: 95, w: 1, l: 2 },
   { nick: 'Big Dave', creature: 'barrel', name: 'Keg', xp: 460, pts: 160, w: 3, l: 0 },
   { nick: 'Nath', creature: 'possum', name: 'Nugget', xp: 90, pts: 55, w: 0, l: 1 },
@@ -122,7 +122,9 @@ function connectDemo(): Transport {
       engine.auth(id, 'demo-secret-mate');
       if (!isHostBot) engine.handle(id, { type: 'joinParty', reqId: 'x', code, nickname: m.nick });
       if (!mateIds.includes(id)) mateIds.push(id);
-      engine.handle(id, { type: 'chooseCreature', reqId: 'x', creature: m.creature, creatureName: m.name });
+      // only the groom can have the Golden Stag (if someone else is the groom here, demo Jezza takes a dragon)
+      const creature = m.creature === 'stag' && party.groomId !== id ? 'dragon' : m.creature;
+      engine.handle(id, { type: 'chooseCreature', reqId: 'x', creature, creatureName: creature === m.creature ? m.name : 'Smoulder' });
       const p = party.players[id];
       if (!p) return;
       p.xp = m.xp; p.points = m.pts; p.wins = m.w; p.losses = m.l; p.missionsCompleted = Math.floor(m.pts / 15);

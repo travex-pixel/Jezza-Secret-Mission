@@ -279,6 +279,22 @@ export default function BattleStage({ battle, info, nearId, mode, speed = 1, ski
           await meleeReturn(me, v);
           break;
         }
+        case 'stag': { // Last Hurrah: rears up in a shower of gold, then charges straight through any guard
+          const a = center(s.side);
+          const reared = `translate(${-v.dx * 0.08}px, ${-v.dy * 0.08 - 16}px) rotate(${v.dx > 0 ? -12 : 12}deg) scale(1.08)`;
+          await anim(me, [{ transform: 'none' }, { transform: reared }], 260);
+          burst(a.x, a.y, 12, 'fx-flame fx-gold', 80);
+          say('LAST HURRAH!', true);
+          await wait(160, tok);
+          const hit = `translate(${v.dx * 0.7}px, ${v.dy * 0.7}px) scale(1.12)`;
+          await anim(me, [{ transform: reared }, { transform: hit }], 220, { easing: 'cubic-bezier(.6,0,.9,.5)' });
+          check(tok);
+          const c = center(t);
+          burst(c.x, c.y, 14, 'fx-flame fx-gold', 70);
+          await impact(t, total, { ...opts, heavy: true, hpAfter: s.hp }, tok);
+          await anim(me, [{ transform: hit }, { transform: 'none' }], 280);
+          break;
+        }
         case 'barrel': { // Barrel Roll: a literal rolling charge
           await anim(me, [{ transform: 'none' }, { transform: `translate(${-v.dx * 0.06}px, ${-v.dy * 0.06}px) rotate(${v.dx > 0 ? -20 : 20}deg)` }], 160);
           await anim(me, [{ transform: `translate(${-v.dx * 0.06}px, ${-v.dy * 0.06}px) rotate(${v.dx > 0 ? -20 : 20}deg)` }, { transform: `translate(${v.dx * 0.62}px, ${v.dy * 0.62}px) rotate(${v.dx > 0 ? 360 : -360}deg)` }], 300, { easing: 'cubic-bezier(.5,0,.9,.6)' });

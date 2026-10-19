@@ -7,7 +7,7 @@ import type {
   Raid, Reaction, WallPost, CellarEntry, GalleryPhoto, PhotoMode, AwayEvent, Keepsake, Epic, CheatCode,
 } from './types';
 import { EPIC_CUSTOM_ITEM, EPIC_MAX_CREW, EPIC_PRESET_BY_ID, EPIC_TIERS, isEpicTier } from './epics';
-import { CREATURES, CREATURE_IDS, FORMS } from './creatures';
+import { CREATURES, CREATURE_IDS, FORMS, GROOM_CREATURE, starterTrio } from './creatures';
 import { MISSIONS, MISSION_BY_ID, STARTER_MISSION, GROUP_MISSIONS, missionAvailableInPhase, type Mission } from './missions';
 import {
   ACHIEVEMENTS, COSMETIC_BY_ID, colorwaysUnlocked, computeAwards, cosmeticsForLevel, levelForXp, titleForLevel,
@@ -34,6 +34,7 @@ export interface PlayerState extends PlayerPublic {
   lastAutoAt: number;      // when this avatar last auto-battled
   recentAuto: string[];    // last few auto-battle opponents (avoid repeats)
   codeTries: number[];     // recent wrong cheat-code guesses (rate limit)
+  creatureBefore?: CreatureId; // the groom's creature before it became the Golden Stag (given back if the host moves the title)
 }
 
 export interface PartyState {
@@ -172,6 +173,7 @@ export class Engine {
   private migrate() {
     for (const party of Object.values(this.state.parties)) {
       party.groomId ??= Object.values(party.players).find((p) => isJezza(p.nickname))?.id ?? null;
+      this.crownGroom(party); // a groom who adopted before the Golden Stag existed gets it now
       party.autoSaturdayAt ??= party.phase === 'friday' || party.phase === 'lobby' ? nextSaturdayMorning(party.createdAt) : null;
       party.nextGroupAt ??= null;
       party.raids ??= []; party.wall ??= []; party.cellar ??= [];
@@ -448,11 +450,30 @@ export class Engine {
   }
 
   // ---------- creatures ----------
+  /** The groom (and only the groom) has the Golden Stag. Moving the title hands the old groom his creature back. */
+  crownGroom(party: PartyState) {
+    for (const p of Object.values(party.players)) {
+      if (p.id === party.groomId || p.creature !== GROOM_CREATURE) continue;
+      p.creature = p.creatureBefore ?? starterTrio(p.id)[0];
+      p.creatureBefore = undefined;
+    }
+    const g = party.groomId ? party.players[party.groomId] : undefined;
+    if (!g || g.removed || !g.creature || g.creature === GROOM_CREATURE) return;
+    const was = g.creature;
+    g.creatureBefore = was;
+    if (g.creatureName === CREATURES[was].defaultName) g.creatureName = CREATURES[GROOM_CREATURE].defaultName;
+    g.creature = GROOM_CREATURE;
+    this.feed(party, { kind: 'host', text: `✨ ${g.nickname}'s ${CREATURES[was].name} has transformed into the GOLDEN STAG. The groom's own creature. Bow, lads.`, playerId: g.id, emoji: '🦌' });
+  }
+
   private chooseCreature(playerId: string, creature: CreatureId, creatureName?: string): HandleResult {
     const party = this.partyOf(playerId); const p = party?.players[playerId];
     if (!party || !p || p.removed) return this.fail('Join a party first.');
-    if (!CREATURE_IDS.includes(creature)) return this.fail('Unknown creature.');
+    const isGroom = party.groomId === playerId;
+    if (creature === GROOM_CREATURE && !isGroom) return this.fail('The Golden Stag is reserved for the groom.');
+    if (!CREATURE_IDS.includes(creature) && creature !== GROOM_CREATURE) return this.fail('Unknown creature.');
     if (p.creature) return this.fail('You already adopted a creature. Loyalty matters.');
+    if (isGroom) creature = GROOM_CREATURE; // the groom always gets his own
     const nm = validateCreatureName(creatureName || CREATURES[creature].defaultName);
     if (!nm.ok) return this.fail(nm.error);
     p.creature = creature; p.creatureName = nm.name;
@@ -1637,6 +1658,7 @@ export class Engine {
         if (!g || g.removed) return this.fail('No such player.');
         party.groomId = g.id;
         this.feed(party, { kind: 'host', text: `🤵 ${g.nickname} is officially the groom. Hearts unlocked.`, emoji: '🤵' });
+        this.crownGroom(party);
         return this.ok(party);
       }
       case 'summonRaid': {
@@ -1764,7 +1786,7 @@ function newPlayer(id: string, nickname: string, now: number, isHost: boolean, j
 }
 
 function toPublic(p: PlayerState): PlayerPublic {
-  const { hand, completedMissionIds, rerollsLeft, scoredBattlesVs, missedRounds, lastHonourClaimAt, flagged, rerollRefillAt, away, lastAutoAt, recentAuto, codeTries, ...pub } = p;
+  const { hand, completedMissionIds, rerollsLeft, scoredBattlesVs, missedRounds, lastHonourClaimAt, flagged, rerollRefillAt, away, lastAutoAt, recentAuto, codeTries, creatureBefore, ...pub } = p;
   return pub;
 }
 

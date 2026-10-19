@@ -23,9 +23,10 @@ async function main() {
   await host.page.getByRole('button', { name: /i'm the host/i }).click();
   await host.page.getByPlaceholder(/big dave/i).fill('Jezza');
   await host.page.getByRole('button', { name: /create the party/i }).click();
-  await host.page.waitForSelector('.pick-grid');
-  await host.page.locator('.pick-card').first().click();
-  await host.page.getByRole('button', { name: /adopt/i }).click();
+  // "Jezza" is the groom: no choice of creature, he gets the Golden Stag
+  await host.page.getByText(/groom only/i).waitFor();
+  check((await host.page.locator('.pick-grid').count()) === 0 && (await host.page.getByText('Golden Stag').count()) > 0, 'the groom is offered only the Golden Stag');
+  await host.page.getByRole('button', { name: /adopt goldhorn/i }).click();
   await host.page.waitForTimeout(2000);
   await host.page.getByRole('button', { name: /first mission/i }).click();
   await host.page.getByRole('button', { name: /skip for now/i }).click();
@@ -110,6 +111,30 @@ async function main() {
   const mateWon = (await mate.page.getByText(/^VICTORY$/).count()) === 1; const hostWon = (await host.page.getByText(/^VICTORY$/).count()) === 1;
   check(mateWon !== hostWon, `exactly one winner (${mateWon ? 'mate' : 'host'}), same result on both phones`);
   await host.page.screenshot({ path: path.join(OUT, 'host-battle.png') });
+
+  // Done really means done: the result doesn't come back after switching tabs, or after a second fight
+  const clearRewards = async (pg: typeof mate.page) => { for (let i = 0; i < 6 && (await pg.locator('.reward').count()); i++) { await pg.locator('.reward').first().click(); await pg.waitForTimeout(400); } };
+  const resultShown = async (pg: typeof mate.page) => (await pg.getByText(/^(VICTORY|DEFEATED)$/).count()) > 0;
+  const fight = async () => {
+    await mate.page.getByRole('button', { name: /challenge a mate/i }).click();
+    await mate.page.locator('.sheet .list-row', { hasText: 'Jezza' }).click();
+    await host.page.getByRole('button', { name: /accept/i }).click({ timeout: 8000 });
+    for (const pg of [mate.page, host.page]) { await pg.locator('.plan-btn.plan-balanced').click({ timeout: 8000 }); await pg.waitForSelector('.pt-screen'); await pg.waitForTimeout(500); await pg.locator('.pt-screen').click({ position: { x: 20, y: 300 } }); }
+    await mate.page.getByText(/^(VICTORY|DEFEATED)$/).waitFor({ timeout: 25000 });
+    await host.page.getByText(/^(VICTORY|DEFEATED)$/).waitFor({ timeout: 25000 });
+  };
+  await clearRewards(mate.page); await clearRewards(host.page);
+  await mate.page.getByRole('button', { name: /^done$/i }).click();
+  await host.page.getByRole('button', { name: /^done$/i }).click();
+  await mate.page.locator('.bottom-nav').getByRole('button', { name: 'Lobby' }).click();
+  await mate.page.locator('.bottom-nav').getByRole('button', { name: 'Battle' }).click();
+  await mate.page.waitForTimeout(600);
+  check(!(await resultShown(mate.page)) && (await mate.page.getByRole('button', { name: /challenge a mate/i }).count()) === 1, 'after Done the fight stays finished, even after switching tabs');
+  await fight();
+  await clearRewards(mate.page); await clearRewards(host.page);
+  await mate.page.getByRole('button', { name: /^done$/i }).click();
+  await mate.page.waitForTimeout(600);
+  check(!(await resultShown(mate.page)), 'Done after a second fight does not bring the first one back');
 
   await browser.close();
   console.log(failures ? `\n${failures} CHECK(S) FAILED` : '\nLIVE E2E PASSED');
