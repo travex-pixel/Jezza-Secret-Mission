@@ -19,12 +19,12 @@ async function main() {
   await p.getByRole('button', { name: /create the party/i }).click();
   await p.waitForSelector('.pick-grid'); await p.locator('.pick-card').first().click();
   await p.getByRole('button', { name: /adopt/i }).click(); await p.waitForTimeout(2000);
-  await p.getByRole('button', { name: /first mission/i }).click(); await p.getByRole('button', { name: /skip for now/i }).click();
+  await p.getByRole('button', { name: /first challenge/i }).click(); await p.getByRole('button', { name: /show me the lobby/i }).click();
   await p.getByRole('button', { name: /host controls/i }).click();
   await p.locator('.list-row', { hasText: 'The Big Cheers' }).getByRole('button', { name: /reveal/i }).click();
   await p.waitForTimeout(400);
   await p.getByText(/‹ Host controls/).click();
-  await p.locator('.bottom-nav').getByRole('button', { name: 'Missions' }).click();
+  await p.locator('.bottom-nav').getByRole('button', { name: 'Challenges' }).click();
   await p.getByRole('button', { name: /^group/i }).click();
   await p.waitForTimeout(800);
   const input = p.locator('input[type=file][data-library]').first();

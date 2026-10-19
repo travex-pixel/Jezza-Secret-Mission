@@ -28,8 +28,8 @@ async function main() {
   check((await host.page.locator('.pick-grid').count()) === 0 && (await host.page.getByText('Golden Stag').count()) > 0, 'the groom is offered only the Golden Stag');
   await host.page.getByRole('button', { name: /adopt goldhorn/i }).click();
   await host.page.waitForTimeout(2000);
-  await host.page.getByRole('button', { name: /first mission/i }).click();
-  await host.page.getByRole('button', { name: /skip for now/i }).click();
+  await host.page.getByRole('button', { name: /first challenge/i }).click();
+  await host.page.getByRole('button', { name: /show me the lobby/i }).click();
   await host.page.waitForSelector('.bottom-nav');
   await host.page.locator('.quick-btn', { hasText: 'Party' }).click();
   await host.page.waitForSelector('.code-display');
@@ -45,7 +45,7 @@ async function main() {
   await mate.page.locator('.pick-card').nth(2).click();
   await mate.page.getByRole('button', { name: /adopt/i }).click();
   await mate.page.waitForTimeout(2000);
-  await mate.page.getByRole('button', { name: /first mission/i }).click();
+  await mate.page.getByRole('button', { name: /first challenge/i }).click();
   await mate.page.getByRole('button', { name: /i did it/i }).click();
   await mate.page.waitForSelector('.reward');
   await mate.page.locator('.reward').click();
@@ -58,14 +58,14 @@ async function main() {
   // No host step needed: Friday is already live
   await host.page.locator('.bottom-nav').getByRole('button', { name: 'Lobby' }).click();
   check((await mate.page.locator('.pill', { hasText: /Friday/ }).count()) > 0, 'Friday is live for the mate without the host doing anything');
-  await mate.page.locator('.bottom-nav').getByRole('button', { name: 'Missions' }).click();
+  await mate.page.locator('.bottom-nav').getByRole('button', { name: 'Challenges' }).click();
   await mate.page.waitForTimeout(300);
   check((await mate.page.locator('.mission-card').count()) >= 3, 'mate has a hand of challenges');
   await mate.page.screenshot({ path: path.join(OUT, 'mate-missions.png') });
 
   // Battle: mate challenges host, host accepts
   await mate.page.locator('.bottom-nav').getByRole('button', { name: 'Battle' }).click();
-  await mate.page.getByRole('button', { name: /challenge a mate/i }).click();
+  await mate.page.getByRole('button', { name: /fight a mate/i }).click();
   await mate.page.locator('.sheet .list-row', { hasText: 'Jezza' }).click();
   await host.page.waitForSelector('.modal', { timeout: 8000 });
   check(true, 'host receives the challenge modal');
@@ -116,7 +116,7 @@ async function main() {
   const clearRewards = async (pg: typeof mate.page) => { for (let i = 0; i < 6 && (await pg.locator('.reward').count()); i++) { await pg.locator('.reward').first().click(); await pg.waitForTimeout(400); } };
   const resultShown = async (pg: typeof mate.page) => (await pg.getByText(/^(VICTORY|DEFEATED)$/).count()) > 0;
   const fight = async () => {
-    await mate.page.getByRole('button', { name: /challenge a mate/i }).click();
+    await mate.page.getByRole('button', { name: /fight a mate/i }).click();
     await mate.page.locator('.sheet .list-row', { hasText: 'Jezza' }).click();
     await host.page.getByRole('button', { name: /accept/i }).click({ timeout: 8000 });
     for (const pg of [mate.page, host.page]) { await pg.locator('.plan-btn.plan-balanced').click({ timeout: 8000 }); await pg.waitForSelector('.pt-screen'); await pg.waitForTimeout(500); await pg.locator('.pt-screen').click({ position: { x: 20, y: 300 } }); }
@@ -129,7 +129,7 @@ async function main() {
   await mate.page.locator('.bottom-nav').getByRole('button', { name: 'Lobby' }).click();
   await mate.page.locator('.bottom-nav').getByRole('button', { name: 'Battle' }).click();
   await mate.page.waitForTimeout(600);
-  check(!(await resultShown(mate.page)) && (await mate.page.getByRole('button', { name: /challenge a mate/i }).count()) === 1, 'after Done the fight stays finished, even after switching tabs');
+  check(!(await resultShown(mate.page)) && (await mate.page.getByRole('button', { name: /fight a mate/i }).count()) === 1, 'after Done the fight stays finished, even after switching tabs');
   await fight();
   await clearRewards(mate.page); await clearRewards(host.page);
   await mate.page.getByRole('button', { name: /^done$/i }).click();

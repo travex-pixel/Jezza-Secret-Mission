@@ -183,10 +183,10 @@ export default function BattleScreen() {
           <Creature creature={me.creature} level={me.level} colorway={me.equipped.colorway} equipped={me.equipped} state="idle" style={{ height: 150, zIndex: 1 }} />
         </div>
         {outgoing ? (
-          <div className="panel panel-gold pad center stack-6"><div className="bold">Waiting for {names[outgoing.opponentId]?.nick} to accept…</div><div className="tiny faint">Challenges expire after 2 minutes.</div><Button variant="ghost" onClick={() => setPicking(true)}>Challenge someone else</Button></div>
+          <div className="panel panel-gold pad center stack-6"><div className="bold">Waiting for {names[outgoing.opponentId]?.nick} to accept…</div><div className="tiny faint">Fight requests expire after 2 minutes.</div><Button variant="ghost" onClick={() => setPicking(true)}>Challenge someone else</Button></div>
         ) : (
           <>
-            <Button onClick={() => setPicking(true)} disabled={!liveEvent}>⚔️ Challenge a mate</Button>
+            <Button onClick={() => setPicking(true)} disabled={!liveEvent}>⚔️ Fight a mate</Button>
             <div className="center tiny faint">Quick battles: pick a game plan, one charge-up tap, then watch it play out. About 10 seconds.</div>
             {!liveEvent && <div className="center tiny faint">Battles open when the host starts the event. Practice meanwhile.</div>}
             <Button variant="secondary" onClick={() => setShowPractice(true)}>Practice vs a sparring bot</Button>

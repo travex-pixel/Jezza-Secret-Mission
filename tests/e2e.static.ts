@@ -35,7 +35,7 @@ server.listen(PORT, async () => {
   await page.locator('.pick-card').first().click();
   await page.getByRole('button', { name: /adopt/i }).click();
   await page.waitForTimeout(2000);
-  await page.getByRole('button', { name: /first mission/i }).click();
+  await page.getByRole('button', { name: /first challenge/i }).click();
   await page.getByRole('button', { name: /i did it/i }).click();
   await page.waitForSelector('.reward'); await page.locator('.reward').click();
   await page.waitForSelector('.bottom-nav');
@@ -45,7 +45,7 @@ server.listen(PORT, async () => {
   const legends = await page.locator('.topbar .pill').textContent();
   check(/15 legends/.test(legends ?? ''), `bots joined the party you host (${legends?.trim()})`);
   await page.locator('.bottom-nav').getByRole('button', { name: 'Battle' }).click();
-  await page.getByRole('button', { name: /challenge a mate/i }).click();
+  await page.getByRole('button', { name: /fight a mate/i }).click();
   await page.locator('.sheet .list-row').first().click();
   await page.waitForSelector('.plans', { timeout: 8000 });
   await page.locator('.plan-btn.plan-balanced').click(); await page.waitForSelector('.pt-screen'); await page.waitForTimeout(650); await page.locator('.pt-screen').click({ position: { x: 20, y: 200 } });

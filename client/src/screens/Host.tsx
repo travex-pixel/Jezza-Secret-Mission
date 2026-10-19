@@ -123,7 +123,7 @@ export default function Host() {
                 <Button size="xs" variant="ghost" onClick={() => host({ kind: 'deleteCode', code: c.code })}>Delete</Button>
               </div>))}
             <div className="divider" />
-            <div className="eyebrow">Group missions</div>
+            <div className="eyebrow">Group challenges</div>
             {GROUP_MISSIONS.map((m) => { const on = party.revealedGroupMissions.includes(m.id); return <div key={m.id} className="list-row"><span className="grow"><div className="bold">{m.title} <span className="tiny faint">+{m.points}</span></div><div className="tiny dim">{m.instruction}</div></span>{on ? <span className="pill pill-xs pill-ok">live</span> : <Button size="xs" onClick={() => host({ kind: 'revealGroupMission', missionId: m.id })}>Reveal</Button>}</div>; })}
             <div className="divider" />
             <div className="eyebrow">Host PIN</div>
@@ -194,9 +194,9 @@ export default function Host() {
           <div className="stack-10">
             <div className="row" style={{ gap: 6 }}><input className="input" style={{ minHeight: 44, fontSize: 15 }} value={rename} onChange={(e) => setRename(e.target.value)} maxLength={16} /><Button size="sm" variant="secondary" onClick={() => host({ kind: 'renamePlayer', playerId: target.id, nickname: rename })}>Rename</Button></div>
             <div className="row" style={{ gap: 6 }}><input className="input" style={{ minHeight: 44, fontSize: 15, width: 80, flex: '0 0 80px' }} type="number" value={grant} onChange={(e) => setGrant(e.target.value)} /><input className="input" style={{ minHeight: 44, fontSize: 15 }} placeholder="reason (e.g. best speech)" value={reason} onChange={(e) => setReason(e.target.value)} /><Button size="sm" variant="secondary" onClick={() => host({ kind: 'grantPoints', playerId: target.id, points: Number(grant), reason })}>Grant</Button></div>
-            <div className="eyebrow">Reset a completed mission</div>
+            <div className="eyebrow">Reset a completed challenge</div>
             <div className="scroll-y stack-6" style={{ maxHeight: 140 }}>
-              {Object.entries(target.categoryCounts).length === 0 && <div className="tiny faint">No completed missions.</div>}
+              {Object.entries(target.categoryCounts).length === 0 && <div className="tiny faint">No completed challenges.</div>}
               {party.feed.filter((f) => f.kind === 'mission' && f.playerId === target.id).slice(-8).reverse().map((f) => { const title = f.text.match(/"([^"]+)"/)?.[1]; const m = title ? Object.values(MISSION_BY_ID).find((x) => x.title === title) : undefined; return m ? <div key={f.id} className="list-row"><span className="grow small">{m.title}</span><Button size="xs" variant="secondary" onClick={() => host({ kind: 'resetClaim', playerId: target.id, missionId: m.id })}>Reset</Button></div> : null; })}
             </div>
             {party.groomId !== target.id && <Button size="sm" variant="secondary" onClick={() => { host({ kind: 'setGroom', playerId: target.id }); setTarget(null); }}>🤵 This is Jezza (the groom)</Button>}

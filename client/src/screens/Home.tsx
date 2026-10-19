@@ -6,6 +6,7 @@ import { BOSSES } from '@shared/raid';
 import { Creature } from '../components/Creature';
 import { MissionCard } from '../components/MissionCard';
 import { EpicCard } from '../components/EpicCard';
+import HowItWorksSheet from '../components/HowItWorks';
 import { Button, ConnectionPill, FeedItem, XPBar, useCountdown } from '../components/ui';
 import { useStore, useMe, useIsHost } from '../store';
 import { request } from '../net';
@@ -25,6 +26,7 @@ export default function Home() {
   const party = useStore((s) => s.party);
   const priv = useStore((s) => s.priv);
   const setTab = useStore((s) => s.setTab);
+  const [help, setHelp] = useState(false);
   const isHost = useIsHost();
   const raid = party?.raid?.status === 'active' && party.raid.endsAt > Date.now() ? party.raid : null;
   const raidLeft = useCountdown(raid?.endsAt);
@@ -61,12 +63,14 @@ export default function Home() {
 
   return (
     <div className="screen with-nav">
+      {help && <HowItWorksSheet onClose={() => setHelp(false)} />}
       <div className="topbar">
         <span className="row" style={{ gap: 8 }}>
           <span className="brand">PROJECT JEZZA</span>
           <span className={`pill pill-xs ${party.phase === 'lobby' ? '' : 'pill-gold'}`}>{PHASE_LABEL[party.phase]}</span>
         </span>
         <span className="row" style={{ gap: 8 }}>
+          <button className="pill" onClick={() => setHelp(true)} aria-label="How it works">❓</button>
           <ConnectionPill />
           {isHost && <button className="pill pill-gold" onClick={() => setTab('host')} aria-label="Host controls">👑{party.pendingApprovals ? ` ${party.pendingApprovals}` : ''}</button>}
         </span>

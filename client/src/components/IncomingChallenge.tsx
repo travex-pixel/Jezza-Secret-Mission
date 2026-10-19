@@ -27,7 +27,7 @@ export default function IncomingChallenge() {
   return (
     <Sheet center onClose={() => undefined}>
       <div className="center stack-10">
-        <div className="eyebrow">Incoming challenge</div>
+        <div className="eyebrow">Wants to fight you</div>
         <div className="display title-lg gold-text">{challenger?.nickname ?? 'A mate'}</div>
         <div className="row" style={{ justifyContent: 'center', gap: 16 }}>
           <Creature creature={incoming.a.creature} level={challenger?.level} colorway={challenger?.equipped.colorway} equipped={challenger?.equipped} state="attack" style={{ width: 110 }} />

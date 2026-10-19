@@ -1290,7 +1290,7 @@ export class Engine {
     const party = this.partyOf(playerId); const p = party?.players[playerId]; const o = party?.players[opponentId];
     if (!party || !p || p.removed) return this.fail('Join a party first.');
     if (!this.activePhase(party)) return this.fail('Battles open once the host starts the event.');
-    if (!o || o.removed || o.id === p.id) return this.fail('Pick a mate to challenge.');
+    if (!o || o.removed || o.id === p.id) return this.fail('Pick a mate to fight.');
     if (!p.creature || !o.creature) return this.fail('Both legends need a creature first.');
     if (this.liveBattleFor(party, p.id)) return this.fail('You are already in a battle.');
     if (this.liveBattleFor(party, o.id)) return this.fail(`${o.nickname} is already battling.`);
@@ -1310,7 +1310,7 @@ export class Engine {
   private respondChallenge(playerId: string, battleId: string, accept: boolean): HandleResult {
     const party = this.partyOf(playerId);
     const b = party?.battles[battleId];
-    if (!party || !b || b.status !== 'challenge' || b.opponentId !== playerId) return this.fail('No challenge to answer.');
+    if (!party || !b || b.status !== 'challenge' || b.opponentId !== playerId) return this.fail('No fight request to answer.');
     const now = this.now();
     if (!accept) { b.status = 'declined'; b.finishedAt = now; return this.ok(party, undefined, [{ to: b.challengerId, msg: { type: 'toast', text: `${party.players[playerId]?.nickname} declined. Cowardice noted.`, emoji: '🐔', tone: 'warn' } }]); }
     if (this.liveBattleFor(party, playerId)?.id !== b.id && this.liveBattleFor(party, playerId)) return this.fail('You are already in a battle.');

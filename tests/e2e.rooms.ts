@@ -13,8 +13,8 @@ async function onboard(page: Page) {
   await page.locator('.pick-card').first().click();
   await page.getByRole('button', { name: /adopt/i }).click();
   await page.waitForTimeout(2000);
-  await page.getByRole('button', { name: /first mission/i }).click();
-  await page.getByRole('button', { name: /skip for now/i }).click();
+  await page.getByRole('button', { name: /first challenge/i }).click();
+  await page.getByRole('button', { name: /show me the lobby/i }).click();
   await page.waitForSelector('.bottom-nav');
 }
 async function partyCode(page: Page) {

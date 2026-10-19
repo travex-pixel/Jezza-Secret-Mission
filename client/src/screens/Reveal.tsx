@@ -54,7 +54,7 @@ export default function Reveal() {
             <input className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={16} placeholder={def.defaultName} enterKeyHint="done" onKeyDown={(e) => e.key === 'Enter' && go()} />
           </label>
           {err && <div className="field-error">{err}</div>}
-          <Button onClick={go} disabled={busy || stage < 2}>{busy ? '…' : 'Take your first mission'}</Button>
+          <Button onClick={go} disabled={busy || stage < 2}>{busy ? '…' : 'Take your first challenge'}</Button>
         </div>
       </div>
     </div>

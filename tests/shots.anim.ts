@@ -26,7 +26,7 @@ async function onboard(browser: Browser, w: number, h: number, reduced = false):
   await page.getByRole('button', { name: /join the legends/i }).click();
   await page.waitForSelector('.pick-grid'); await page.locator('.pick-card').nth(0).click();
   await page.getByRole('button', { name: /adopt/i }).click(); await page.waitForTimeout(2000);
-  await page.getByRole('button', { name: /first mission/i }).click(); await page.getByRole('button', { name: /skip for now/i }).click();
+  await page.getByRole('button', { name: /first challenge/i }).click(); await page.getByRole('button', { name: /show me the lobby/i }).click();
   await page.waitForSelector('.bottom-nav');
   return { page, errors };
 }
@@ -105,7 +105,7 @@ async function main() {
     // a quick battle with a mate plays the same animation
     await page.locator('.bottom-nav').getByRole('button', { name: 'Battle' }).click();
     await page.screenshot({ path: path.join(OUT, `${vp}-battle-tab.png`) });
-    await page.getByRole('button', { name: /challenge a mate/i }).click();
+    await page.getByRole('button', { name: /fight a mate/i }).click();
     await page.locator('.sheet .list-row:not([disabled])').first().click();
     await page.waitForSelector('.plans', { timeout: 8000 });
     await page.locator('.plan-btn.plan-balanced').click(); await page.waitForSelector('.pt-screen'); await page.waitForTimeout(650); await page.locator('.pt-screen').click({ position: { x: 20, y: 200 } });

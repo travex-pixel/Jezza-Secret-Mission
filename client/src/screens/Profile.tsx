@@ -81,9 +81,7 @@ export default function Profile() {
         </div>
 
         <div className="tabs" style={{ overflowX: 'auto' }}>
-          <button className={`tab ${slot === 'colour' ? 'on' : ''}`} onClick={() => setSlot('colour')}>🎨</button>
-          {SLOTS.map((s) => <button key={s.slot} className={`tab ${slot === s.slot ? 'on' : ''}`} onClick={() => setSlot(s.slot)} aria-label={s.label}>{s.ico}</button>)}
-          <button className={`tab ${slot === 'badges' ? 'on' : ''}`} onClick={() => setSlot('badges')}>🏅</button>
+          {[{ slot: 'colour' as const, label: 'Colour', ico: '🎨' }, ...SLOTS, { slot: 'badges' as const, label: 'Badges', ico: '🏅' }].map((s) => <button key={s.slot} className={`tab tab-ico ${slot === s.slot ? 'on' : ''}`} onClick={() => setSlot(s.slot)} aria-label={s.label}>{s.ico}<small>{s.label}</small></button>)}
         </div>
 
         <div className="scroll-y grow" style={{ minHeight: 0 }}>

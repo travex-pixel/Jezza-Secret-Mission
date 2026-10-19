@@ -61,7 +61,7 @@ async function run() {
     await page.getByRole('button', { name: /adopt/i }).click();
     await page.waitForTimeout(2200);
     await shot(page, vp, '04-reveal');
-    await page.getByRole('button', { name: /first mission/i }).click();
+    await page.getByRole('button', { name: /first challenge/i }).click();
     await page.waitForSelector('.mission-card');
     await shot(page, vp, '05-first-mission');
     await page.getByRole('button', { name: /i did it/i }).click();
@@ -70,11 +70,11 @@ async function run() {
     await page.locator('.reward').click();
     await page.waitForSelector('.bottom-nav');
     await shot(page, vp, '07-lobby');
-    await page.locator('.bottom-nav').getByRole('button', { name: 'Missions' }).click();
+    await page.locator('.bottom-nav').getByRole('button', { name: 'Challenges' }).click();
     await shot(page, vp, '08-missions');
     await page.locator('.bottom-nav').getByRole('button', { name: 'Battle' }).click();
     await page.waitForTimeout(300);
-    await page.getByRole('button', { name: /challenge a mate/i }).click();
+    await page.getByRole('button', { name: /fight a mate/i }).click();
     await page.locator('.sheet .list-row').first().click();
     await page.waitForSelector('.plans', { timeout: 8000 });
     await page.waitForTimeout(900);

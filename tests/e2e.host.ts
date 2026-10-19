@@ -37,8 +37,8 @@ async function main() {
   await page.getByText(/groom only/i).waitFor(); // "HostJezza" counts as the groom
   await page.getByRole('button', { name: /adopt/i }).click();
   await page.waitForTimeout(2000);
-  await page.getByRole('button', { name: /first mission/i }).click();
-  await page.getByRole('button', { name: /skip for now/i }).click();
+  await page.getByRole('button', { name: /first challenge/i }).click();
+  await page.getByRole('button', { name: /show me the lobby/i }).click();
   await page.waitForSelector('.bottom-nav');
   await page.locator('.quick-btn', { hasText: 'Party' }).click();
   const code = (await page.locator('.code-display').textContent())!.trim();
@@ -170,7 +170,7 @@ async function main() {
   if (wid) {
     const hostId = await page.evaluate(() => JSON.parse(localStorage.getItem('jezza.identity.v1')!).playerId);
     await m2.req({ type: 'claimMission', missionId: wid, claimId: 'host_e2e_wit_01', witnessId: hostId });
-    await page.locator('.bottom-nav').getByRole('button', { name: 'Missions' }).click();
+    await page.locator('.bottom-nav').getByRole('button', { name: 'Challenges' }).click();
     await page.waitForSelector('.panel-gold', { timeout: 5000 });
     check((await page.getByText(/Did you see it\?/).count()) === 1, 'host sees the witness request card');
     await page.screenshot({ path: path.join(OUT, 'witness-request.png') });
