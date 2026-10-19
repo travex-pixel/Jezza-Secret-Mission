@@ -17,6 +17,7 @@ function setup(n = 15) {
   for (let i = 1; i < n; i++) expect(eng.handle(ids[i], { type: 'joinParty', reqId: 'j', code, nickname: `Mate${i}` }).ack?.ok).toBe(true);
   const creatures = ['dragon', 'wombat', 'possum', 'owl', 'goblin', 'sprite', 'barrel', 'fox'] as const;
   ids.forEach((id, i) => expect(eng.handle(id, { type: 'chooseCreature', reqId: 'c', creature: creatures[i % 8] }).ack?.ok).toBe(true));
+  eng.state.parties[code].photoMode = 'instant'; // the vote/host photo modes have their own tests
   return { eng, ids, code, party: () => eng.state.parties[code], advance: (ms: number) => { t += ms; } };
 }
 
@@ -58,7 +59,7 @@ describe('engine', () => {
     expect(eng.handle(ids[3], { type: 'claimMission', reqId: 'x', missionId: notInHand.id, claimId: 'claim-nih-1' }).ack?.ok).toBe(false);
     expect(JSON.stringify(eng.publicView(party(), ids[5]))).not.toContain('"hand"');
   });
-  it('witness claims wait for the named mate; photo claims pay out straight away', () => {
+  it('witness claims wait for the named mate; photo claims pay out straight away in instant mode', () => {
     const { eng, ids, party } = setup();
     const p = party().players[ids[2]];
     p.hand = [{ missionId: WIT[0].id, assignedAt: 0, status: 'active' }, { missionId: PHOTO_M[0].id, assignedAt: 0, status: 'active' }];
@@ -138,7 +139,7 @@ describe('engine', () => {
     expect(party().phase).toBe('friday');
     eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'setPhase', phase: 'finale' } });
     const view = eng.publicView(party());
-    expect(view.awards.length).toBe(11);
+    expect(view.awards.length).toBe(14);
     expect(view.awards!.find((a) => a.id === 'unhinged')!.playerId).toBeNull();
     eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'setAward', awardId: 'unhinged', playerId: ids[3] } });
     expect(eng.publicView(party()).awards!.find((a) => a.id === 'unhinged')!.playerId).toBe(ids[3]);

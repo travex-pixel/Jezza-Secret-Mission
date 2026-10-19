@@ -207,7 +207,7 @@ async function main() {
   await mates[0].req({ type: 'claimMission', missionId: 'g03', claimId: `g2_${run}` }).then(() => check(false, 'group challenge cannot be claimed twice'), () => check(true, 'group challenge cannot be claimed twice'));
   await host.req({ type: 'host', action: { kind: 'setPhase', phase: 'saturday' } });
   await host.req({ type: 'host', action: { kind: 'setPhase', phase: 'finale' } });
-  check(await until(() => (mates[0].party!.awards?.length ?? 0) === 11), 'finale computes 11 awards from play data');
+  check(await until(() => (mates[0].party!.awards?.length ?? 0) === 14), 'finale computes 14 awards from play data');
   const legend = mates[0].party!.awards!.find((x) => x.id === 'legend')!;
   const top = [...mates[0].party!.players].sort((x, y) => y.points - x.points)[0];
   check(legend.playerId === top.id, `Overall Legend = top scorer (${top.nickname}, ${top.points} pts)`);

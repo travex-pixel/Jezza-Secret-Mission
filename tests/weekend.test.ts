@@ -15,6 +15,7 @@ function setup(names = ['Travis', 'Jezza', 'Tommo', 'Big Dave', 'Nath', 'Shorty'
   ids.slice(1).forEach((id, i) => eng.handle(id, { type: 'joinParty', reqId: 'j', code, nickname: names[i + 1] }));
   ids.forEach((id, i) => eng.handle(id, { type: 'chooseCreature', reqId: 'c', creature: (['dragon', 'wombat', 'possum', 'owl', 'goblin', 'fox'] as const)[i % 6] }));
   const party = () => eng.state.parties[code];
+  party().photoMode = 'instant'; // these tests cover the instant flow; vote/host modes have their own tests
   const advance = (ms: number) => { t += ms; };
   const give = (id: string, missionId: string) => { party().players[id].hand = [{ missionId, assignedAt: t, status: 'active' }]; };
   return { eng, ids, code, party, advance, now: () => t, give };
@@ -37,7 +38,7 @@ describe('self-running weekend', () => {
     while (party().phase === 'friday') { advance(3600_000); eng.tick(); }
     expect(party().phase).toBe('saturday');
   });
-  it('photo challenges pay out instantly; the lads settle BS calls themselves', () => {
+  it('in instant mode photo challenges pay out straight away; the lads settle BS calls themselves', () => {
     const { eng, ids, party, give, advance } = setup();
     const photoM = MISSIONS.find((m) => m.method === 'photo' && m.scope === 'private')!;
     give(ids[2], photoM.id);

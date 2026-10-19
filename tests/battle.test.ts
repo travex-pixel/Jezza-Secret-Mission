@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { makeCreatureState, resolveRound, seededRng, MAX_ROUNDS } from '../shared/battle';
 import { CREATURE_IDS } from '../shared/creatures';
 import type { Battle, CreatureId } from '../shared/types';
-import { levelForXp, levelProgress, computeAwards, cosmeticsForLevel } from '../shared/progression';
+import { levelForXp, levelProgress, computeAwards, cosmeticsForLevel, AWARDS } from '../shared/progression';
 import { MISSIONS } from '../shared/missions';
 import { validateNickname } from '../shared/names';
 
@@ -74,13 +74,13 @@ describe('progression', () => {
   });
   it('awards are data driven and never hardcode a winner', () => {
     const base = { creature: 'dragon' as const, creatureName: 'x', level: 1, xp: 0, equipped: { colorway: 0 }, unlocked: [], achievements: [], wins: 0, losses: 0, title: '', online: true, isHost: false, joinedAt: 0, lastSeen: 0, categoryCounts: {}, witnessed: 0,
-      rating: 1000, streak: 0, bestStreak: 0, bounties: 0, laughs: 0, fires: 0, groomLoves: 0, wallVotes: 0, cellarCount: 0, cellarFires: 0, raidDamage: 0, raidsJoined: 0, lowKey: false, freshLegs: 0, joinedPhase: 'friday' as const };
+      rating: 1000, streak: 0, bestStreak: 0, bounties: 0, laughs: 0, fires: 0, groomLoves: 0, wallVotes: 0, cellarCount: 0, cellarFires: 0, raidDamage: 0, raidsJoined: 0, lowKey: false, freshLegs: 0, joinedPhase: 'friday' as const, h2h: {}, upsetLosses: 0, reactionsGiven: 0, autoBattles: true };
     const players = [
       { ...base, id: 'p1', nickname: 'Alpha', points: 100, missionsCompleted: 5, laughs: 7, categoryCounts: { dance: 2 } },
       { ...base, id: 'p2', nickname: 'Beta', points: 150, missionsCompleted: 2, wins: 3, rating: 1060, raidDamage: 400 },
     ];
     const awards = computeAwards(players as any, [], { unhinged: 'p1' });
-    expect(awards.length).toBe(11);
+    expect(awards.length).toBe(AWARDS.length);
     expect(awards.find((a) => a.id === 'legend')!.playerId).toBe('p2');
     expect(awards.find((a) => a.id === 'funniest')!.playerId).toBe('p1');
     expect(awards.find((a) => a.id === 'dance')!.playerId).toBe('p1');
@@ -88,6 +88,8 @@ describe('progression', () => {
     expect(awards.find((a) => a.id === 'slayer')!.playerId).toBe('p2');
     expect(awards.find((a) => a.id === 'unhinged')!.playerId).toBe('p1');
     expect(awards.find((a) => a.id === 'palate')!.playerId).toBeNull();
+    expect(awards.find((a) => a.id === 'menace')!.playerId).toBe('p1'); // lowest points
+    expect(awards[0].id).toBe('legend');
   });
 });
 

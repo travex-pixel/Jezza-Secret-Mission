@@ -180,6 +180,13 @@ export function finish(battle: Battle, winnerId: string, loserId: string, reason
   battle.roundDeadline = undefined;
 }
 
+/** How an avatar fights when nobody's holding the phone: same moves as a person, sensible odds. */
+export function autoPick(side: BattleCreatureState, rng: Rng): { action: BattleAction; tap: TapQuality } {
+  const action: BattleAction = side.specialCooldown === 0 && rng() < 0.35 ? 'special' : rng() < 0.72 ? 'attack' : 'counter';
+  const r = rng();
+  return { action, tap: action === 'counter' ? 'miss' : r < 0.15 ? 'perfect' : r < 0.5 ? 'good' : 'miss' };
+}
+
 /** Simple seeded RNG (mulberry32) for tests and replays. */
 export function seededRng(seed: number): Rng {
   let t = seed >>> 0;

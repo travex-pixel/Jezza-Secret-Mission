@@ -5,6 +5,7 @@ export type Phase = 'lobby' | 'friday' | 'saturday' | 'finale' | 'ended';
 export type MissionCategory = 'laugh' | 'dance' | 'sing' | 'photo' | 'jezza' | 'cheers' | 'sneaky' | 'chill' | 'group';
 export type Reaction = '😂' | '🔥' | '❤️';
 export type BossId = 'ibis' | 'hydra';
+export type PhotoMode = 'vote' | 'host' | 'instant';
 export type CompletionMethod = 'self' | 'photo' | 'witness' | 'host';
 export type MissionPhase = 'friday' | 'saturday' | 'any';
 export type CosmeticSlot = 'hat' | 'cape' | 'aura' | 'face' | 'pose';
@@ -65,6 +66,10 @@ export interface PlayerPublic {
   lowKey: boolean;     // no performing missions
   freshLegs: number;   // Saturday arrivals: double-points missions left
   joinedPhase: Phase;
+  h2h: Record<string, { w: number; l: number }>; // head-to-head record vs each mate
+  upsetLosses: number;     // lost to someone rated well below you
+  reactionsGiven: number;
+  autoBattles: boolean;    // opt in/out of auto-battles
 }
 
 export interface MissionAssignment {
@@ -79,6 +84,8 @@ export interface PlayerPrivate {
   completedMissionIds: string[];
   rerollsLeft: number;
   rerollRefillAt: number;           // server time the next swap token arrives (0 = full)
+  away: AwayEvent[];                // things that happened while you weren't looking
+  awayBattles: Battle[];            // full records for the battles in `away`, for replays
   pendingWitness: WitnessRequest[]; // requests where this player is the witness
   honourCooldownUntil: number;      // server time after which the next honour-system claim is allowed
   flagged: string[];                // claim ids this player has already called BS on
@@ -103,6 +110,9 @@ export interface Claim {
   resolvedAt?: number;
   flags?: string[]; // player ids who called BS
   backers?: string[]; // player ids who said "legit" on a disputed claim
+  review?: 'vote' | 'host'; // photo waiting on the lads' vote or the host
+  votesUp?: string[];
+  votesDown?: string[];
   disputedAt?: number;
   photoUrl?: string;
   witnessId?: string;
@@ -113,7 +123,7 @@ export interface Claim {
 export interface FeedEvent {
   id: string;
   at: number;
-  kind: 'join' | 'mission' | 'battle' | 'phase' | 'achievement' | 'unlock' | 'host' | 'group' | 'levelup' | 'raid' | 'evolve' | 'wall' | 'cellar';
+  kind: 'join' | 'mission' | 'battle' | 'phase' | 'achievement' | 'unlock' | 'host' | 'group' | 'levelup' | 'raid' | 'evolve' | 'wall' | 'cellar' | 'vote';
   text: string;
   playerId?: string;
   photoUrl?: string;
@@ -122,6 +132,21 @@ export interface FeedEvent {
   flags?: number;
   disputed?: boolean;
   reactions?: Partial<Record<Reaction, string[]>>; // player ids per reaction
+  battleId?: string;  // battle events can be replayed
+}
+
+export interface AwayEvent {
+  id: string;
+  at: number;
+  kind: 'auto';
+  battleId: string;
+  opponentId: string;
+  won: boolean;
+  close: boolean;
+  xp: number;
+  levelUp?: number;
+  evolved?: { from: number; to: number };
+  rivalry?: string;
 }
 
 export interface RaidLogLine { at: number; playerId: string; dmg: number; crit: boolean; source: 'hit' | 'mission' }
@@ -211,6 +236,7 @@ export interface Battle {
   loserId?: string;
   reason?: 'ko' | 'rounds' | 'timeout' | 'surrender' | 'disconnect';
   scored: boolean;
+  auto?: boolean;     // resolved automatically by the matchmaker
   bountyOn?: string; // the leader's id if the leader is in this fight
   rewards?: Record<string, { points: number; xp: number }>;
 }
@@ -245,6 +271,8 @@ export interface PartyPublic {
   wall: WallPost[];
   cellar: CellarEntry[];
   gallery: GalleryPhoto[];
+  photoMode: PhotoMode;
+  pendingPhotos: { claimId: string; playerId: string; missionId: string; url: string; at: number; up: string[]; down: string[] }[];
   autoSaturdayAt: number | null;
   nextGroupAt: number | null;
   phaseMissions: { friday: number; saturday: number };
@@ -290,6 +318,9 @@ export type ClientMessage =
   | { type: 'raidHit'; reqId: string; raidId: string; tap?: TapQuality }
   | { type: 'setPrefs'; reqId: string; lowKey: boolean }
   | { type: 'deletePhoto'; reqId: string; photoId: string }
+  | { type: 'votePhoto'; reqId: string; claimId: string; up: boolean }
+  | { type: 'ackAway'; reqId: string }
+  | { type: 'setAutoBattles'; reqId: string; on: boolean }
   | { type: 'surrender'; reqId: string; battleId: string }
   | { type: 'host'; reqId: string; action: HostAction }
   | { type: 'ping'; t: number };
@@ -312,7 +343,8 @@ export type HostAction =
   | { kind: 'purgePhotos' }
   | { kind: 'setHostPin'; pin: string }
   | { kind: 'setGroom'; playerId: string }
-  | { kind: 'summonRaid' };
+  | { kind: 'summonRaid' }
+  | { kind: 'setPhotoMode'; mode: PhotoMode };
 
 export type ServerMessage =
   | { type: 'welcome'; playerId: string; serverTime: number; inParty: boolean }

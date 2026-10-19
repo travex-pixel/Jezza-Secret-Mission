@@ -4,7 +4,7 @@
 import type {
   Battle, BattleAction, Claim, TapQuality, ClientMessage, CreatureId, Equipped, FeedEvent, HostAction, HostView,
   MissionAssignment, PartyPublic, Phase, PlayerPrivate, PlayerPublic, ServerMessage, WitnessRequest,
-  Raid, Reaction, WallPost, CellarEntry, GalleryPhoto,
+  Raid, Reaction, WallPost, CellarEntry, GalleryPhoto, PhotoMode, AwayEvent,
 } from './types';
 import { CREATURES, CREATURE_IDS, FORMS } from './creatures';
 import { MISSIONS, MISSION_BY_ID, STARTER_MISSION, GROUP_MISSIONS, missionAvailableInPhase, type Mission } from './missions';
@@ -14,7 +14,7 @@ import {
 } from './progression';
 import { isClean, validateCreatureName, validateNickname } from './names';
 import {
-  BATTLE_REWARDS, CHALLENGE_TTL_MS, MAX_SCORED_VS_SAME_OPPONENT, ROUND_SECONDS, TAP_BAR_MS, TAP_MULT, finish, makeCreatureState, redactBattle, resolveRound,
+  BATTLE_REWARDS, CHALLENGE_TTL_MS, MAX_SCORED_VS_SAME_OPPONENT, ROUND_SECONDS, TAP_BAR_MS, TAP_MULT, autoPick, finish, makeCreatureState, redactBattle, resolveRound,
 } from './battle';
 import {
   BOSSES, RAID_DURATION_MS, RAID_HIT_COOLDOWN_MS, RAID_HP_PER_PLAYER, RAID_MISSION_DMG_MULT, RAID_MVP_POINTS, RAID_REWARD, RAID_THRESHOLD,
@@ -29,6 +29,9 @@ export interface PlayerState extends PlayerPublic {
   lastHonourClaimAt: number;
   flagged: string[];
   rerollRefillAt: number;
+  away: AwayEvent[];       // auto-battle results waiting for the player to look
+  lastAutoAt: number;      // when this avatar last auto-battled
+  recentAuto: string[];    // last few auto-battle opponents (avoid repeats)
 }
 
 export interface PartyState {
@@ -56,6 +59,8 @@ export interface PartyState {
   wall: WallPost[];
   cellar: CellarEntry[];
   phaseMissions: { friday: number; saturday: number };
+  photoMode: PhotoMode;
+  nextAutoAt: number | null;
 }
 
 export interface EngineState {
@@ -109,6 +114,18 @@ const FIRST_GROUP_DELAY_MS = 20 * 60_000;
 export const FRESH_LEGS = 6;                    // Saturday arrivals: double points on their first 6 challenges
 const VARIETY_BONUS = 5;                        // first challenge in a new category
 const WALL_PER_PHASE = 3;
+const PHOTO_VOTES_NEEDED = 2;                   // 👍 or 👎 from two mates settles a photo
+const PHOTO_VOTE_TIMEOUT_MS = 20 * 60_000;      // unsettled votes resolve after 20 min (ties go to the snapper)
+const PHOTO_HOST_TIMEOUT_MS = 45 * 60_000;      // a photo the host never looks at is approved after 45 min
+// Auto-battles: every avatar fights roughly once per AUTO_TARGET_MS, whether its owner is online or not.
+const AUTO_TARGET_MS = 45 * 60_000;
+const FIRST_AUTO_DELAY_MS = 10 * 60_000;
+const AUTO_MAX_CATCHUP = 8;                     // most auto-battles resolved in one go after the server was asleep
+const AUTO_AVOID_RECENT = 3;                    // don't rematch any of your last 3 auto opponents if there's anyone else
+const AUTO_NEAR_RATING = 60;
+export const AUTO_REWARDS = { win: { points: 0, xp: 15 }, lose: { points: 0, xp: 8 } }; // XP + rating only, never weekend points
+const UPSET_GAP = 40;                           // losing to someone rated this much lower counts as a choke
+const AWAY_LIMIT = 20;
 const CELLAR_REWARDED_PER_PHASE = 3;
 
 /** Next Saturday 5:00am in Sydney after `from` (the party goes to Saturday on its own then). */
@@ -153,11 +170,15 @@ export class Engine {
       party.nextGroupAt ??= null;
       party.raids ??= []; party.wall ??= []; party.cellar ??= [];
       party.phaseMissions ??= { friday: 0, saturday: 0 };
+      party.photoMode ??= 'vote';
+      party.nextAutoAt ??= this.now() + FIRST_AUTO_DELAY_MS;
       for (const p of Object.values(party.players)) {
         p.rating ??= START_RATING; p.streak ??= 0; p.bestStreak ??= 0; p.bounties ??= 0;
         p.laughs ??= 0; p.fires ??= 0; p.groomLoves ??= 0; p.wallVotes ??= 0; p.cellarCount ??= 0; p.cellarFires ??= 0;
         p.raidDamage ??= 0; p.raidsJoined ??= 0; p.lowKey ??= false; p.freshLegs ??= 0; p.joinedPhase ??= 'friday';
         p.rerollRefillAt ??= 0;
+        p.h2h ??= {}; p.upsetLosses ??= 0; p.reactionsGiven ??= 0; p.autoBattles ??= true;
+        p.away ??= []; p.lastAutoAt ??= 0; p.recentAuto ??= [];
       }
     }
   }
@@ -211,7 +232,7 @@ export class Engine {
       feed: party.feed.slice(-40),
       revealedGroupMissions: party.revealedGroupMissions,
       battles,
-      pendingApprovals: Object.values(party.claims).filter((c) => (c.status === 'pending' && c.method === 'host') || c.status === 'disputed').length,
+      pendingApprovals: Object.values(party.claims).filter(needsHost).length,
       awards: computeAwards(players, Object.values(party.battles), party.awardOverrides),
       finalized: party.finalized,
       hasHostPin: !!party.hostPinHash,
@@ -221,6 +242,9 @@ export class Engine {
       wall: party.wall.filter((w) => !w.hidden).slice(-40),
       cellar: party.cellar.slice(-30),
       gallery,
+      photoMode: party.photoMode,
+      pendingPhotos: Object.values(party.claims).filter((c) => c.status === 'pending' && c.review === 'vote' && c.photoUrl)
+        .map((c) => ({ claimId: c.id, playerId: c.playerId, missionId: c.missionId, url: c.photoUrl!, at: c.createdAt, up: c.votesUp ?? [], down: c.votesDown ?? [] })),
       autoSaturdayAt: party.autoSaturdayAt,
       nextGroupAt: party.nextGroupAt,
       phaseMissions: party.phaseMissions,
@@ -242,12 +266,14 @@ export class Engine {
       pendingWitness,
       honourCooldownUntil: (p.lastHonourClaimAt ?? 0) + HONOUR_COOLDOWN_MS,
       flagged: p.flagged ?? [],
+      away: p.away,
+      awayBattles: unique(p.away.map((e) => e.battleId)).map((id) => party.battles[id]).filter(Boolean).map((b) => redactBattle(b, playerId)),
       secret: '',
     };
   }
 
   hostView(party: PartyState): HostView {
-    return { approvals: Object.values(party.claims).filter((c) => (c.status === 'pending' && c.method === 'host') || c.status === 'disputed').sort((a, b) => a.createdAt - b.createdAt) };
+    return { approvals: Object.values(party.claims).filter((c) => needsHost(c) || (c.status === 'pending' && c.review === 'vote')).sort((a, b) => a.createdAt - b.createdAt) };
   }
 
   // ---------- main dispatcher ----------
@@ -279,6 +305,9 @@ export class Engine {
         case 'raidHit': return this.raidHit(playerId, msg.raidId, msg.tap);
         case 'setPrefs': return this.setPrefs(playerId, !!msg.lowKey);
         case 'deletePhoto': return this.deletePhoto(playerId, msg.photoId);
+        case 'votePhoto': return this.votePhoto(playerId, msg.claimId, !!msg.up);
+        case 'ackAway': return this.ackAway(playerId);
+        case 'setAutoBattles': return this.setAutoBattles(playerId, !!msg.on);
         case 'surrender': return this.surrender(playerId, msg.battleId);
         case 'host': return this.hostAction(playerId, msg.action);
         default: res.ack = { ok: false, error: 'Unknown message.' }; return res;
@@ -317,7 +346,7 @@ export class Engine {
       code, name: (partyName ?? '').trim().slice(0, 40) || "Jezza's Bucks Weekend", hostId: playerId, phase: 'friday', missionsOpen: true,
       createdAt: now, players: {}, feed: [], claims: {}, revealedGroupMissions: [], battles: {}, awardOverrides: {}, finalized: false, fridayPoints: null, seq: 0,
       groomId: isJezza(v.name) ? playerId : null, autoSaturdayAt: nextSaturdayMorning(now), nextGroupAt: now + FIRST_GROUP_DELAY_MS,
-      raids: [], wall: [], cellar: [], phaseMissions: { friday: 0, saturday: 0 },
+      raids: [], wall: [], cellar: [], phaseMissions: { friday: 0, saturday: 0 }, photoMode: 'vote', nextAutoAt: now + FIRST_AUTO_DELAY_MS,
     };
     party.players[playerId] = newPlayer(playerId, v.name, now, true, 'friday');
     if (pin) party.hostPinHash = hashPin(code, pin);
@@ -538,7 +567,16 @@ export class Engine {
     if (mission.method === 'self' && !mission.starter && !isGroup) p.lastHonourClaimAt = now;
     party.claims[claimId] = claim;
     const direct: Outbound[] = [];
-    if (mission.method === 'self' || mission.method === 'photo') {
+    const others = Object.values(party.players).filter((x) => !x.removed && x.creature && x.id !== playerId).length;
+    if (mission.method === 'photo' && party.photoMode !== 'instant' && others > 0) {
+      // Photo check: the lads vote it in (or the host approves it). Nobody is ever stuck: it times out in the snapper's favour.
+      claim.review = party.photoMode; claim.votesUp = []; claim.votesDown = [];
+      if (!isGroup) { const h = p.hand.find((x) => x.missionId === missionId)!; h.status = 'pending'; h.claimId = claimId; }
+      if (claim.review === 'vote') {
+        this.feed(party, { kind: 'vote', text: `${p.nickname} reckons they nailed "${mission.title}". Legit?`, playerId: p.id, photoUrl: claim.photoUrl, emoji: '🗳️', claimId: claim.id });
+        direct.push({ to: 'party', msg: { type: 'toast', text: `${p.nickname} posted a photo. Vote it in 👍 or bin it 👎`, emoji: '🗳️', tone: 'info' } });
+      } else direct.push({ to: party.hostId, msg: { type: 'toast', text: `${p.nickname} sent a photo for "${mission.title}". Check your queue.`, emoji: '📥', tone: 'info' } });
+    } else if (mission.method === 'self' || mission.method === 'photo') {
       this.approveClaim(party, claim, direct); // self-service: points land straight away, mates can call BS
     } else {
       if (!isGroup) { const h = p.hand.find((x) => x.missionId === missionId)!; h.status = 'pending'; h.claimId = claimId; }
@@ -707,11 +745,16 @@ export class Engine {
       }
       return;
     }
+    const wasReview = !!claim.review;
+    if (wasReview) party.feed = party.feed.filter((f) => !(f.kind === 'vote' && f.claimId === claim.id));
     if (approve) {
       this.approveClaim(party, claim, direct);
       if (resolver && claim.method === 'witness') { resolver.witnessed += 1; this.checkAchievements(party, resolver, direct); }
+      if (wasReview && by === 'mates') this.feed(party, { kind: 'host', text: `The lads voted ${owner?.nickname}'s photo in 👍`, emoji: '🗳️' });
     } else {
       claim.status = 'rejected'; claim.resolvedAt = this.now();
+      if (wasReview && claim.photoUrl) { this.deletePhotos([claim.photoUrl]); claim.photoUrl = undefined; }
+      if (wasReview) this.feed(party, { kind: 'host', text: by === 'mates' ? `The lads binned ${owner?.nickname}'s photo for "${mission?.title}" 👎. Have another crack.` : `The host sent back ${owner?.nickname}'s photo for "${mission?.title}". Have another crack.`, emoji: '🗳️' });
       if (owner) {
         const h = owner.hand.find((x) => x.missionId === claim.missionId);
         if (h) { h.status = 'active'; h.claimId = undefined; }
@@ -782,6 +825,7 @@ export class Engine {
     const list = (ev.reactions[emoji] = ev.reactions[emoji] ?? []);
     if (list.includes(playerId)) return { ack: { ok: true, data: { already: true } }, changed: false, direct: [] };
     list.push(playerId);
+    p.reactionsGiven += 1;
     const owner = party.players[ev.playerId];
     const direct: Outbound[] = [];
     if (owner) {
@@ -836,6 +880,7 @@ export class Engine {
     }
     if (post.votes.includes(playerId)) return { ack: { ok: true, data: { already: true } }, changed: false, direct: [] };
     post.votes.push(playerId);
+    p.reactionsGiven += 1;
     if (author) {
       author.wallVotes += 1;
       if (post.votes.length <= 10) this.grant(party, author, 2, 0, direct);
@@ -890,6 +935,7 @@ export class Engine {
     if (e.playerId === playerId) return this.fail('Can\'t 🔥 your own review.');
     if (e.fires.includes(playerId)) return { ack: { ok: true, data: { already: true } }, changed: false, direct: [] };
     e.fires.push(playerId);
+    p.reactionsGiven += 1;
     const author = party.players[e.playerId];
     if (author) author.cellarFires += 1;
     return this.ok(party);
@@ -903,6 +949,7 @@ export class Engine {
     const entry = party.cellar.find((e) => e.id === photoId);
     const url = claim?.photoUrl ?? entry?.photoUrl;
     if (!url) return this.fail('That photo is already gone.');
+    if (claim?.status === 'pending' && claim.review) this.withdrawPending(party, claim);
     if (claim) claim.photoUrl = undefined;
     if (entry) entry.photoUrl = undefined;
     for (const f of party.feed) if (f.photoUrl === url) f.photoUrl = undefined;
@@ -910,6 +957,117 @@ export class Engine {
     const ownerName = party.players[claim?.playerId ?? entry?.playerId ?? '']?.nickname;
     this.feed(party, { kind: 'host', text: ownerName && ownerName !== p.nickname ? `${p.nickname} took down a photo of ${ownerName}'s. Points stay.` : `${p.nickname} took down one of their photos.`, emoji: '🗑️' });
     return this.ok(party);
+  }
+
+  // ---------- Photo checks ----------
+  private votePhoto(playerId: string, claimId: string, up: boolean): HandleResult {
+    const party = this.partyOf(playerId); const p = party?.players[playerId];
+    if (!party || !p || p.removed) return this.fail('Join a party first.');
+    const claim = party.claims[claimId];
+    if (!claim || claim.status !== 'pending' || claim.review !== 'vote') return this.fail('That vote is already settled.');
+    if (claim.playerId === playerId) return this.fail('Voting on your own photo? Classic.');
+    claim.votesUp = (claim.votesUp ?? []).filter((x) => x !== playerId);
+    claim.votesDown = (claim.votesDown ?? []).filter((x) => x !== playerId);
+    (up ? claim.votesUp : claim.votesDown).push(playerId);
+    const voters = Object.values(party.players).filter((x) => !x.removed && x.creature && x.id !== claim.playerId).length;
+    const need = Math.max(1, Math.min(PHOTO_VOTES_NEEDED, voters));
+    const direct: Outbound[] = [];
+    if (claim.votesUp.length >= need) this.resolve(party, claim, true, direct, undefined, 'mates');
+    else if (claim.votesDown.length >= need) this.resolve(party, claim, false, direct, undefined, 'mates');
+    return this.ok(party, { status: claim.status }, direct);
+  }
+
+  /** A pending photo that gets deleted or purged: hand the challenge back, no points either way. */
+  private withdrawPending(party: PartyState, claim: Claim) {
+    claim.status = 'rejected'; claim.resolvedAt = this.now(); claim.note = 'Photo withdrawn';
+    party.feed = party.feed.filter((f) => !(f.kind === 'vote' && f.claimId === claim.id));
+    const h = party.players[claim.playerId]?.hand.find((x) => x.claimId === claim.id);
+    if (h) { h.status = 'active'; h.claimId = undefined; }
+  }
+
+  // ---------- auto-battles ----------
+  private ackAway(playerId: string): HandleResult {
+    const party = this.partyOf(playerId); const p = party?.players[playerId];
+    if (!party || !p) return this.fail('Join a party first.');
+    if (!p.away.length) return { ack: { ok: true }, changed: false, direct: [] };
+    p.away = [];
+    return this.ok(party);
+  }
+
+  private setAutoBattles(playerId: string, on: boolean): HandleResult {
+    const party = this.partyOf(playerId); const p = party?.players[playerId];
+    if (!party || !p || p.removed) return this.fail('Join a party first.');
+    p.autoBattles = on;
+    return this.ok(party);
+  }
+
+  private autoEligible(party: PartyState): PlayerState[] {
+    return Object.values(party.players).filter((p) => !p.removed && p.creature && p.autoBattles && !this.liveBattleFor(party, p.id));
+  }
+
+  private autoInterval(eligible: number): number {
+    return (AUTO_TARGET_MS / Math.max(1, Math.floor(eligible / 2))) * (0.7 + this.rng() * 0.6);
+  }
+
+  /**
+   * The matchmaker. Runs from tick(); if the server was asleep it catches up on the battles it missed
+   * (capped), resolving them now with the same engine, the same moves and the same reward function.
+   */
+  private runAutoBattles(party: PartyState, now: number, direct: Outbound[]): boolean {
+    if (party.nextAutoAt == null) { party.nextAutoAt = now + FIRST_AUTO_DELAY_MS; return true; }
+    if (now < party.nextAutoAt) return false;
+    const pool = this.autoEligible(party);
+    if (!this.activePhase(party) || !party.missionsOpen || pool.length < 2) { party.nextAutoAt = now + this.autoInterval(Math.max(2, pool.length)); return true; }
+    const step = AUTO_TARGET_MS / Math.max(1, Math.floor(pool.length / 2));
+    const due = 1 + Math.floor((now - party.nextAutoAt) / step);
+    const count = Math.min(due, Math.max(3, Math.floor(pool.length / 2)), AUTO_MAX_CATCHUP);
+    const busy = new Set<string>();
+    for (let i = 0; i < count; i++) {
+      const pair = this.pickAutoPair(party, busy);
+      if (!pair) break;
+      busy.add(pair[0].id); busy.add(pair[1].id);
+      this.autoBattle(party, pair[0], pair[1], now, i, direct);
+    }
+    party.nextAutoAt = now + this.autoInterval(pool.length);
+    return true;
+  }
+
+  /** Longest-waiting avatar first; avoid recent rematches; usually (not always) someone of similar rating so upsets stay possible. */
+  private pickAutoPair(party: PartyState, busy: Set<string>): [PlayerState, PlayerState] | null {
+    const pool = this.autoEligible(party).filter((p) => !busy.has(p.id));
+    if (pool.length < 2) return null;
+    const jitter = new Map(pool.map((p) => [p.id, this.rng()]));
+    pool.sort((x, y) => x.lastAutoAt - y.lastAutoAt || jitter.get(x.id)! - jitter.get(y.id)!);
+    const a = pool[0];
+    const rest = pool.slice(1);
+    const fresh = rest.filter((p) => !a.recentAuto.includes(p.id) && !p.recentAuto.slice(-1).includes(a.id));
+    const cands = fresh.length ? fresh : rest;
+    const near = cands.filter((p) => Math.abs(p.rating - a.rating) <= AUTO_NEAR_RATING);
+    const from = near.length && this.rng() < 0.65 ? near : cands;
+    // among the chosen group, lean towards whoever has waited longest
+    const sorted = [...from].sort((x, y) => x.lastAutoAt - y.lastAutoAt);
+    const b = sorted[Math.floor(this.rng() * Math.min(3, sorted.length))];
+    return [a, b];
+  }
+
+  private autoBattle(party: PartyState, pa: PlayerState, pb: PlayerState, now: number, i: number, direct: Outbound[]) {
+    const id = `ab_${now.toString(36)}_${i}_${Math.floor(this.rng() * 1e6).toString(36)}`;
+    const b: Battle = {
+      id, challengerId: pa.id, opponentId: pb.id, status: 'active', createdAt: now, startedAt: now, round: 1,
+      a: makeCreatureState(pa.id, pa.creature!, pa.level), b: makeCreatureState(pb.id, pb.creature!, pb.level), log: [], scored: true, auto: true,
+    };
+    const names = { [pa.id]: pa.creatureName || CREATURES[pa.creature!].name, [pb.id]: pb.creatureName || CREATURES[pb.creature!].name };
+    for (let guard = 0; b.status === 'active' && guard < 20; guard++) {
+      for (const side of [b.a, b.b]) { const pick = autoPick(side, this.rng); side.action = pick.action; side.tap = pick.tap; }
+      resolveRound(b, this.rng, names, now);
+    }
+    party.battles[id] = b;
+    for (const p of [pa, pb]) {
+      p.lastAutoAt = now;
+      const other = p === pa ? pb.id : pa.id;
+      p.recentAuto = [...p.recentAuto.filter((x) => x !== other), other].slice(-AUTO_AVOID_RECENT);
+    }
+    this.settleBattle(party, b, direct);
   }
 
   // ---------- Boss raids ----------
@@ -1061,14 +1219,17 @@ export class Engine {
 
   private settleBattle(party: PartyState, b: Battle, direct: Outbound[]) {
     const w = party.players[b.winnerId!]; const l = party.players[b.loserId!];
-    if (!w || !l) return;
+    if (!w || !l || b.rewards) return; // settled exactly once
     w.wins += 1; l.losses += 1;
     b.rewards = {};
+    const rivalry = b.reason === 'disconnect' ? undefined : this.recordH2H(w, l);
+    if (b.auto) { this.settleAuto(party, b, w, l, rivalry, direct); return; }
     const scored = b.scored && b.reason !== 'disconnect';
     let bountyText = '';
     if (scored) {
       w.scoredBattlesVs[l.id] = (w.scoredBattlesVs[l.id] ?? 0) + 1;
       l.scoredBattlesVs[w.id] = (l.scoredBattlesVs[w.id] ?? 0) + 1;
+      if (l.rating - w.rating >= UPSET_GAP) l.upsetLosses += 1;
       [w.rating, l.rating] = eloUpdate(w.rating, l.rating);
       w.streak += 1; w.bestStreak = Math.max(w.bestStreak, w.streak); l.streak = 0;
       const bounty = b.bountyOn === l.id;
@@ -1088,7 +1249,40 @@ export class Engine {
       this.checkAchievements(party, w, direct); this.checkAchievements(party, l, direct);
     }
     const how = b.reason === 'ko' ? 'knocked out' : b.reason === 'rounds' ? 'outlasted' : b.reason === 'surrender' ? 'accepted the surrender of' : 'outstayed';
-    this.feed(party, { kind: 'battle', text: `${w.creatureName} (${w.nickname}) ${how} ${l.creatureName} (${l.nickname})${bountyText}${scored ? (w.streak >= 3 ? ` · 🔥${w.streak} streak` : '') : ' (friendly)'}`, emoji: bountyText ? '👑' : '🏆' });
+    this.feed(party, { kind: 'battle', text: `${w.creatureName} (${w.nickname}) ${how} ${l.creatureName} (${l.nickname})${bountyText}${scored ? (w.streak >= 3 ? ` · 🔥${w.streak} streak` : '') : ' (friendly)'}`, emoji: bountyText ? '👑' : '🏆', battleId: b.id });
+    if (rivalry) this.feed(party, { kind: 'battle', text: rivalry, emoji: '⚔️' });
+  }
+
+  /** Head-to-head record. Returns a rivalry line every third meeting. */
+  private recordH2H(w: PlayerState, l: PlayerState): string | undefined {
+    const wr = (w.h2h[l.id] ??= { w: 0, l: 0 }); const lr = (l.h2h[w.id] ??= { w: 0, l: 0 });
+    wr.w += 1; lr.l += 1;
+    const met = wr.w + wr.l;
+    if (met < 3 || met % 3 !== 0) return undefined;
+    if (wr.w === wr.l) return `RIVALRY: ${w.nickname} and ${l.nickname} have met ${met} times. Dead level at ${wr.w} apiece.`;
+    const [lead, trail, x, y] = wr.w > wr.l ? [w, l, wr.w, wr.l] : [l, w, wr.l, wr.w];
+    return `RIVALRY: ${lead.nickname} leads ${trail.nickname} ${x}–${y} after ${met} meetings.`;
+  }
+
+  /** Auto-battle payout: XP (through the normal grant), rating, streaks and records. Never weekend points or bounties. */
+  private settleAuto(party: PartyState, b: Battle, w: PlayerState, l: PlayerState, rivalry: string | undefined, direct: Outbound[]) {
+    if (l.rating - w.rating >= UPSET_GAP) l.upsetLosses += 1;
+    [w.rating, l.rating] = eloUpdate(w.rating, l.rating);
+    w.streak += 1; w.bestStreak = Math.max(w.bestStreak, w.streak); l.streak = 0;
+    const rw = this.grant(party, w, AUTO_REWARDS.win.points, AUTO_REWARDS.win.xp, direct);
+    const rl = this.grant(party, l, AUTO_REWARDS.lose.points, AUTO_REWARDS.lose.xp, direct);
+    b.rewards = { [w.id]: { ...AUTO_REWARDS.win }, [l.id]: { ...AUTO_REWARDS.lose } };
+    const ws = b.a.playerId === w.id ? b.a : b.b;
+    const close = ws.hp / ws.maxHp < 0.25;
+    const at = this.now();
+    for (const [p, o, won, r] of [[w, l, true, rw], [l, w, false, rl]] as const) {
+      const ev: AwayEvent = { id: `aw_${b.id}_${p.id}`, at, kind: 'auto', battleId: b.id, opponentId: o.id, won, close, xp: won ? AUTO_REWARDS.win.xp : AUTO_REWARDS.lose.xp, levelUp: r.levelUp, evolved: r.evolved, rivalry };
+      p.away = [...p.away.filter((e) => e.id !== ev.id), ev].slice(-AWAY_LIMIT);
+      if (p.online) direct.push({ to: p.id, msg: { type: 'toast', text: won ? `Your ${p.creatureName} auto-battled ${o.nickname}'s ${o.creatureName} and WON (+${ev.xp} XP)` : `Your ${p.creatureName} auto-battled ${o.nickname}'s ${o.creatureName} and lost${close ? ' (close one)' : ''} (+${ev.xp} XP)`, emoji: won ? '🤖' : '🩹', tone: won ? 'success' : 'info' } });
+    }
+    const how = b.reason === 'ko' ? (close ? 'just edged out' : 'flattened') : 'outlasted';
+    this.feed(party, { kind: 'battle', text: `🤖 AUTO-BATTLE: ${w.creatureName} (${w.nickname}) ${how} ${l.creatureName} (${l.nickname})${w.streak >= 3 ? ` · 🔥${w.streak} streak` : ''}`, emoji: '🤖', battleId: b.id });
+    if (rivalry) this.feed(party, { kind: 'battle', text: rivalry, emoji: '⚔️' });
   }
 
   private surrender(playerId: string, battleId: string): HandleResult {
@@ -1138,10 +1332,13 @@ export class Engine {
         else party.nextGroupAt = null;
         dirty = true;
       }
-      // BS calls nobody backed get struck out
+      // BS calls nobody backed get struck out; photo checks nobody settled resolve in the snapper's favour
       for (const c of Object.values(party.claims)) {
         if (c.status === 'disputed' && c.disputedAt && now - c.disputedAt >= DISPUTE_TIMEOUT_MS) { this.resolve(party, c, false, direct, undefined, 'timeout'); dirty = true; }
+        if (c.status === 'pending' && c.review === 'vote' && now - c.createdAt >= PHOTO_VOTE_TIMEOUT_MS) { this.resolve(party, c, (c.votesUp?.length ?? 0) >= (c.votesDown?.length ?? 0), direct, undefined, 'timeout'); dirty = true; }
+        if (c.status === 'pending' && c.review === 'host' && now - c.createdAt >= PHOTO_HOST_TIMEOUT_MS) { this.resolve(party, c, true, direct, undefined, 'timeout'); dirty = true; }
       }
+      if (this.runAutoBattles(party, now, direct)) dirty = true;
       // Swap tokens refill; stale challenges rotate out
       for (const p of Object.values(party.players)) {
         if (p.removed) continue;
@@ -1300,11 +1497,18 @@ export class Engine {
       case 'purgePhotos': {
         const urls: string[] = [];
         for (const e of party.cellar) if (e.photoUrl) { urls.push(e.photoUrl); e.photoUrl = undefined; }
-        for (const c of Object.values(party.claims)) if (c.photoUrl) { urls.push(c.photoUrl); c.photoUrl = undefined; }
+        for (const c of Object.values(party.claims)) if (c.photoUrl) { if (c.status === 'pending' && c.review) this.withdrawPending(party, c); urls.push(c.photoUrl); c.photoUrl = undefined; }
         for (const f of party.feed) if (f.photoUrl) { if (!urls.includes(f.photoUrl)) urls.push(f.photoUrl); f.photoUrl = undefined; }
         this.deletePhotos(urls);
         this.feed(party, { kind: 'host', text: `The host deleted ${urls.length} photo${urls.length === 1 ? '' : 's'} from the server. What happens in the vineyard…`, emoji: '🗑️' });
         return this.ok(party, { deleted: urls.length });
+      }
+      case 'setPhotoMode': {
+        if (!['vote', 'host', 'instant'].includes(action.mode)) return this.fail('Unknown photo mode.');
+        party.photoMode = action.mode;
+        const label = { vote: 'Photos now go to a vote: two 👍 and they count.', host: 'Photos now go to the host for a tick.', instant: 'Photos now count straight away.' }[action.mode];
+        this.feed(party, { kind: 'host', text: label, emoji: '📸' });
+        return this.ok(party);
       }
       case 'transferHost': {
         const p = party.players[action.playerId];
@@ -1332,13 +1536,16 @@ function newPlayer(id: string, nickname: string, now: number, isHost: boolean, j
     missionsCompleted: 0, wins: 0, losses: 0, title: 'Fresh Legend', online: true, isHost, joinedAt: now, lastSeen: now, categoryCounts: {}, witnessed: 0,
     rating: START_RATING, streak: 0, bestStreak: 0, bounties: 0, laughs: 0, fires: 0, groomLoves: 0, wallVotes: 0,
     cellarCount: 0, cellarFires: 0, raidDamage: 0, raidsJoined: 0, lowKey: false, freshLegs: 0, joinedPhase,
+    h2h: {}, upsetLosses: 0, reactionsGiven: 0, autoBattles: true,
     hand: [], completedMissionIds: [], rerollsLeft: REROLLS_PER_PHASE, scoredBattlesVs: {}, missedRounds: 0, lastHonourClaimAt: 0, flagged: [], rerollRefillAt: 0,
+    away: [], lastAutoAt: 0, recentAuto: [],
   };
 }
 
 function toPublic(p: PlayerState): PlayerPublic {
-  const { hand, completedMissionIds, rerollsLeft, scoredBattlesVs, missedRounds, lastHonourClaimAt, flagged, rerollRefillAt, ...pub } = p;
+  const { hand, completedMissionIds, rerollsLeft, scoredBattlesVs, missedRounds, lastHonourClaimAt, flagged, rerollRefillAt, away, lastAutoAt, recentAuto, ...pub } = p;
   return pub;
 }
 
 function unique<T>(xs: T[]): T[] { return [...new Set(xs)]; }
+const needsHost = (c: Claim) => (c.status === 'pending' && (c.method === 'host' || c.review === 'host')) || c.status === 'disputed';

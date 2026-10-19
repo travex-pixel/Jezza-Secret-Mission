@@ -139,16 +139,19 @@ export const ACHIEVEMENT_BY_ID: Record<string, AchievementDef> = Object.fromEntr
 // ---------- Weekend awards (all from real play data, plus one host pick) ----------
 export interface AwardDef { id: string; name: string; blurb: string; hostPick?: boolean }
 export const AWARDS: AwardDef[] = [
-  { id: 'legend', name: 'Overall Legend', blurb: 'Most weekend points.' },
-  { id: 'funniest', name: 'Funniest Bloke', blurb: 'Most 😂 reactions from the lads.' },
-  { id: 'dance', name: 'Best Dancer', blurb: 'Most dance challenges done.' },
-  { id: 'photo', name: 'Best Photos', blurb: 'Most 🔥 reactions from the lads.' },
+  { id: 'legend', name: 'The Jezza Legend', blurb: 'Most weekend points. The undisputed champion.' },
+  { id: 'menace', name: 'The Weekend Menace', blurb: 'Fewest points. Somebody had to be.' },
+  { id: 'funniest', name: 'Funniest Bloke', blurb: 'Most 😂 from the lads.' },
+  { id: 'dance', name: 'Best Dance for Jezza', blurb: 'Most dance challenges.' },
+  { id: 'photo', name: 'Most Cooked Photo', blurb: 'Most 🔥 from the lads.' },
   { id: 'jezzafav', name: 'Jezza\'s Favourite', blurb: 'Most ❤️ from the groom himself.' },
-  { id: 'group', name: 'Best Group Effort', blurb: 'Most group challenges.' },
+  { id: 'hypeman', name: 'Best Hype Man', blurb: 'Backed the boys the most: confirmations and reactions.' },
   { id: 'roast', name: 'Roast Master', blurb: 'Most laughs on the Jezza Wall.' },
-  { id: 'champion', name: 'Creature Champion', blurb: 'Best battle record.' },
+  { id: 'choke', name: 'Biggest Choke', blurb: 'Most battles lost to someone he should\'ve beaten.' },
+  { id: 'champion', name: 'Creature of the Weekend', blurb: 'Best battle rating.' },
   { id: 'slayer', name: 'Boss Slayer', blurb: 'Most raid damage.' },
   { id: 'palate', name: 'Best Palate', blurb: 'Most 🔥 on Cellar reviews.' },
+  { id: 'group', name: 'Best Group Effort', blurb: 'Most group challenges.' },
   { id: 'unhinged', name: 'Most Unhinged', blurb: 'The host\'s call. No appeals.', hostPick: true },
 ];
 
@@ -159,24 +162,39 @@ export function computeAwards(players: PlayerPublic[], _battles: Battle[], overr
     for (const p of alive) { const s = score(p); if (s > bestS && s > 0) { best = p; bestS = s; } }
     return best ? { playerId: best.id, reason: fmt(best, bestS) } : { playerId: null, reason: 'Nobody yet. Get amongst it.' };
   };
+  const ranked = sortLeaderboard(alive);
   return AWARDS.map((a) => {
     let r: { playerId: string | null; reason: string };
     switch (a.id) {
       case 'legend': r = pick((p) => p.points, (_p, s) => `${s} points`); break;
+      case 'menace': { const last = ranked.length > 1 ? ranked[ranked.length - 1] : null; r = last ? { playerId: last.id, reason: `${last.points} points. Legendary effort. Somewhere.` } : { playerId: null, reason: 'Needs at least two legends.' }; break; }
       case 'funniest': r = pick((p) => p.laughs, (_p, s) => `${s} 😂`); break;
       case 'dance': r = pick((p) => cat(p, 'dance'), (_p, s) => `${s} dances`); break;
       case 'photo': r = pick((p) => p.fires, (_p, s) => `${s} 🔥`); break;
       case 'jezzafav': r = pick((p) => p.groomLoves, (_p, s) => `${s} ❤️ from Jezza`); break;
-      case 'group': r = pick((p) => cat(p, 'group'), (_p, s) => `${s} group challenges`); break;
+      case 'hypeman': r = pick((p) => p.witnessed * 2 + (p.reactionsGiven ?? 0), (p) => `${p.witnessed} confirmations, ${p.reactionsGiven ?? 0} reactions`); break;
       case 'roast': r = pick((p) => p.wallVotes, (_p, s) => `${s} laughs on the Wall`); break;
+      case 'choke': r = pick((p) => p.upsetLosses ?? 0, (_p, s) => `${s} upset loss${s === 1 ? '' : 'es'}`); break;
       case 'champion': r = pick((p) => (p.wins + p.losses ? p.rating : 0), (p) => `${p.wins}W ${p.losses}L · ${rankFor(p.rating).name}`); break;
       case 'slayer': r = pick((p) => p.raidDamage, (_p, s) => `${s} raid damage`); break;
       case 'palate': r = pick((p) => p.cellarFires, (_p, s) => `${s} 🔥 on drink reviews`); break;
+      case 'group': r = pick((p) => cat(p, 'group'), (_p, s) => `${s} group challenges`); break;
       default: r = { playerId: null, reason: 'Waiting on the host.' };
     }
     if (a.id in overrides) { const pid = overrides[a.id]; r = { playerId: pid, reason: pid ? 'The host has spoken.' : 'Withheld by the host.' }; }
     return { id: a.id, name: a.name, blurb: a.blurb, playerId: r.playerId, reason: r.reason, hostPick: a.hostPick || a.id in overrides };
   });
+}
+
+/** Funny titles from head-to-head records. */
+export function rivalries(p: PlayerPublic): { nemesis?: { id: string; w: number; l: number }; bunny?: { id: string; w: number; l: number } } {
+  let nemesis: { id: string; w: number; l: number } | undefined; let bunny: typeof nemesis;
+  for (const [id, r] of Object.entries(p.h2h ?? {})) {
+    if (r.w + r.l < 2) continue;
+    if (r.l > r.w && (!nemesis || r.l - r.w > nemesis.l - nemesis.w)) nemesis = { id, ...r };
+    if (r.w > r.l && (!bunny || r.w - r.l > bunny.w - bunny.l)) bunny = { id, ...r };
+  }
+  return { nemesis, bunny };
 }
 
 export function sortLeaderboard(players: PlayerPublic[]): PlayerPublic[] {

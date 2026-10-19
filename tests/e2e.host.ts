@@ -139,7 +139,7 @@ async function main() {
   await page.locator('.bottom-nav').getByRole('button', { name: 'Ranks' }).click();
   await page.waitForSelector('text=The Finale');
   for (let i = 0; i < 15 && (await page.getByRole('button', { name: /reveal/i }).count()); i++) { await page.getByRole('button', { name: /reveal/i }).click(); await sleep(200); }
-  check((await page.getByText(/To Jezza. To the legends./).count()) === 1, 'all 11 awards revealed on the finale screen');
+  check((await page.getByText(/To Jezza. To the legends./).count()) === 1, 'all 14 awards revealed on the finale screen');
   check((await page.locator('.panel', { hasText: 'Most Unhinged' }).getByText('Robbo').count()) === 1, 'host-picked award shows the chosen player');
   await page.screenshot({ path: path.join(OUT, 'finale.png') });
   await page.getByRole('button', { name: /final board/i }).click();
