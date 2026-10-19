@@ -4,7 +4,9 @@ A mobile-first, real-time multiplayer party game for Jezza's bucks weekend in th
 Mates join a shared vineyard from their phone browser, adopt an original creature, complete ridiculous
 missions, battle each other, and compete for weekend glory across Friday and Saturday.
 
-![Opening screen](docs/preview-opening.png)
+![Project Jezza](docs/social-card.jpg)
+
+<img src="docs/preview-opening.png" alt="Opening screen on a phone" width="260" />
 
 More screenshots at every tested viewport live in [`docs/screenshots/`](docs/screenshots/)
 (320×568, 360×640, 390×844, 412×915, plus `live/` from a real two-browser session).
@@ -73,6 +75,7 @@ npm start            # http://localhost:8787
 | --- | --- | --- |
 | `PORT` | `8787` | HTTP + WebSocket port |
 | `DATA_DIR` | `./data` | Where `state.json` and `photos/` are written. Put this on a persistent disk. |
+| `VITE_PUBLIC_URL` | *(empty)* | Build-time only. Absolute URL of the deployed site, used for the link-preview image when the URL is shared (e.g. `https://jezza.fly.dev`). |
 
 No API keys, no third-party accounts, no secrets are needed. `.env.example` documents the two variables.
 

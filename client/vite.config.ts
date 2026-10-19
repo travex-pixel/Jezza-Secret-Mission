@@ -5,11 +5,14 @@ import path from 'node:path';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
+// Absolute origin (+ base path, no trailing slash) used for link-preview tags, e.g. https://user.github.io/repo
+const publicUrl = (process.env.VITE_PUBLIC_URL ?? '').replace(/\/$/, '');
+
 export default defineConfig({
   root: here,
   // Set VITE_BASE=/repo-name/ for GitHub Pages; defaults to '/' for the Node server.
   base: process.env.VITE_BASE ?? '/',
-  plugins: [react()],
+  plugins: [react(), { name: 'public-url', transformIndexHtml: (html) => html.replaceAll('__PUBLIC_URL__', publicUrl) }],
   resolve: { alias: { '@shared': path.resolve(here, '../shared') } },
   server: {
     host: true,

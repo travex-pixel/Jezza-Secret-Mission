@@ -25,6 +25,7 @@ jobs:
         env:
           VITE_BASE: /${{ github.event.repository.name }}/
           VITE_STATIC_DEMO: '1'
+          VITE_PUBLIC_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
       - run: cp dist/client/index.html dist/client/404.html
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
