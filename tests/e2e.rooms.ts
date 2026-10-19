@@ -18,7 +18,7 @@ async function onboard(page: Page) {
   await page.waitForSelector('.bottom-nav');
 }
 async function partyCode(page: Page) {
-  await page.getByText(/Party →/).click();
+  await page.locator('.quick-btn', { hasText: 'Party' }).click();
   await page.waitForSelector('.code-display');
   return (await page.locator('.code-display').textContent())!.trim();
 }
@@ -61,7 +61,7 @@ async function main() {
   check(true, 'mate joined from the link by typing only a nickname');
 
   // Wrong PIN gets reported to the host
-  await phoneB.getByText(/Party →/).click();
+  await phoneB.locator('.quick-btn', { hasText: 'Party' }).click();
   await phoneB.getByRole('button', { name: /claim host/i }).click();
   await phoneB.locator('.modal input').fill('0000');
   await phoneB.locator('.modal').getByRole('button', { name: /^claim$/i }).click();

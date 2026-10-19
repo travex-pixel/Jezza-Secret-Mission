@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore, type Tab } from '../store';
-import type { FeedEvent } from '@shared/types';
+import { Creature } from './Creature';
+import { FORMS } from '@shared/creatures';
+import { REWARD_QUIPS } from '@shared/missions';
+import type { FeedEvent, Reaction } from '@shared/types';
 import { request } from '../net';
 import { levelProgress, COSMETIC_BY_ID, ACHIEVEMENT_BY_ID } from '@shared/progression';
 import { sfx, isMuted, toggleMuted, unlockAudio } from '../audio';
@@ -69,17 +72,46 @@ export function Sheet({ onClose, children, center }: { onClose: () => void; chil
 export function RewardOverlay() {
   const reward = useStore((s) => s.reward);
   const next = useStore((s) => s.nextReward);
-  useEffect(() => { if (reward) { sfx.reward(); buzz([20, 30, 40]); } }, [reward]);
+  const me = useStore((s) => s.party?.players.find((p) => p.id === s.identity.playerId));
+  const [evoStep, setEvoStep] = useState(0);
+  useEffect(() => {
+    if (!reward) return;
+    if (reward.evolved) { setEvoStep(0); sfx.sting(); buzz([60, 40, 60, 40, 160]); const a = setTimeout(() => setEvoStep(1), 1300); const b = setTimeout(() => { setEvoStep(2); sfx.reveal(); }, 2300); return () => { clearTimeout(a); clearTimeout(b); }; }
+    sfx.reward(); buzz([20, 30, 40]);
+  }, [reward]);
+  const quip = useMemo(() => REWARD_QUIPS[Math.floor(Math.random() * REWARD_QUIPS.length)], [reward]);
   const bursts = useMemo(() => Array.from({ length: 16 }, (_, i) => ({ dx: `${Math.cos((i / 16) * Math.PI * 2) * (120 + (i % 3) * 40)}px`, dy: `${Math.sin((i / 16) * Math.PI * 2) * (120 + (i % 3) * 40)}px` })), [reward]);
   if (!reward) return null;
+  if (reward.evolved && me?.creature) {
+    const to = reward.evolved.to as 1 | 2 | 3;
+    return createPortal(
+      <div className="reward" onClick={() => evoStep >= 2 && next()}>
+        <div className="eyebrow">{evoStep < 2 ? 'Wait… something\'s happening' : 'EVOLUTION'}</div>
+        <div style={{ position: 'relative', width: 'min(64vw, 260px)' }}>
+          <Creature creature={me.creature} colorway={me.equipped.colorway} equipped={me.equipped} stage={evoStep < 2 ? (reward.evolved.from as 1 | 2 | 3) : to} silhouette={evoStep === 1} state={evoStep === 0 ? 'happy' : evoStep === 2 ? 'evolve' : 'idle'} animKey={evoStep} className={evoStep === 0 ? 'twitch' : ''} />
+          {evoStep === 2 && <div className="evo-flash" />}
+        </div>
+        {evoStep >= 2 && <>
+          <div className="display title-lg gold-text fade-up">{me.creatureName} evolved!</div>
+          <div className="pill pill-gold fade-up delay-1">{FORMS[me.creature][reward.evolved.from - 1]} → {FORMS[me.creature][to - 1]}</div>
+          <div className="dim bold fade-up delay-2">+{reward.points} points · +{reward.xp} XP · {reward.title}</div>
+          {to === 2 && <div className="tiny faint fade-up delay-3" style={{ maxWidth: '30ch' }}>One more form to go. It unlocks at level 8{me.joinedPhase === 'friday' ? ', from Saturday' : ''}.</div>}
+          <div className="faint tiny fade-up delay-4" style={{ marginTop: 10 }}>tap to continue</div>
+        </>}
+      </div>,
+      document.body,
+    );
+  }
   return createPortal(
     <div className="reward" onClick={next}>
       {bursts.map((b, i) => <i key={i} className="burst" style={{ ['--dx' as any]: b.dx, ['--dy' as any]: b.dy, background: i % 2 ? 'var(--ember)' : 'var(--gold)' }} />)}
-      <div className="eyebrow fade-up">{reward.levelUp ? 'LEVEL UP!' : 'MISSION COMPLETE'}</div>
+      <div className="eyebrow fade-up">{reward.levelUp ? 'LEVEL UP!' : quip}</div>
       <div className="big gold-text">+{reward.points}</div>
-      <div className="display title-md fade-up delay-1">weekend points</div>
+      <div className="display title-md fade-up delay-1">points</div>
       <div className="pill pill-gold fade-up delay-2">+{reward.xp} XP {reward.levelUp ? `· now level ${reward.levelUp}` : ''}</div>
+      {reward.bonus && <div className="pill pill-ember fade-up delay-2">{reward.bonus}</div>}
       <div className="dim bold fade-up delay-2" style={{ maxWidth: '30ch' }}>{reward.title}</div>
+      {reward.capped && <div className="tiny faint fade-up delay-3" style={{ maxWidth: '30ch' }}>Friday XP cap reached: your creature's final form unlocks Saturday. Points still count.</div>}
       {!!reward.unlocked?.length && <div className="row fade-up delay-3" style={{ flexWrap: 'wrap', justifyContent: 'center' }}>{reward.unlocked.map((u) => <span key={u} className="pill pill-ember">🎁 {COSMETIC_BY_ID[u]?.name ?? u}</span>)}</div>}
       {!!reward.achievements?.length && <div className="row fade-up delay-3" style={{ flexWrap: 'wrap', justifyContent: 'center' }}>{reward.achievements.map((a) => <span key={a} className="pill pill-ok">🏅 {ACHIEVEMENT_BY_ID[a]?.name ?? a}</span>)}</div>}
       <div className="faint tiny fade-up delay-4" style={{ marginTop: 10 }}>tap to continue</div>
@@ -142,34 +174,44 @@ export function timeAgo(t: number) {
   return `${Math.round(h / 24)}d ago`;
 }
 
-/** A feed row. Mission completions by other players carry a "Call BS" button. */
+/** A feed row. Challenge completions by other players get reactions and a "Call BS" button. */
 export function FeedItem({ f, compact }: { f: FeedEvent; compact?: boolean }) {
   const me = useStore((s) => s.identity.playerId);
   const priv = useStore((s) => s.priv);
+  const groomId = useStore((s) => s.party?.groomId);
   const toast = useStore((s) => s.toast);
   const [busy, setBusy] = useState(false);
-  const canFlag = f.kind === 'mission' && !!f.claimId && f.playerId !== me && !f.disputed && Date.now() - f.at < 45 * 60_000;
+  const isMission = f.kind === 'mission' && !!f.claimId && !!f.playerId;
+  const mine = f.playerId === me;
+  const canFlag = isMission && !mine && !f.disputed && Date.now() - f.at < 45 * 60_000;
   const flagged = !!f.claimId && (priv?.flagged ?? []).includes(f.claimId);
-  const flag = async () => {
-    if (!f.claimId || busy) return;
-    setBusy(true);
-    try { const r = await request<{ flags: number; disputed: boolean }>({ type: 'flagClaim', claimId: f.claimId }); sfx.select(); toast(r.disputed ? 'BS called. The host decides.' : `Flagged. ${2 - r.flags} more and it goes to the host.`, '🚩', 'warn'); }
-    catch (e) { toast((e as Error).message, '🚩', 'warn'); }
+  const run = async (fn: () => Promise<unknown>, okText?: string, emoji = '✅') => {
+    if (busy) return; setBusy(true);
+    try { await fn(); sfx.select(); if (okText) toast(okText, emoji, 'success'); }
+    catch (e) { toast((e as Error).message, '⚠️', 'warn'); }
     finally { setBusy(false); }
   };
+  const flag = () => run(async () => { const r = await request<{ flags: number; disputed: boolean }>({ type: 'flagClaim', claimId: f.claimId! }); toast(r.disputed ? 'BS called. Points frozen.' : `Flagged. ${2 - r.flags} more and it's frozen.`, '🚩', 'warn'); });
+  const back = () => run(() => request({ type: 'backClaim', claimId: f.claimId! }), 'You backed it.', '🤝');
+  const react = (emoji: Reaction) => run(() => request({ type: 'react', eventId: f.id, emoji }));
+  const reactions: Reaction[] = groomId === me ? ['😂', '🔥', '❤️'] : ['😂', '🔥'];
   return (
     <div className="feed-item">
       <span className="emoji">{f.emoji ?? '•'}</span>
       <span className="grow" style={{ minWidth: 0 }}>
         <span className={compact ? 'ellipsis' : ''} style={{ display: 'block' }}>{f.text}</span>
-        {!compact && f.photoUrl && <img src={f.photoUrl} alt="Mission proof" loading="lazy" />}
-        <span className="row" style={{ gap: 8, marginTop: 2 }}>
+        {!compact && f.photoUrl && <img src={f.photoUrl} alt="Challenge photo" loading="lazy" />}
+        <span className="row" style={{ gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
           <time style={{ display: 'inline' }}>{timeAgo(f.at)}</time>
-          {f.disputed && <span className="pill pill-xs pill-ember">⚖️ with the host</span>}
+          {isMission && !compact && reactions.map((r) => { const n = f.reactions?.[r]?.length ?? 0; const on = !!f.reactions?.[r]?.includes(me); return (
+            <button key={r} className={`react-btn ${on ? 'on' : ''}`} disabled={busy || mine || on} onClick={() => react(r)} aria-label={`React ${r}`}>{r}{n ? ` ${n}` : ''}</button>); })}
+          {isMission && compact && !!(f.reactions?.['😂']?.length || f.reactions?.['🔥']?.length || f.reactions?.['❤️']?.length) && <span className="tiny faint">{(['😂', '🔥', '❤️'] as Reaction[]).map((r) => f.reactions?.[r]?.length ? `${r}${f.reactions[r]!.length}` : '').join(' ')}</span>}
+          {f.disputed && <span className="pill pill-xs pill-ember">⚖️ disputed</span>}
+          {f.disputed && !mine && !flagged && !compact && <button className="react-btn" disabled={busy} onClick={back}>🤝 Legit</button>}
           {!f.disputed && !!f.flags && <span className="tiny faint">🚩 {f.flags}</span>}
         </span>
       </span>
-      {canFlag && <button className="bs-btn" disabled={busy || flagged} onClick={flag} aria-label="Call BS on this completion">🚩 {flagged ? 'Called' : 'Call BS'}</button>}
+      {canFlag && !compact && <button className="bs-btn" disabled={busy || flagged} onClick={flag} aria-label="Call BS on this">🚩 {flagged ? 'Called' : 'BS'}</button>}
     </div>
   );
 }

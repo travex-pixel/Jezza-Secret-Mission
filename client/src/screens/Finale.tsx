@@ -9,7 +9,7 @@ export default function Finale() {
   const party = useStore((s) => s.party);
   const me = useMe();
   const [revealed, setRevealed] = useState(0);
-  const [view, setView] = useState<'awards' | 'board'>('awards');
+  const [view, setView] = useState<'awards' | 'board' | 'roasts'>('awards');
   const awards = party?.awards ?? [];
   useEffect(() => { if (revealed > 0) sfx.reward(); }, [revealed]);
   if (!party) return null;
@@ -24,7 +24,7 @@ export default function Finale() {
   return (
     <div className="screen with-nav">
       <div className="topbar"><h2 className="display title-md gold-text">{party.finalized ? 'Final results' : 'The Finale'}</h2><span className="pill pill-gold">{party.finalized ? '👑 FINAL' : 'live'}</span></div>
-      <div className="tabs" style={{ marginBottom: 10 }}><button className={`tab ${view === 'awards' ? 'on' : ''}`} onClick={() => setView('awards')}>Awards</button><button className={`tab ${view === 'board' ? 'on' : ''}`} onClick={() => setView('board')}>Final board</button></div>
+      <div className="tabs" style={{ marginBottom: 10 }}><button className={`tab ${view === 'awards' ? 'on' : ''}`} onClick={() => setView('awards')}>Awards</button><button className={`tab ${view === 'roasts' ? 'on' : ''}`} onClick={() => setView('roasts')}>Roast Reel</button><button className={`tab ${view === 'board' ? 'on' : ''}`} onClick={() => setView('board')}>Final board</button></div>
       <div className="screen-body scroll-y stack-10">
         {view === 'awards' && (
           <>
@@ -32,22 +32,31 @@ export default function Finale() {
               <div className="panel panel-gold pad-lg center stack-6 fade-up">
                 <div className="eyebrow">The weekend in numbers</div>
                 <div className="seg" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}><div className="stat"><b>{board.length}</b><span>legends</span></div><div className="stat"><b>{totalMissions}</b><span>missions</span></div><div className="stat"><b>{totalBattles}</b><span>battles</span></div></div>
-                <div className="small dim bold">Ten awards. One tap at a time. Make it dramatic.</div>
+                <div className="small dim bold">{awards.length} awards. One tap at a time. Make it dramatic.</div>
               </div>
             )}
             {shown.map((a, i) => { const p = party.players.find((x) => x.id === a.playerId); return (
               <div key={a.id} className={`panel pad row ${i === shown.length - 1 ? 'fade-up' : ''} ${a.id === 'legend' ? 'panel-gold' : ''}`} style={{ gap: 12 }}>
-                <span className="avatar lg">{p?.creature ? <Creature creature={p.creature} colorway={p.equipped.colorway} equipped={p.equipped} state={i === shown.length - 1 ? 'victory' : 'idle'} /> : <span style={{ fontSize: 22 }}>🫥</span>}</span>
+                <span className="avatar lg">{p?.creature ? <Creature creature={p.creature} level={p.level} colorway={p.equipped.colorway} equipped={p.equipped} state={i === shown.length - 1 ? 'victory' : 'idle'} /> : <span style={{ fontSize: 22 }}>🫥</span>}</span>
                 <span className="grow" style={{ minWidth: 0 }}><div className="eyebrow">{a.name}</div><div className="display title-md ellipsis">{p?.nickname ?? 'Nobody'}</div><div className="tiny dim">{a.reason}</div></span>
               </div>); })}
             {next ? <Button onClick={() => setRevealed((r) => r + 1)}>{revealed === 0 ? 'Reveal the first award' : `Reveal: ${next.name}`}</Button>
               : <div className="center stack-6 fade-up"><div style={{ fontSize: 36 }}>🥂</div><div className="display title-md gold-text">To Jezza. To the legends.</div><div className="small dim bold">Thanks for playing. Drink some water.</div>{me && <div className="pill pill-gold">You finished #{board.findIndex((p) => p.id === me.id) + 1} with {me.points} pts</div>}</div>}
           </>
         )}
+        {view === 'roasts' && (() => {
+          const top = [...party.wall].sort((a, b) => (b.votes.length + (b.groomLove ? 3 : 0)) - (a.votes.length + (a.groomLove ? 3 : 0))).slice(0, 8);
+          return top.length ? top.map((w, i) => (
+            <div key={w.id} className={`wall-post wall-${w.kind} fade-up`} style={{ animationDelay: `${i * 120}ms` }}>
+              <div className="eyebrow">#{i + 1} · {w.kind === 'roast' ? 'Roast' : 'Toast'}{w.groomLove ? ' · ❤️ Jezza\'s pick' : ''}</div>
+              <div className="bold" style={{ fontSize: 16 }}>"{w.text}"</div>
+              <div className="tiny faint">{party.players.find((p) => p.id === w.playerId)?.nickname} · 😂 {w.votes.length}</div>
+            </div>)) : <div className="panel pad center dim">Nobody roasted Jezza. Weak effort, lads.</div>;
+        })()}
         {view === 'board' && board.map((p, i) => (
           <div key={p.id} className={`list-row ${p.id === me?.id ? 'me' : ''}`}>
             <span className={`rank r${i + 1}`}>{i === 0 ? '👑' : `#${i + 1}`}</span>
-            <span className="avatar sm"><Creature creature={p.creature!} colorway={p.equipped.colorway} bare /></span>
+            <span className="avatar sm"><Creature creature={p.creature!} level={p.level} colorway={p.equipped.colorway} bare /></span>
             <span className="grow" style={{ minWidth: 0 }}><div className="bold ellipsis">{p.nickname}</div><div className="tiny faint">{p.creatureName} Lv{p.level} · {p.missionsCompleted} missions · {p.wins}W {p.losses}L</div></span>
             <span className="bold gold-text">{p.points}</span>
           </div>

@@ -9,10 +9,10 @@ import { request } from '../net';
 import { sfx } from '../audio';
 
 const PHASES: { id: Phase; label: string; blurb: string }[] = [
-  { id: 'lobby', label: 'Lobby', blurb: 'Gathering. Missions closed.' },
-  { id: 'friday', label: 'Friday', blurb: 'The Awakening. Missions + battles live.' },
-  { id: 'saturday', label: 'Saturday', blurb: 'Championship. Harder missions, new secrets.' },
-  { id: 'finale', label: 'Finale', blurb: 'Awards reveal. Missions close.' },
+  { id: 'lobby', label: 'Paused', blurb: 'Everything on hold. Use it for speeches or dinner.' },
+  { id: 'friday', label: 'Friday', blurb: 'Starts on its own when you create the party.' },
+  { id: 'saturday', label: 'Saturday', blurb: 'Kicks in by itself at 5am Saturday. Final evolutions unlock.' },
+  { id: 'finale', label: 'Finale', blurb: 'Awards reveal. Challenges close.' },
   { id: 'ended', label: 'Ended', blurb: 'Results final.' },
 ];
 
@@ -54,7 +54,9 @@ export default function Host() {
             <div className="stack-6">
               {PHASES.map((p) => <button key={p.id} className={`list-row ${party.phase === p.id ? 'me' : ''}`} style={{ width: '100%', textAlign: 'left' }} onClick={() => party.phase !== p.id && setConfirmPhase(p.id)}><span style={{ fontSize: 18 }}>{party.phase === p.id ? '📍' : '○'}</span><span className="grow"><div className="bold">{p.label}</div><div className="tiny faint">{p.blurb}</div></span>{party.phase === p.id && <span className="pill pill-xs pill-gold">current</span>}</button>)}
             </div>
-            <div className="tiny faint">Advanced too far by accident? Tap an earlier phase to go back. Nothing is lost.</div>
+            <div className="tiny faint">The game runs itself: Friday starts straight away, Saturday at 5am, group challenges drop every 40 minutes, the lads settle BS calls. You only need this panel for the finale.</div>
+            <div className="divider" />
+            <div className="row-between"><div><div className="bold">Boss raid</div><div className="tiny faint">{party.raid?.status === 'active' ? 'One is on right now.' : 'Turns up on its own once the lads have done enough challenges. Or summon one now.'}</div></div><Button size="sm" variant="secondary" disabled={party.raid?.status === 'active'} onClick={() => host({ kind: 'summonRaid' })}>Summon</Button></div>
             <div className="divider" />
             <div className="row-between"><div><div className="bold">Missions {party.missionsOpen ? 'open' : 'paused'}</div><div className="tiny faint">Pause during dinner, speeches, emergencies.</div></div><Button size="sm" variant={party.missionsOpen ? 'secondary' : 'primary'} onClick={() => host({ kind: 'setMissionsOpen', open: !party.missionsOpen })}>{party.missionsOpen ? 'Pause' : 'Open'}</Button></div>
             <div className="divider" />
@@ -71,7 +73,7 @@ export default function Host() {
         )}
         {section === 'approvals' && (
           <>
-            {approvals.length === 0 && <div className="panel pad center dim bold">Nothing waiting. Enjoy the peace.</div>}
+            {approvals.length === 0 && <div className="panel pad center dim bold">Nothing waiting. The lads sort BS calls out themselves; you can step in here if you want.</div>}
             {approvals.map((c) => { const m = MISSION_BY_ID[c.missionId]; const p = party.players.find((x) => x.id === c.playerId); return (
               <div key={c.id} className="panel pad stack-6">
                 <div className="row-between"><span className="bold">{p?.nickname ?? '?'} · {m?.title}</span><span className="tiny faint">{timeAgo(c.createdAt)}</span></div>
@@ -85,14 +87,14 @@ export default function Host() {
         )}
         {section === 'players' && players.map((p) => (
           <button key={p.id} className="list-row" style={{ width: '100%', textAlign: 'left' }} onClick={() => { setTarget(p); setRename(p.nickname); }}>
-            <span className="avatar sm">{p.creature ? <Creature creature={p.creature} colorway={p.equipped.colorway} bare /> : '🥚'}</span>
-            <span className="grow"><div className="bold">{p.isHost ? '👑 ' : ''}{p.nickname}</div><div className="tiny faint">{p.points} pts · {p.missionsCompleted} missions · {p.online ? 'online' : 'away'}</div></span>
+            <span className="avatar sm">{p.creature ? <Creature creature={p.creature} level={p.level} colorway={p.equipped.colorway} bare /> : '🥚'}</span>
+            <span className="grow"><div className="bold">{p.isHost ? '👑 ' : ''}{party.groomId === p.id ? '🤵 ' : ''}{p.nickname}</div><div className="tiny faint">{p.points} pts · {p.missionsCompleted} missions · {p.online ? 'online' : 'away'}</div></span>
             <span className="tiny faint">manage ›</span>
           </button>
         ))}
         {section === 'awards' && (
           <>
-            <div className="tiny dim">Awards are computed from real play. Override any of them here. "Most Unhinged Strategy" is yours alone to bestow.</div>
+            <div className="tiny dim">Awards come from real play: reactions, votes, challenges, battles and raids. Override any of them here. "Most Unhinged" is yours alone to give.</div>
             {AWARDS.map((a) => { const cur = party.awards?.find((x) => x.id === a.id); return (
               <div key={a.id} className="panel pad stack-6">
                 <div className="row-between"><span className="bold">{a.name}</span>{cur?.hostPick && <span className="pill pill-xs pill-gold">host pick</span>}</div>
@@ -113,7 +115,7 @@ export default function Host() {
 
       {target && (
         <Sheet onClose={() => setTarget(null)}>
-          <div className="row" style={{ marginBottom: 10 }}><span className="avatar">{target.creature ? <Creature creature={target.creature} colorway={target.equipped.colorway} bare /> : '🥚'}</span><span className="grow"><div className="display title-md">{target.nickname}</div><div className="tiny faint">{target.creatureName || 'no creature'} · {target.points} pts</div></span></div>
+          <div className="row" style={{ marginBottom: 10 }}><span className="avatar">{target.creature ? <Creature creature={target.creature} level={target.level} colorway={target.equipped.colorway} bare /> : '🥚'}</span><span className="grow"><div className="display title-md">{target.nickname}</div><div className="tiny faint">{target.creatureName || 'no creature'} · {target.points} pts</div></span></div>
           <div className="stack-10">
             <div className="row" style={{ gap: 6 }}><input className="input" style={{ minHeight: 44, fontSize: 15 }} value={rename} onChange={(e) => setRename(e.target.value)} maxLength={16} /><Button size="sm" variant="secondary" onClick={() => host({ kind: 'renamePlayer', playerId: target.id, nickname: rename })}>Rename</Button></div>
             <div className="row" style={{ gap: 6 }}><input className="input" style={{ minHeight: 44, fontSize: 15, width: 80, flex: '0 0 80px' }} type="number" value={grant} onChange={(e) => setGrant(e.target.value)} /><input className="input" style={{ minHeight: 44, fontSize: 15 }} placeholder="reason (e.g. best speech)" value={reason} onChange={(e) => setReason(e.target.value)} /><Button size="sm" variant="secondary" onClick={() => host({ kind: 'grantPoints', playerId: target.id, points: Number(grant), reason })}>Grant</Button></div>
@@ -122,6 +124,7 @@ export default function Host() {
               {Object.entries(target.categoryCounts).length === 0 && <div className="tiny faint">No completed missions.</div>}
               {party.feed.filter((f) => f.kind === 'mission' && f.playerId === target.id).slice(-8).reverse().map((f) => { const title = f.text.match(/"([^"]+)"/)?.[1]; const m = title ? Object.values(MISSION_BY_ID).find((x) => x.title === title) : undefined; return m ? <div key={f.id} className="list-row"><span className="grow small">{m.title}</span><Button size="xs" variant="secondary" onClick={() => host({ kind: 'resetClaim', playerId: target.id, missionId: m.id })}>Reset</Button></div> : null; })}
             </div>
+            {party.groomId !== target.id && <Button size="sm" variant="secondary" onClick={() => { host({ kind: 'setGroom', playerId: target.id }); setTarget(null); }}>🤵 This is Jezza (the groom)</Button>}
             <div className="btn-row">
               {!target.isHost && <Button size="sm" variant="secondary" onClick={() => { host({ kind: 'transferHost', playerId: target.id }); setTarget(null); }}>Make host</Button>}
               {!target.isHost && <Button size="sm" variant="danger" onClick={() => { host({ kind: 'removePlayer', playerId: target.id }); setTarget(null); }}>Remove</Button>}

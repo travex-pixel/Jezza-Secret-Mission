@@ -18,24 +18,24 @@ More screenshots at every tested viewport live in [`docs/screenshots/`](docs/scr
 | Area | Status |
 | --- | --- |
 | Cinematic Three.js opening (moonlit vineyard, fog, gold particles, cellar) with CSS/SVG fallback | ✅ |
-| 30-second onboarding: enter → nickname + code → choose creature → reveal → first mission → lobby | ✅ |
-| 8 original SVG creatures, 3 colourways each, idle/happy/victory/defeat/attack/hit animations | ✅ |
-| 13 cosmetics (hats, face, capes, auras, poses) unlocked by level and achievements | ✅ |
-| 109 original missions across 10 categories, 4 completion methods (honour, photo, witness, host) | ✅ |
-| Anti-spam: honour-claim cooldown, "Call BS" flags with host ruling, bounded battle rewards | ✅ |
-| Real multiplayer: party codes, join links, live roster, feed, presence, reconnection | ✅ |
-| Server-authoritative scoring, duplicate-claim protection, private mission hands | ✅ |
-| Turn-based creature battles (Attack / Counter / Special) with a power-tap timing bonus, resolved on the server, timeouts, surrender, rematch, practice mode | ✅ |
-| Host controls: phases, pause missions, approvals, group missions, rename/remove, reset, grant, awards, finalise | ✅ |
-| Host PIN to take back host from any phone; Leave party to ditch a test room | ✅ |
-| Friday → Saturday → Finale → Ended event structure with host recovery | ✅ |
-| 19 achievements, 10 data-driven weekend awards (+1 host pick), compact leaderboard, finale recap | ✅ |
-| Original synthesised audio with mute, haptics, reduced-motion support | ✅ |
-| Persistence across server restarts (JSON snapshot + photo files) | ✅ |
+| 30-second onboarding: enter → nickname (code comes from the share link) → creature → reveal → first challenge | ✅ |
+| **Runs itself, no host needed**: Friday starts on creation, Saturday at 5am Sydney, group challenges every 40 min | ✅ |
+| 85 quick challenges in Aussie English (make Jezza laugh, dance, sing, cooked photos, get Jezza in, cheers, sneaky, low-key, group) | ✅ |
+| Self-service checks: honour system (8-min cooldown), photo (instant), a mate confirms. 🚩 Call BS, settled by the lads or the host | ✅ |
+| Low-key mode: no performing challenges for anyone who'd rather not | ✅ |
+| Boss raids on Friday (Bin Chicken King) and Saturday (Hangover Hydra): 15 min, loot for everyone who swings | ✅ |
+| Evolutions at Lv4 and Lv8, max one on Friday, teased ahead ("twitching…", mystery silhouette), full reveal animation | ✅ |
+| Saturday arrivals: Fresh Legs (2× points on first 6 challenges, 2× XP until caught up) | ✅ |
+| Battles: Attack / Counter / Special + power tap, ranked ladder, win streaks, bounty on the leader | ✅ |
+| The Jezza Wall (roasts and toasts, votes, Jezza's ❤️, Roast Reel at the finale) | ✅ |
+| The Cellar: drink reviews with label photos (any drink counts; only 3 a day score) | ✅ |
+| 😂 🔥 reactions (❤️ for Jezza only) that drive the awards | ✅ |
+| Party camera roll; anyone can take a photo down | ✅ |
+| 11 data-driven awards + live "Award race" tab; finale reveal | ✅ |
+| Host PIN, leave/new room, join-by-link, link previews, persistence, keepsake photo export | ✅ |
 
-Deliberately **not** built (per the brief): Wine Snob Championship, Mr & Mrs Hot Seat, Jezza Bingo.
-
----
+Deliberately **not** built: Wine Snob Championship, Mr & Mrs Hot Seat, Jezza Bingo, video uploads
+(a mate confirming covers dances and songs, and video would be heavy on phones and the server).
 
 ## Try it right now (no install)
 
@@ -128,14 +128,39 @@ and costs nothing to run locally. For 15 people over one weekend a single instan
 Trade-off: it is one process with a JSON snapshot on disk, not a replicated database. That is adequate for
 this event; if you ever need multi-instance scale, the engine is already pure and could sit behind a store.
 
+### How the weekend runs (no host required)
+
+* **Friday** starts the moment the party is created. Everyone gets 3 challenges; finish one and a new one lands.
+  Swaps: hold up to 3, one comes back every 20 minutes, and a swap gives you the same difficulty (no farming easy ones).
+  Challenges nobody touches for 2 hours rotate out.
+* **Group challenges** go live on their own every 40 minutes. They're optional; everyone who's in claims their own.
+* **Boss raid**: once the party has done 18 challenges on Friday (25 on Saturday) a boss turns up for 15 minutes.
+  Tap to hit (20 s cooldown, power tap for crits). Finishing challenges mid-raid hits it too. Everyone who lands a hit
+  gets the raid cosmetic and XP; top three damage get bonus points. It still pays out if it escapes.
+* **Saturday** kicks in by itself at 5am Sydney time: final evolutions unlock, new challenges appear, a new raid.
+* **Finale** is the one thing the host does: Host → Event → Finale, then reveal the awards one tap at a time.
+
+### Progression
+
+* Creature levels 1–10. Evolves at **Lv4** and **Lv8**. On Friday XP stops just short of Lv8, so max one evolution;
+  the final form unlocks Saturday. Points still count while capped.
+* Saturday arrivals get **Fresh Legs**: double points on their first 6 challenges and double XP until they reach the
+  group's median level.
+* Cosmetics are earned, never bought: by level, by category achievements (jester hat, karaoke mic, disco aura,
+  groomsman sash…), and by raids (Bin Chicken Plume, Hydra Slayer Cape).
+
 ### Keeping it honest (anti-spam)
 
 * **Honour-system cooldown.** "I did it" missions are limited to one per player every 8 minutes (server-side; the
   card shows the countdown). Photo, witness, host-approved and the first mission are exempt. Honest play is
   rarely faster than that; a liar is capped at about six honour missions an hour.
 * **Call BS.** Every completion is public in the feed with a 🚩 button. Two different mates flagging it freezes the
-  points and XP and sends it to the host's queue, where the host can *uphold* (points restored) or *strike it out*
-  (mission gone for good). Flags are one per player per claim, only within 45 minutes, never on your own claim.
+  points. Then the lads settle it: two other mates tapping 🤝 *Legit* restores it, otherwise it's struck out after
+  30 minutes. The host can rule early from the queue but never has to. Flags are one per player per claim, within
+  45 minutes, never on your own claim.
+* **Photos pay out instantly** and witnesses confirm from their own phone, so nothing waits on the host.
+* **Nothing rewards drinking.** Any drink counts for every cheers challenge, only the first 3 Cellar reviews a day
+  score, and the content test fails the build if a challenge mentions shots, chugging or finishing a drink.
 * **Bounded battles.** Fixed rewards, three scored bouts per opponent per day, then "friendly".
 * **Host tools.** Reset any approved claim, grant or remove points with a visible reason, remove a player.
 
@@ -162,6 +187,8 @@ client gains a few points at most.
 * The host has a **Delete all photos** button (Host → Event → Photos) that removes the files from disk and strips
   them from the feed. Do this at the end of the weekend. Points already awarded are kept.
 * In the GitHub Pages demo nothing leaves the phone: photos live in that browser tab's memory only.
+* **Viewing them**: in the app, Lobby → 📸 Photos. On Google Cloud, the bucket browser at
+  `https://console.cloud.google.com/storage/browser/<project-id>-jezza-data/photos` (only the project owner can open it).
 * **Keepsake copy.** On Cloud Run the photos live in the storage bucket `<project-id>-jezza-data`, folder `photos/`.
   In Cloud Shell:
   ```bash

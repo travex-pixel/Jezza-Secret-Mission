@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Battle, BattleAction, BattleRoundLog, PlayerPublic, TapQuality } from '@shared/types';
 import { CREATURES } from '@shared/creatures';
 import { makeCreatureState, resolveRound, ROUND_SECONDS } from '@shared/battle';
+import { rankFor, sortLeaderboard } from '@shared/progression';
 import { Creature, type CreatureState } from '../components/Creature';
 import { Button, HPBar, Sheet, useCountdown } from '../components/ui';
 import PowerTap from '../components/PowerTap';
@@ -54,6 +55,8 @@ function Arena({ battle, meId, names, onAction, onSurrender, onRematch, onExit, 
     return () => timers.forEach(clearTimeout);
   }, [battle.log.length, battle.status]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (battle.log.length === 0) setShownHp({ me: mine.hp, foe: foe.hp }); }, [battle.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Safety net: whatever happens to the animation, the bars always settle on the server's numbers.
+  useEffect(() => { const t = setTimeout(() => setShownHp({ me: mine.hp, foe: foe.hp }), 3000); return () => clearTimeout(t); }, [mine.hp, foe.hp]);
 
   const [tapping, setTapping] = useState<BattleAction | null>(null);
   const commit = async (a: BattleAction, tap?: TapQuality) => { setTapping(null); setBusy(true); try { await onAction(a, tap); } finally { setBusy(false); } };
@@ -71,12 +74,12 @@ function Arena({ battle, meId, names, onAction, onSurrender, onRematch, onExit, 
         <div className="round-badge"><div className="eyebrow">Round {Math.min(battle.round, 7)}</div>{!finished && <div className={`countdown ${left <= 5 ? 'urgent' : ''}`}>{left || '–'}</div>}</div>
         <div className="arena-floor foe-floor" /><div className="arena-floor me-floor" />
         <div className="fighter foe">
-          <Creature creature={foe.creature} colorway={foeInfo?.colorway ?? 0} equipped={foeInfo?.equipped} state={anim.foe} animKey={`f${anim.k}`} flip />
+          <Creature creature={foe.creature} level={foeInfo?.level} colorway={foeInfo?.colorway ?? 0} equipped={foeInfo?.equipped} state={anim.foe} animKey={`f${anim.k}`} flip />
           {anim.pops.filter((p) => p.side === 'foe').map((p) => <span key={p.id} className={`dmg-pop ${p.heal ? 'heal' : ''}`} style={{ top: '30%', left: '40%' }}>{p.text}</span>)}
           <span className="pill pill-xs status">{foe.locked || foe.action ? '🔒 ready' : finished ? '' : '🤔 choosing'}</span>
         </div>
         <div className="fighter me">
-          <Creature creature={mine.creature} colorway={myInfo?.colorway ?? 0} equipped={myInfo?.equipped} state={anim.me} animKey={`m${anim.k}`} />
+          <Creature creature={mine.creature} level={myInfo?.level} colorway={myInfo?.colorway ?? 0} equipped={myInfo?.equipped} state={anim.me} animKey={`m${anim.k}`} />
           {anim.pops.filter((p) => p.side === 'me').map((p) => <span key={p.id} className={`dmg-pop ${p.heal ? 'heal' : ''}`} style={{ top: '30%', left: '40%' }}>{p.text}</span>)}
           <span className="pill pill-xs status">{locked ? '🔒 locked in' : finished ? '' : 'your move'}</span>
         </div>
@@ -178,16 +181,18 @@ export default function BattleScreen() {
   }
 
   const mates = party.players.filter((p) => p.id !== me.id && p.creature).sort((a, b) => Number(b.online) - Number(a.online) || b.points - a.points);
+  const leader = sortLeaderboard(party.players.filter((p) => p.creature))[0];
+  const bountyId = leader && leader.points > 0 ? leader.id : null;
   const recent = party.battles.filter((b) => b.status === 'finished').slice(0, 6);
   const outgoing = myBattle?.status === 'challenge' && myBattle.challengerId === me.id ? myBattle : null;
 
   return (
     <div className="screen with-nav">
-      <div className="topbar"><h2 className="display title-md">Creature battles</h2><span className="pill">{me.wins}W · {me.losses}L</span></div>
+      <div className="topbar"><h2 className="display title-md">Creature battles</h2><span className="pill">{rankFor(me.rating).emoji} {me.wins}W · {me.losses}L{me.streak >= 2 ? ` · 🔥${me.streak}` : ''}</span></div>
       <div className="screen-body" style={{ gap: 10 }}>
         <div className="stage" style={{ height: 150, flex: '0 0 auto' }}>
           <div className="stage-pool" />
-          <Creature creature={me.creature} colorway={me.equipped.colorway} equipped={me.equipped} state="idle" style={{ height: 150, zIndex: 1 }} />
+          <Creature creature={me.creature} level={me.level} colorway={me.equipped.colorway} equipped={me.equipped} state="idle" style={{ height: 150, zIndex: 1 }} />
         </div>
         {outgoing ? (
           <div className="panel panel-gold pad center stack-6"><div className="bold">Waiting for {names[outgoing.opponentId]?.nick} to accept…</div><div className="tiny faint">Challenges expire after 2 minutes.</div><Button variant="ghost" onClick={() => setPicking(true)}>Challenge someone else</Button></div>
@@ -212,8 +217,8 @@ export default function BattleScreen() {
             {mates.length === 0 && <div className="center dim pad">Nobody else here yet.</div>}
             {mates.map((p) => { const busy = party.battles.some((b) => (b.status === 'active' || b.status === 'challenge') && (b.a.playerId === p.id || b.b.playerId === p.id)); return (
               <button key={p.id} className="list-row" style={{ width: '100%', textAlign: 'left', opacity: busy ? 0.5 : 1 }} disabled={busy} onClick={() => challenge(p.id)}>
-                <span className="avatar sm"><Creature creature={p.creature!} colorway={p.equipped.colorway} bare /></span>
-                <span className="grow"><div className="bold">{p.nickname}</div><div className="tiny faint">{p.creatureName} · Lv {p.level} · {p.wins}W {p.losses}L</div></span>
+                <span className="avatar sm"><Creature creature={p.creature!} level={p.level} colorway={p.equipped.colorway} bare /></span>
+                <span className="grow"><div className="bold">{p.id === bountyId ? '👑 ' : ''}{p.nickname}</div><div className="tiny faint">{p.id === bountyId ? 'BOUNTY: beat them for double points · ' : ''}{rankFor(p.rating).emoji} {rankFor(p.rating).name} · {p.wins}W {p.losses}L{p.streak >= 2 ? ` · 🔥${p.streak}` : ''}</div></span>
                 <span className={`pill pill-xs ${busy ? 'pill-ember' : p.online ? 'pill-ok' : ''}`}>{busy ? 'in battle' : p.online ? 'online' : 'away'}</span>
               </button>); })}
           </div>

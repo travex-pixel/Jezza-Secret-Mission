@@ -4,6 +4,7 @@ import { chromium } from 'playwright-core';
 import WebSocket from 'ws';
 import fs from 'node:fs';
 import path from 'node:path';
+import { MISSIONS } from '../shared/missions';
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:8790';
 const WSURL = BASE.replace(/^http/, 'ws') + '/ws';
@@ -40,7 +41,7 @@ async function main() {
   await page.getByRole('button', { name: /first mission/i }).click();
   await page.getByRole('button', { name: /skip for now/i }).click();
   await page.waitForSelector('.bottom-nav');
-  await page.getByText(/Party →/).click();
+  await page.locator('.quick-btn', { hasText: 'Party' }).click();
   const code = (await page.locator('.code-display').textContent())!.trim();
   await page.locator('.bottom-nav').getByRole('button', { name: 'Lobby' }).click();
   await page.screenshot({ path: path.join(OUT, 'host-lobby-pregame.png') });
@@ -50,47 +51,63 @@ async function main() {
   await m1.req({ type: 'joinParty', code, nickname: 'Robbo' }); await m1.req({ type: 'chooseCreature', creature: 'goblin' });
   await m2.req({ type: 'joinParty', code, nickname: 'Shorty' }); await m2.req({ type: 'chooseCreature', creature: 'owl' });
 
-  // Host panel → Event → Friday via confirm sheet
+  // Host panel: the game already runs itself (Friday is live). Pause + resume via the confirm sheet.
   await page.getByRole('button', { name: /host controls/i }).click();
   await page.waitForSelector('.tabs');
+  check((await page.locator('.list-row.me', { hasText: 'Friday' }).count()) === 1, 'party is already on Friday without the host doing anything');
   await page.screenshot({ path: path.join(OUT, 'host-panel-event.png') });
+  await page.locator('.list-row', { hasText: 'Paused' }).click();
+  await page.getByRole('button', { name: /do it/i }).click();
+  await page.locator('.list-row.me', { hasText: 'Paused' }).waitFor({ timeout: 4000 });
   await page.locator('.list-row', { hasText: 'Friday' }).click();
   await page.getByRole('button', { name: /do it/i }).click();
-  await sleep(500);
-  check((await page.locator('.list-row.me', { hasText: 'Friday' }).count()) === 1, 'host moved the phase to Friday via the confirm sheet');
-  await page.locator('.list-row', { hasText: 'The Cellar Ceremony' }).getByRole('button', { name: /reveal/i }).click();
-  await sleep(400);
-  check((await page.locator('.list-row', { hasText: 'The Cellar Ceremony' }).getByText('live').count()) === 1, 'group mission revealed from the host panel');
+  await page.locator('.list-row.me', { hasText: 'Friday' }).waitFor({ timeout: 4000 });
+  check(true, 'host can pause and resume through the confirm sheet');
+  await page.locator('.list-row', { hasText: 'The Big Cheers' }).getByRole('button', { name: /reveal/i }).click();
+  await page.locator('.list-row', { hasText: 'The Big Cheers' }).getByText('live').waitFor({ timeout: 4000 });
+  check(true, 'group challenge revealed from the host panel');
 
-  // Mate submits a photo for the group mission (photo method) → approvals tab
-  const png = fs.readFileSync(path.resolve('client/public/favicon.svg')).toString('base64');
-  // use a real JPEG-ish payload: generate a tiny PNG via canvas in the page
+  // Mate snaps the group photo: points land instantly, no approval queue
   const dataUrl = await page.evaluate(() => { const c = document.createElement('canvas'); c.width = 320; c.height = 200; const g = c.getContext('2d')!; g.fillStyle = '#76243A'; g.fillRect(0, 0, 320, 200); g.fillStyle = '#E5AD48'; g.font = 'bold 40px sans-serif'; g.fillText('CHEERS JEZZA', 20, 110); return c.toDataURL('image/jpeg', 0.8); });
-  void png;
-  const r = await m1.req({ type: 'claimMission', missionId: 'm050', claimId: 'host_e2e_photo_01', photo: dataUrl, note: 'Barrel 7 crew' });
-  check(r.ok && r.data.status === 'pending', 'mate photo claim is pending');
-  await sleep(500);
-  await page.getByRole('button', { name: /queue/i }).click();
-  await page.waitForSelector('img[alt="Proof"]');
-  check(true, 'host sees the submitted photo in the approvals queue');
-  await page.screenshot({ path: path.join(OUT, 'host-approvals.png') });
-  await page.getByRole('button', { name: /approve \+/i }).click();
-  await sleep(500);
-  check((await page.locator('.panel', { hasText: 'Nothing waiting' }).count()) === 1, 'approval queue empties after approving');
+  const r = await m1.req({ type: 'claimMission', missionId: 'g01', claimId: 'host_e2e_photo_01', photo: dataUrl, note: 'Barrel 7 crew' });
+  check(r.ok && r.data.status === 'approved', 'photo challenge pays out instantly (self-service)');
   await page.getByText(/‹ Host controls/).click();
-  await page.getByText(/Party →/).click();
-  await page.getByRole('button', { name: /live feed/i }).click();
-  const img = page.locator('.feed-item img').first();
+  await page.locator('.quick-btn', { hasText: 'Photos' }).click();
+  const img = page.locator('.gallery-grid img').first();
   await img.waitFor({ timeout: 5000 });
   const natural = await img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth);
-  check(Number(natural) > 0, `approved photo renders in the live feed (${natural}px wide)`);
-  await page.screenshot({ path: path.join(OUT, 'feed-with-photo.png') });
+  check(Number(natural) > 0, `photo shows in the party camera roll (${natural}px wide)`);
+  await page.screenshot({ path: path.join(OUT, 'gallery.png') });
+
+  // Two mates call BS → it lands in the host's queue as a dispute → host upholds
+  await m2.req({ type: 'flagClaim', claimId: 'host_e2e_photo_01' });
+  const hostId0 = await page.evaluate(() => JSON.parse(localStorage.getItem('jezza.identity.v1')!).playerId);
+  void hostId0;
+  const m3 = mate('host_e2e_mate_03'); await m3.ready;
+  await m3.req({ type: 'joinParty', code, nickname: 'Cam' }); await m3.req({ type: 'chooseCreature', creature: 'fox' });
+  await m3.req({ type: 'flagClaim', claimId: 'host_e2e_photo_01' });
+  await page.locator('.bottom-nav').getByRole('button', { name: 'Lobby' }).click();
+  await page.getByRole('button', { name: /host controls/i }).click();
+  await page.getByRole('button', { name: /queue/i }).click();
+  await page.getByText(/BS called by/).waitFor({ timeout: 5000 });
+  check(true, 'disputed claim shows in the host queue (optional: the lads can settle it too)');
+  await page.screenshot({ path: path.join(OUT, 'host-approvals.png') });
+  await page.getByRole('button', { name: /uphold it/i }).click();
+  await page.locator('.panel', { hasText: 'Nothing waiting' }).waitFor({ timeout: 4000 });
+  check(true, 'host upholds and the queue empties');
+  // Summon a raid from the Event tab
+  await page.getByRole('button', { name: 'Event', exact: true }).click();
+  await page.getByRole('button', { name: /summon/i }).click();
+  await page.getByText(/‹ Host controls/).click();
+  await page.locator('.raid-banner').waitFor({ timeout: 4000 });
+  check(true, 'host can summon a boss raid and the banner appears');
+  m3.close();
 
   // Witness UI: mate claims a witness mission naming the host → host confirms in Missions tab
   const party = JSON.parse(fs.readFileSync(process.env.STATE_FILE ?? '/dev/null', 'utf8').toString() || 'null');
   void party;
   // find a witness mission in the mate's hand; if none, reroll a few times
-  const WIT = ['m010', 'm011', 'm015', 'm020', 'm040', 'm046', 'm083', 'm093', 'm100', 'm102', 'm105'];
+  const WIT = MISSIONS.filter((m) => m.method === 'witness').map((m) => m.id);
   let wid: string | undefined;
   for (let i = 0; i < 4 && !wid; i++) {
     await sleep(200);
@@ -103,11 +120,11 @@ async function main() {
     await m2.req({ type: 'claimMission', missionId: wid, claimId: 'host_e2e_wit_01', witnessId: hostId });
     await page.locator('.bottom-nav').getByRole('button', { name: 'Missions' }).click();
     await page.waitForSelector('.panel-gold', { timeout: 5000 });
-    check((await page.getByText(/Witness request/).count()) === 1, 'host sees the witness request card');
+    check((await page.getByText(/Did you see it\?/).count()) === 1, 'host sees the witness request card');
     await page.screenshot({ path: path.join(OUT, 'witness-request.png') });
     await page.getByRole('button', { name: /i saw it/i }).click();
     await sleep(400);
-    check((await page.getByText(/Witness request/).count()) === 0, 'witness request clears after confirming');
+    check((await page.getByText(/Did you see it\?/).count()) === 0, 'witness request clears after confirming');
   } else console.log('  (no witness mission dealt after rerolls; skipped)');
 
   // Finale
@@ -117,13 +134,13 @@ async function main() {
   await page.getByRole('button', { name: /do it/i }).click();
   await sleep(400);
   await page.getByRole('button', { name: 'Awards', exact: true }).click();
-  await page.locator('.panel', { hasText: 'Most Unhinged Strategy' }).locator('select').selectOption({ label: 'Robbo' });
+  await page.locator('.panel', { hasText: 'Most Unhinged' }).locator('select').selectOption({ label: 'Robbo' });
   await sleep(300);
   await page.locator('.bottom-nav').getByRole('button', { name: 'Ranks' }).click();
   await page.waitForSelector('text=The Finale');
-  for (let i = 0; i < 10; i++) { await page.getByRole('button', { name: /reveal/i }).click(); await sleep(250); }
-  check((await page.getByText(/To Jezza. To the legends./).count()) === 1, 'all ten awards revealed on the finale screen');
-  check((await page.locator('.panel', { hasText: 'Most Unhinged Strategy' }).getByText('Robbo').count()) === 1, 'host-picked award shows the chosen player');
+  for (let i = 0; i < 15 && (await page.getByRole('button', { name: /reveal/i }).count()); i++) { await page.getByRole('button', { name: /reveal/i }).click(); await sleep(200); }
+  check((await page.getByText(/To Jezza. To the legends./).count()) === 1, 'all 11 awards revealed on the finale screen');
+  check((await page.locator('.panel', { hasText: 'Most Unhinged' }).getByText('Robbo').count()) === 1, 'host-picked award shows the chosen player');
   await page.screenshot({ path: path.join(OUT, 'finale.png') });
   await page.getByRole('button', { name: /final board/i }).click();
   await page.screenshot({ path: path.join(OUT, 'finale-board.png') });

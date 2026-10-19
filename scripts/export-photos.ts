@@ -12,7 +12,10 @@ const safe = (s: string) => s.replace(/[\\/:*?"<>|]+/g, '').replace(/\s+/g, ' ')
 let copied = 0, missing = 0;
 for (const party of Object.values<any>(state.parties)) {
   if (onlyCode && party.code !== onlyCode.toUpperCase()) continue;
-  const claims = Object.values<any>(party.claims).filter((c) => c.photoUrl).sort((a, b) => a.createdAt - b.createdAt);
+  const claims = [
+    ...Object.values<any>(party.claims).filter((c) => c.photoUrl),
+    ...(party.cellar ?? []).filter((e: any) => e.photoUrl).map((e: any) => ({ ...e, createdAt: e.at, missionId: `🍷 ${e.drink} (${e.stars}★)`, note: e.note, status: 'cellar' })),
+  ].sort((a, b) => a.createdAt - b.createdAt);
   if (!claims.length) continue;
   const dir = path.join(outDir, safe(`${party.name} (${party.code})`));
   fs.mkdirSync(dir, { recursive: true });

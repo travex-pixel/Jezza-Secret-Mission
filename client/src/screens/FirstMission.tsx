@@ -21,7 +21,7 @@ export default function FirstMission() {
         <h2 className="display title-lg" style={{ marginTop: 4 }}>The legend begins</h2>
       </div>
       <div className="screen-body" style={{ gap: 12, justifyContent: 'center' }}>
-        {me?.creature && <div className="center"><Creature creature={me.creature} colorway={me.equipped.colorway} equipped={me.equipped} state="happy" style={{ width: 'min(44vw, 170px)', margin: '0 auto' }} /></div>}
+        {me?.creature && <div className="center"><Creature creature={me.creature} level={me.level} colorway={me.equipped.colorway} equipped={me.equipped} state="happy" style={{ width: 'min(44vw, 170px)', margin: '0 auto' }} /></div>}
         <div className="fade-up"><MissionCard mission={STARTER_MISSION} assignment={assignment} /></div>
         <p className="center dim small bold fade-up delay-1">Complete missions for weekend points and creature XP. Your mates are watching. Probably.</p>
         <div className="center"><Button variant="ghost" onClick={() => setFlow('main')}>Skip for now, show me the lobby</Button></div>

@@ -30,7 +30,7 @@ async function main() {
   await host.page.getByRole('button', { name: /first mission/i }).click();
   await host.page.getByRole('button', { name: /skip for now/i }).click();
   await host.page.waitForSelector('.bottom-nav');
-  await host.page.getByText(/Party →/).click();
+  await host.page.locator('.quick-btn', { hasText: 'Party' }).click();
   await host.page.waitForSelector('.code-display');
   const code = (await host.page.locator('.code-display').textContent())!.trim();
   check(/^[A-Z0-9]{4}$/.test(code), `host sees party code ${code}`);
@@ -54,14 +54,12 @@ async function main() {
   check((await host.page.locator('.list-row', { hasText: 'Tommo' }).count()) > 0, 'host sees Tommo in the roster in real time');
   await host.page.screenshot({ path: path.join(OUT, 'host-party.png') });
 
-  // Host starts Friday from the lobby
+  // No host step needed: Friday is already live
   await host.page.locator('.bottom-nav').getByRole('button', { name: 'Lobby' }).click();
-  await host.page.getByRole('button', { name: /start friday/i }).click();
-  await mate.page.waitForTimeout(600);
-  check((await mate.page.locator('.pill', { hasText: /Friday/ }).count()) > 0, 'mate sees the phase change to Friday');
+  check((await mate.page.locator('.pill', { hasText: /Friday/ }).count()) > 0, 'Friday is live for the mate without the host doing anything');
   await mate.page.locator('.bottom-nav').getByRole('button', { name: 'Missions' }).click();
   await mate.page.waitForTimeout(300);
-  check((await mate.page.locator('.mission-card').count()) >= 3, 'mate has a hand of missions after Friday starts');
+  check((await mate.page.locator('.mission-card').count()) >= 3, 'mate has a hand of challenges');
   await mate.page.screenshot({ path: path.join(OUT, 'mate-missions.png') });
 
   // Battle: mate challenges host, host accepts
@@ -81,6 +79,7 @@ async function main() {
   await host.page.locator('.action-btn.special').click();
   let hpChanged = false;
   for (let i = 0; i < 30 && !hpChanged; i++) { await mate.page.waitForTimeout(250); const hp = await mate.page.locator('.hpcard').allTextContents(); hpChanged = hp.some((t) => !/(\d+)\/\1\b/.test(t)); }
+  if (!hpChanged) { await mate.page.screenshot({ path: path.join(OUT, 'DEBUG-mate.png') }); await host.page.screenshot({ path: path.join(OUT, 'DEBUG-host.png') }); console.log('DEBUG hp:', await mate.page.locator('.hpcard').allTextContents(), 'log:', await mate.page.locator('.log-line').allTextContents()); }
   check(hpChanged, 'HP changed after the server resolved round 1');
   await mate.page.screenshot({ path: path.join(OUT, 'mate-battle.png') });
   await host.page.screenshot({ path: path.join(OUT, 'host-battle.png') });

@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { CREATURES } from '@shared/creatures';
-import { ACHIEVEMENTS, COSMETICS, colorwaysUnlocked, LEVEL_UNLOCKS, COSMETIC_BY_ID } from '@shared/progression';
+import { CREATURES, FORMS } from '@shared/creatures';
+import { ACHIEVEMENTS, COSMETICS, colorwaysUnlocked, LEVEL_UNLOCKS, COSMETIC_BY_ID, LEVEL_XP, nextEvolveLevel, stageForLevel, FRIDAY_MAX_LEVEL, rankFor } from '@shared/progression';
 import type { CosmeticSlot } from '@shared/types';
 import { Creature, type CreatureState } from '../components/Creature';
 import { Button, XPBar } from '../components/ui';
@@ -33,6 +33,10 @@ export default function Profile() {
     try { await request({ type: 'renameCreature', creatureName: name }); setEditing(false); sfx.select(); } catch (e) { toast((e as Error).message, '❌', 'warn'); }
   };
   const poke = () => { const states: CreatureState[] = ['happy', 'victory', 'attack']; setAnim((a) => ({ s: states[a.k % 3], k: a.k + 1 })); sfx.tap(); };
+  const phase = useStore((s) => s.party?.phase);
+  const stage = stageForLevel(me.level);
+  const evoAt = nextEvolveLevel(me.level);
+  const lockedSat = evoAt === 8 && me.level >= FRIDAY_MAX_LEVEL && (phase === 'friday' || phase === 'lobby');
   const nextUnlockLevel = Object.keys(LEVEL_UNLOCKS).map(Number).find((l) => l > me.level && (LEVEL_UNLOCKS[l].cosmetics.length || LEVEL_UNLOCKS[l].colorways > colorwaysUnlocked(l - 1)));
 
   return (
@@ -42,7 +46,7 @@ export default function Profile() {
         <div className="row" style={{ gap: 12, alignItems: 'stretch' }}>
           <button className="stage" style={{ width: '42%', flex: '0 0 auto' }} onClick={poke} aria-label="Poke your creature">
             <div className="stage-pool" />
-            <Creature creature={me.creature} colorway={me.equipped.colorway} equipped={me.equipped} state={anim.s} animKey={anim.k} style={{ width: '100%', zIndex: 1 }} />
+            <Creature creature={me.creature} level={me.level} colorway={me.equipped.colorway} equipped={me.equipped} state={anim.s} animKey={anim.k} style={{ width: '100%', zIndex: 1 }} />
           </button>
           <div className="grow col" style={{ justifyContent: 'center', gap: 6 }}>
             {editing ? (
@@ -50,7 +54,7 @@ export default function Profile() {
             ) : (
               <button className="display title-md" style={{ textAlign: 'left' }} onClick={() => { setName(me.creatureName); setEditing(true); }}>{me.creatureName} <span className="tiny faint">✎</span></button>
             )}
-            <div className="tiny dim bold">{def.name} · {me.title}</div>
+            <div className="tiny dim bold">{FORMS[me.creature][stage - 1]} · {rankFor(me.rating).emoji} {rankFor(me.rating).name}</div>
             <XPBar xp={me.xp} />
             <div className="seg" style={{ gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
               <div className="stat"><b>{me.missionsCompleted}</b><span>done</span></div>
@@ -58,6 +62,12 @@ export default function Profile() {
               <div className="stat"><b>{me.unlocked.length}</b><span>items</span></div>
             </div>
             {nextUnlockLevel && <div className="tiny faint">Next unlock at level {nextUnlockLevel}</div>}
+            {evoAt && (
+              <div className="row" style={{ gap: 8, padding: '6px 8px', borderRadius: 12, background: 'rgba(0,0,0,.25)', border: '1px solid var(--line)' }}>
+                <Creature creature={me.creature} stage={(stage + 1) as 2 | 3} colorway={me.equipped.colorway} silhouette bare style={{ width: 40, flex: '0 0 auto' }} />
+                <span className="tiny bold" style={{ lineHeight: 1.25 }}>{lockedSat ? <>🔒 <span className="gold-text">???</span> unlocks Saturday</> : <>Next form: <span className="gold-text">???</span><br /><span className="faint">Lv {evoAt} · {LEVEL_XP[evoAt - 1] - me.xp} XP to go</span></>}</span>
+              </div>
+            )}
           </div>
         </div>
 

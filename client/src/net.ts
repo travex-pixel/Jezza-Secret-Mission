@@ -6,6 +6,8 @@ import type { ClientMessage, ClientRequest, ServerMessage } from '@shared/types'
 import { Engine, type Outbound } from '@shared/engine';
 import { CREATURE_IDS } from '@shared/creatures';
 import { MISSION_BY_ID, STARTER_MISSION } from '@shared/missions';
+import { levelForXp } from '@shared/progression';
+import { RAID_THRESHOLD } from '@shared/raid';
 import { useStore } from './store';
 
 type Pending = { resolve: (v: any) => void; reject: (e: Error) => void; timer: number };
@@ -124,15 +126,36 @@ function connectDemo(): Transport {
       const p = party.players[id];
       if (!p) return;
       p.xp = m.xp; p.points = m.pts; p.wins = m.w; p.losses = m.l; p.missionsCompleted = Math.floor(m.pts / 15);
-      p.level = Math.max(1, Math.min(10, 1 + Math.floor(m.xp / 60)));
+      p.level = levelForXp(m.xp);
+      p.rating = 1000 + (m.w - m.l) * 18; p.streak = m.w > m.l ? 1 : 0; p.bestStreak = Math.max(1, m.w);
       p.online = i % 4 !== 3;
-      p.categoryCounts = { toast: i % 3, jezza: i % 2, social: i % 4 };
+      p.categoryCounts = { laugh: i % 3, jezza: i % 2, photo: i % 4, dance: (i + 1) % 3 };
+      p.laughs = (i * 3) % 7; p.fires = (i * 5) % 6; p.wallVotes = i % 4; p.raidDamage = 0;
+    });
+    party.groomId = includeJezzaAsHost ? hostId : party.groomId;
+    party.phaseMissions.friday = RAID_THRESHOLD.friday - 2; // the boss turns up after a couple more challenges
+    const roasts: [number, 'roast' | 'toast', string][] = [
+      [2, 'roast', 'Jezza parallel parks like it\'s a group assignment nobody else turned up to.'],
+      [5, 'toast', 'To the only bloke who brings a spare phone charger for everyone. Legend.'],
+      [3, 'roast', 'Jezza\'s idea of a big night is the extended edition of anything.'],
+      [7, 'roast', 'Mate has been "five minutes away" since 2014.'],
+      [9, 'toast', 'Best mate, worst dancer, absolute rock. Cheers Jez.'],
+    ];
+    const t0 = Date.now();
+    roasts.forEach(([who, kind, text], n) => {
+      const pid = mateIds[who]; if (!pid) return;
+      party.wall.push({ id: `w_demo_${n}`, at: t0 - (n + 1) * 240000, playerId: pid, kind, text, phase: 'friday', votes: mateIds.filter((_, k) => (k + n) % 3 === 0 && k !== who).slice(0, 2 + n), groomLove: n === 1 });
+    });
+    const drinks: [number, string, number, string][] = [[4, '2019 Hunter Semillon', 5, 'Crisp. Smug. Expensive-tasting.'], [6, 'Pepsi Max', 4, 'Hydrating. Reliable. No regrets.'], [1, 'Cellar door Shiraz', 3, 'Notes of oak and a long finish of Friday']];
+    drinks.forEach(([who, drink, stars, note], n) => {
+      const pid = mateIds[who]; if (!pid) return;
+      party.cellar.push({ id: `ce_demo_${n}`, at: t0 - (n + 2) * 300000, playerId: pid, drink, stars, note, phase: 'friday', fires: mateIds.filter((_, k) => k % (n + 2) === 0 && k !== who) });
     });
     party.feed.push(
-      { id: 'd1', at: Date.now() - 540000, kind: 'mission', text: 'Big Dave completed "The Sommelier Fraud" (+20 pts)', emoji: '✅' },
-      { id: 'd2', at: Date.now() - 420000, kind: 'battle', text: 'Keg (Big Dave) knocked out Bruce (Tommo)', emoji: '🏆' },
-      { id: 'd3', at: Date.now() - 300000, kind: 'achievement', text: 'Shorty unlocked "Toastmaster General"', emoji: '🏅' },
-      { id: 'd4', at: Date.now() - 120000, kind: 'mission', text: 'Nath completed a SECRET mission (+20 pts)', emoji: '🕵️' },
+      { id: 'd1', at: t0 - 540000, kind: 'mission', text: 'Big Dave did "Ripper Dance" (+15)', emoji: '🕺', playerId: mateIds[2], claimId: 'demo-c1', reactions: { '😂': [mateIds[1], mateIds[4], mateIds[6]] } },
+      { id: 'd2', at: t0 - 420000, kind: 'battle', text: 'Keg (Big Dave) knocked out Bruce (Tommo) · 🔥3 streak', emoji: '🏆' },
+      { id: 'd3', at: t0 - 300000, kind: 'evolve', text: '🧬 Shorty\'s Professor EVOLVED into a Midnight Owl!', emoji: '🧬' },
+      { id: 'd4', at: t0 - 120000, kind: 'mission', text: 'Nath did a sneaky one (+20)', emoji: '🕵️', playerId: mateIds[3], claimId: 'demo-c2' },
     );
   };
 
@@ -141,8 +164,7 @@ function connectDemo(): Transport {
   const created = engine.handle(hostId, { type: 'createParty', reqId: 'x', nickname: DEMO_MATES[0].nick, partyName: "Jezza's Bucks Weekend" });
   const code = (created.ack as any).data.code as string;
   seedBots(code, true);
-  engine.handle(hostId, { type: 'host', reqId: 'x', action: { kind: 'setPhase', phase: 'friday' } });
-  engine.handle(hostId, { type: 'host', reqId: 'x', action: { kind: 'revealGroupMission', missionId: 'm051' } });
+  engine.handle(hostId, { type: 'host', reqId: 'x', action: { kind: 'revealGroupMission', missionId: 'g01' } });
   engine.auth(identity.playerId, identity.secret);
   useStore.getState().setConn('demo');
   useStore.setState({ pendingCode: code });
@@ -158,7 +180,9 @@ function connectDemo(): Transport {
     const priv = structuredClone(engine.privateView(p, identity.playerId));
     dispatch({ type: 'private', priv, hostView: p.hostId === identity.playerId ? engine.hostView(p) : undefined });
   };
-  // Bots: accept challenges, pick actions, confirm witness requests; the bot host approves claims.
+  const chance = (x: number) => Math.random() < x;
+  const pick = <T,>(xs: T[]) => xs[Math.floor(Math.random() * xs.length)];
+  // Bots: accept fights, play rounds, confirm witnesses, hit bosses, react, vote, and do the odd challenge.
   const botTick = () => {
     let changed = false;
     for (const p of Object.values(engine.state.parties)) {
@@ -167,8 +191,8 @@ function connectDemo(): Transport {
         if (b.status === 'active') {
           for (const side of [b.a, b.b]) {
             if (mateIds.includes(side.playerId) && !side.action) {
-              const act = side.specialCooldown === 0 && Math.random() < 0.4 ? 'special' : Math.random() < 0.7 ? 'attack' : 'counter';
-              const tap = act === 'counter' ? undefined : Math.random() < 0.3 ? 'perfect' : Math.random() < 0.5 ? 'good' : 'miss';
+              const act = side.specialCooldown === 0 && chance(0.4) ? 'special' : chance(0.7) ? 'attack' : 'counter';
+              const tap = act === 'counter' ? undefined : chance(0.3) ? 'perfect' : chance(0.5) ? 'good' : 'miss';
               const r = engine.handle(side.playerId, { type: 'battleAction', reqId: 'x', battleId: b.id, round: b.round, action: act, tap });
               deliver(r.direct); changed = true;
             }
@@ -177,22 +201,30 @@ function connectDemo(): Transport {
       }
       for (const c of Object.values(p.claims)) {
         if (c.status === 'pending' && c.method === 'witness' && c.witnessId && mateIds.includes(c.witnessId) && Date.now() - c.createdAt > 2500) { const r = engine.handle(c.witnessId, { type: 'confirmWitness', reqId: 'x', claimId: c.id, approve: true }); deliver(r.direct); changed = true; }
-        if (c.status === 'pending' && c.method !== 'witness' && p.hostId === hostId && Date.now() - c.createdAt > 4000) { const r = engine.handle(hostId, { type: 'host', reqId: 'x', action: { kind: 'resolveClaim', claimId: c.id, approve: true } }); deliver(r.direct); changed = true; }
       }
-      // Occasionally a bot completes a mission so the feed feels alive.
-      if (p.phase === 'friday' || p.phase === 'saturday') {
-        if (Math.random() < 0.012) {
-          const bot = mateIds[Math.floor(Math.random() * mateIds.length)];
-          const bp = p.players[bot];
-          const h = bp?.hand.find((x) => x.status === 'active' && MISSION_BY_ID[x.missionId]?.method === 'self');
-          if (bp && h) { const r = engine.handle(bot, { type: 'claimMission', reqId: 'x', missionId: h.missionId, claimId: `bot_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}` }); deliver(r.direct.filter((d) => d.to === 'party')); changed = true; }
-        }
+      const online = mateIds.filter((id) => p.players[id]?.online);
+      // raid: a few bots swing each tick
+      const raid = p.raids[p.raids.length - 1];
+      if (raid && raid.status === 'active') for (const id of online) if (chance(0.12)) { const r = engine.handle(id, { type: 'raidHit', reqId: 'x', raidId: raid.id, tap: chance(0.3) ? 'perfect' : 'good' }); deliver(r.direct.filter((d) => d.to === 'party')); if (r.ack?.ok) changed = true; }
+      // react to the human's challenges and vote their wall posts
+      for (const ev of p.feed.slice(-8)) if (ev.kind === 'mission' && ev.playerId === identity.playerId && chance(0.08)) { const r = engine.handle(pick(online), { type: 'react', reqId: 'x', eventId: ev.id, emoji: chance(0.6) ? '😂' : '🔥' }); if (r.ack?.ok) changed = true; }
+      for (const w of p.wall.slice(-6)) if (w.playerId === identity.playerId && chance(0.1)) { const r = engine.handle(pick(online), { type: 'wallVote', reqId: 'x', postId: w.id }); if (r.ack?.ok) changed = true; }
+      // the odd bot challenge so the feed and the raid counter move
+      if (chance(0.03)) {
+        const bot = pick(online); const bp = p.players[bot];
+        const h = bp?.hand.find((x) => x.status === 'active' && MISSION_BY_ID[x.missionId]?.method === 'self');
+        if (bp && h) { const r = engine.handle(bot, { type: 'claimMission', reqId: 'x', missionId: h.missionId, claimId: `bot_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}` }); deliver(r.direct.filter((d) => d.to === 'party')); changed = true; }
       }
     }
     const t = engine.tick(); deliver(t.direct);
     if (changed || t.changed.length) push();
   };
   setInterval(botTick, 700);
+  // Demo-only hooks so the visual QA can show timing-dependent moments on demand.
+  (window as any).__demo = {
+    summonRaid: () => { const p = engine.partyOf(identity.playerId); if (!p) return; const r = engine.handle(p.hostId, { type: 'host', reqId: 'x', action: { kind: 'summonRaid' } }); deliver(r.direct); push(); },
+    giveXp: (xp: number) => { const p = engine.partyOf(identity.playerId); const me = p?.players[identity.playerId]; if (!p || !me) return; const out: Outbound[] = []; const r = (engine as any).grant(p, me, 0, xp, out); dispatch({ type: 'reward', points: 0, xp, ...r, title: 'Demo boost' }); push(); },
+  };
 
   setTimeout(() => dispatch({ type: 'welcome', playerId: identity.playerId, serverTime: Date.now(), inParty: false }), 0);
   return {

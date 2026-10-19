@@ -2,12 +2,12 @@ import { create } from 'zustand';
 import type { Battle, PartyPublic, PlayerPrivate, PlayerPublic, HostView, ServerMessage } from '@shared/types';
 import { loadIdentity } from './identity';
 
-export type Tab = 'home' | 'missions' | 'battle' | 'ranks' | 'party' | 'profile' | 'host';
+export type Tab = 'home' | 'missions' | 'battle' | 'ranks' | 'party' | 'profile' | 'host' | 'raid' | 'wall' | 'cellar' | 'gallery';
 export type Flow = 'opening' | 'join' | 'choose' | 'reveal' | 'firstMission' | 'main';
 export type ConnStatus = 'connecting' | 'online' | 'offline' | 'demo';
 
 export interface Toast { id: number; text: string; emoji?: string; tone?: 'info' | 'success' | 'warn' }
-export interface Reward { points: number; xp: number; levelUp?: number; unlocked?: string[]; achievements?: string[]; title: string }
+export interface Reward { points: number; xp: number; levelUp?: number; unlocked?: string[]; achievements?: string[]; title: string; evolved?: { from: number; to: number }; capped?: boolean; bonus?: string }
 
 interface State {
   identity: { playerId: string; secret: string };
@@ -71,7 +71,7 @@ export const useStore = create<State>((set, get) => ({
       }
       case 'private': set({ priv: m.priv, hostView: m.hostView ?? null }); break;
       case 'reward': {
-        const r: Reward = { points: m.points, xp: m.xp, levelUp: m.levelUp, unlocked: m.unlocked, achievements: m.achievements, title: m.title };
+        const r: Reward = { points: m.points, xp: m.xp, levelUp: m.levelUp, unlocked: m.unlocked, achievements: m.achievements, title: m.title, evolved: m.evolved, capped: m.capped, bonus: m.bonus };
         if (get().reward) set({ rewardQueue: [...get().rewardQueue, r] }); else set({ reward: r });
         break;
       }
@@ -93,6 +93,7 @@ export const useStore = create<State>((set, get) => ({
 
 // ---------- selectors ----------
 export const useMe = (): PlayerPublic | undefined => useStore((s) => s.party?.players.find((p) => p.id === s.identity.playerId));
+export const useIsGroom = (): boolean => useStore((s) => !!s.party && s.party.groomId === s.identity.playerId);
 export const useIsHost = (): boolean => useStore((s) => !!s.party && s.party.hostId === s.identity.playerId);
 export const useMyBattle = (): Battle | undefined => useStore((s) => {
   const me = s.identity.playerId;

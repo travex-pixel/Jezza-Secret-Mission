@@ -1,8 +1,9 @@
 import { memo, useId } from 'react';
 import type { CreatureId, Equipped } from '@shared/types';
 import { CREATURES, type Colorway } from '@shared/creatures';
+import { stageForLevel } from '@shared/progression';
 
-export type CreatureState = 'idle' | 'happy' | 'victory' | 'defeat' | 'attack' | 'hit' | 'select' | 'enter' | 'guard';
+export type CreatureState = 'idle' | 'happy' | 'victory' | 'defeat' | 'attack' | 'hit' | 'select' | 'enter' | 'guard' | 'evolve';
 
 interface Props {
   creature: CreatureId;
@@ -15,6 +16,12 @@ interface Props {
   /** render without aura/cosmetics (for tiny avatars) */
   bare?: boolean;
   animKey?: string | number;
+  /** creature level: drives the evolution form (Lv4 evolved, Lv8 final) */
+  level?: number;
+  /** force a form (for teasers) */
+  stage?: 1 | 2 | 3;
+  /** blacked-out mystery silhouette (evolution teaser) */
+  silhouette?: boolean;
 }
 
 interface Anchors { headTop: { x: number; y: number; w: number }; eyes: { lx: number; rx: number; y: number; r: number }; shoulders: { y: number; w: number } }
@@ -285,6 +292,8 @@ function Hat({ id, a }: { id: string; a: Anchors }) {
     case 'hat_party': return (<g transform={`translate(${x + w * 0.22} ${y - 2}) rotate(14)`}><path d="M0 0 L-14 2 L0 -34 L14 2 Z" fill="#E5AD48" /><path d="M-8 -16 L8 -16 L0 -34 Z" fill="#76243A" /><path d="M-11 -8 h22" stroke="#F6EBDD" strokeWidth="3" /><circle cx="0" cy="-35" r="4" fill="#F07842" /></g>);
     case 'hat_cork': return (<g>{[-2, -1, 0, 1, 2].map((i) => <rect key={i} x={x + i * (w / 5.2) - 5} y={y - 14 - (i === 0 ? 4 : Math.abs(i) === 1 ? 2 : 0)} width="10" height="16" rx="3" fill="#c9a97a" stroke="#8a6a46" strokeWidth="1.5" />)}<rect x={x - w / 2 + 2} y={y - 4} width={w - 4} height="6" rx="3" fill="#76243A" /></g>);
     case 'hat_crown': return (<g transform={`translate(${x} ${y})`}><path d={`M${-w / 2.4} 2 L${-w / 2.4} -22 L${-w / 4.8} -10 L0 -28 L${w / 4.8} -10 L${w / 2.4} -22 L${w / 2.4} 2 Z`} fill="#E5AD48" stroke="#c98a2a" strokeWidth="2" /><circle cx={-w / 4.8} cy="-4" r="3" fill="#F07842" /><circle cx="0" cy="-6" r="3.5" fill="#76243A" /><circle cx={w / 4.8} cy="-4" r="3" fill="#F07842" /></g>);
+    case 'hat_jester': return (<g transform={`translate(${x} ${y + 2})`}><path d={`M${-w / 2.3} 0 Q${-w / 2} -26 ${-w / 1.4} -22 Q${-w / 4} -14 0 -6 Q${w / 4} -14 ${w / 1.4} -22 Q${w / 2} -26 ${w / 2.3} 0 Z`} fill="#76243A" /><path d={`M0 -6 Q${w / 4} -14 ${w / 1.4} -22 Q${w / 2} -26 ${w / 2.3} 0 Z`} fill="#E5AD48" /><circle cx={-w / 1.4} cy="-22" r="4" fill="#F3CD7A" /><circle cx={w / 1.4} cy="-22" r="4" fill="#F3CD7A" /><rect x={-w / 2.3} y="-3" width={w / 1.15} height="6" rx="3" fill="#F6EBDD" /></g>);
+    case 'hat_feathers': return (<g transform={`translate(${x} ${y + 2})`}>{[-22, -8, 8, 22].map((r, i) => <g key={i} transform={`rotate(${r})`}><path d="M0 0 C-6 -14 -4 -30 0 -38 C4 -30 6 -14 0 0Z" fill="#F6EBDD" stroke="#c9c2c9" strokeWidth="1" /><path d="M0 -30 C-2 -34 -1 -37 0 -38 C1 -37 2 -34 0 -30Z" fill="#242127" /></g>)}<ellipse cx="0" cy="0" rx="10" ry="4" fill="#E5AD48" /></g>);
     case 'hat_beret': return (<g transform={`translate(${x} ${y + 2})`}><ellipse cx="2" cy="-6" rx={w / 2.2} ry="9" fill="#242127" /><ellipse cx="-4" cy="-10" rx={w / 2.6} ry="8" fill="#3a3340" /><circle cx="-6" cy="-19" r="2.5" fill="#242127" /></g>);
     default: return null;
   }
@@ -293,18 +302,39 @@ function Face({ id, a }: { id: string; a: Anchors }) {
   const { lx, rx, y, r } = a.eyes;
   switch (id) {
     case 'face_shades': return (<g><rect x={lx - r - 3} y={y - r - 1} width={r * 2 + 6} height={r * 2 + 2} rx="5" fill="#15121a" /><rect x={rx - r - 3} y={y - r - 1} width={r * 2 + 6} height={r * 2 + 2} rx="5" fill="#15121a" /><line x1={lx + r + 3} y1={y} x2={rx - r - 3} y2={y} stroke="#15121a" strokeWidth="3" /><path d={`M${lx - r} ${y - r + 2} l${r} ${-1}`} stroke="#fff" strokeWidth="1.5" opacity={0.6} /></g>);
+    case 'face_mic': return (<g transform={`translate(${rx + r + 6} ${y + r * 2 + 10}) rotate(-25)`}><rect x="-2.5" y="0" width="5" height="20" rx="2.5" fill="#242127" /><circle cx="0" cy="-3" r="6" fill="#9a949c" stroke="#5a565c" strokeWidth="1.5" /><path d="M-4 -3 h8 M0 -7 v8" stroke="#5a565c" strokeWidth="1" /><circle cx="0" cy="12" r="1.5" fill="#F07842" /></g>);
     case 'face_monocle': return (<g><circle cx={rx} cy={y} r={r + 4} fill="none" stroke="#E5AD48" strokeWidth="2.5" /><path d={`M${rx + r + 2} ${y + r} q6 14 2 26`} stroke="#E5AD48" strokeWidth="1.5" fill="none" /></g>);
     default: return null;
   }
 }
+function Sash({ a }: { a: Anchors }) {
+  const { y, w } = a.shoulders;
+  return (<g><path d={`M${100 - w / 2 + 4} ${y + 4} L${100 - w / 2 + 16} ${y - 2} L${100 + w / 2 - 2} ${y + 54} L${100 + w / 2 - 14} ${y + 60} Z`} fill="#F6EBDD" opacity={0.95} /><path d={`M${100 - w / 2 + 10} ${y + 1} L${100 + w / 2 - 8} ${y + 57}`} stroke="#E5AD48" strokeWidth="2.5" /><circle cx="100" cy={y + 30} r="5" fill="#76243A" stroke="#E5AD48" strokeWidth="1.5" /></g>);
+}
+/** Evolution extras: Lv4 adds a gold crest, Lv8 adds wings of light and a halo. */
+function EvoBack({ stage, a }: { stage: number; a: Anchors }) {
+  if (stage < 3) return null;
+  const { y } = a.shoulders;
+  return (<g className="evo-wings" opacity="0.85"><path d={`M92 ${y + 6} C60 ${y - 30} 22 ${y - 18} 16 ${y + 18} C40 ${y + 8} 60 ${y + 18} 92 ${y + 20} Z`} fill="url(#evoWing)" /><path d={`M108 ${y + 6} C140 ${y - 30} 178 ${y - 18} 184 ${y + 18} C160 ${y + 8} 140 ${y + 18} 108 ${y + 20} Z`} fill="url(#evoWing)" /></g>);
+}
+function EvoFront({ stage, a }: { stage: number; a: Anchors }) {
+  if (stage < 2) return null;
+  const { x, y, w } = a.headTop;
+  return (<g>
+    <g transform={`translate(${x} ${y + 4})`}>{[-1, 0, 1].map((i) => <path key={i} d={`M${i * w / 5 - 5} 0 L${i * w / 5} ${i === 0 ? -16 : -11} L${i * w / 5 + 5} 0 Z`} fill="#E5AD48" stroke="#fbe3a6" strokeWidth="1" />)}</g>
+    {stage >= 3 && <ellipse className="evo-halo" cx={x} cy={y - 26} rx={w / 2.4} ry="5" fill="none" stroke="#F3CD7A" strokeWidth="3" />}
+  </g>);
+}
 function Cape({ id, a }: { id: string; a: Anchors }) {
   const { y, w } = a.shoulders;
-  const fill = id === 'cape_gold' ? 'url(#capeGold)' : 'url(#capeVelvet)';
+  const fill = id === 'cape_gold' ? 'url(#capeGold)' : id === 'cape_slayer' ? 'url(#capeSlayer)' : 'url(#capeVelvet)';
   return <path d={`M${100 - w / 2} ${y} C${100 - w / 2 - 14} ${y + 40} ${100 - w / 2 - 18} ${y + 70} ${100 - w / 2 - 10} ${y + 72} L${100 + w / 2 + 10} ${y + 72} C${100 + w / 2 + 18} ${y + 70} ${100 + w / 2 + 14} ${y + 40} ${100 + w / 2} ${y} Z`} fill={fill} opacity={0.95} />;
 }
-const AURA_COLORS: Record<string, string> = { aura_ember: '#F07842', aura_moon: '#cfd8ff', aura_gold: '#E5AD48' };
+const AURA_COLORS: Record<string, string> = { aura_ember: '#F07842', aura_moon: '#cfd8ff', aura_gold: '#E5AD48', aura_disco: '#c38cff' };
 
-export const Creature = memo(function Creature({ creature, colorway = 0, equipped, state = 'idle', flip, className, style, bare, animKey }: Props) {
+export const Creature = memo(function Creature({ creature, colorway = 0, equipped, state = 'idle', flip, className, style, bare, animKey, level, stage: forcedStage, silhouette }: Props) {
+  const stage = forcedStage ?? (level ? stageForLevel(level) : 1);
+  const evoScale = stage === 3 ? 1.12 : stage === 2 ? 1.06 : 1;
   const def = CREATURES[creature];
   const cw = def.colorways[Math.min(colorway, def.colorways.length - 1)] ?? def.colorways[0];
   const parts = BUILDERS[creature](cw);
@@ -313,24 +343,31 @@ export const Creature = memo(function Creature({ creature, colorway = 0, equippe
   const pose = !bare && equipped?.pose;
   const poseT = pose === 'pose_heroic' ? 'rotate(-5 100 170) scale(1.05) translate(-5 -8)' : pose === 'pose_lounge' ? 'rotate(-16 100 170) translate(6 4)' : undefined;
   return (
-    <div className={`creature ${flip ? 'flip' : ''} ${className ?? ''}`} data-state={state} style={style} key={animKey}>
+    <div className={`creature evo-${stage} ${silhouette ? 'silhouette' : ''} ${flip ? 'flip' : ''} ${className ?? ''}`} data-state={state} style={style} key={animKey}>
       <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" aria-label={def.name}>
         <defs>
           <radialGradient id={`aura-${uid}`}><stop offset="0" stopColor={aura ?? cw.glow} stopOpacity="0.55" /><stop offset="0.6" stopColor={aura ?? cw.glow} stopOpacity="0.18" /><stop offset="1" stopColor={aura ?? cw.glow} stopOpacity="0" /></radialGradient>
           <linearGradient id="capeVelvet" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#8E2B45" /><stop offset="1" stopColor="#571827" /></linearGradient>
           <linearGradient id="capeGold" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#F3CD7A" /><stop offset="1" stopColor="#c98a2a" /></linearGradient>
+          <linearGradient id="capeSlayer" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#3a3340" /><stop offset="0.85" stopColor="#15121a" /><stop offset="1" stopColor="#76243A" /></linearGradient>
+          <linearGradient id="evoWing" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stopColor="#fff6d6" stopOpacity="0.2" /><stop offset="1" stopColor="#E5AD48" stopOpacity="0.85" /></linearGradient>
           <radialGradient id={`shadow-${uid}`}><stop offset="0" stopColor="#000" stopOpacity="0.45" /><stop offset="1" stopColor="#000" stopOpacity="0" /></radialGradient>
         </defs>
         {!bare && (aura || state !== 'idle' || true) && <circle className="aura-g" cx="100" cy="118" r="78" fill={`url(#aura-${uid})`} opacity={aura ? 1 : 0.5} />}
         <ellipse cx="100" cy="176" rx="48" ry="9" fill={`url(#shadow-${uid})`} />
         {state === 'guard' && (<g className="shield"><circle cx="100" cy="118" r="70" fill="none" stroke="#E5AD48" strokeWidth="3" strokeDasharray="14 10" opacity="0.9" /><circle cx="100" cy="118" r="62" fill="rgba(229,173,72,0.12)" stroke="#F6EBDD" strokeWidth="1.5" opacity="0.8" /></g>)}
+        <g transform={evoScale !== 1 ? `translate(100 176) scale(${evoScale}) translate(-100 -176)` : undefined}>
         <g className={`body-g ${parts.floats ? 'float' : ''}`} transform={poseT}>
-          {!bare && equipped?.cape && <Cape id={equipped.cape} a={parts.anchors} />}
+          <EvoBack stage={stage} a={parts.anchors} />
+          {!bare && equipped?.cape && equipped.cape !== 'cape_groomsman' && <Cape id={equipped.cape} a={parts.anchors} />}
           {parts.back}
           {parts.body}
           {parts.front}
+          {!bare && equipped?.cape === 'cape_groomsman' && <Sash a={parts.anchors} />}
           {!bare && equipped?.face && <Face id={equipped.face} a={parts.anchors} />}
+          <EvoFront stage={stage} a={parts.anchors} />
           {!bare && equipped?.hat && <Hat id={equipped.hat} a={parts.anchors} />}
+        </g>
         </g>
       </svg>
     </div>

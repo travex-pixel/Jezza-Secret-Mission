@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CATEGORY_META, METHOD_META, MISSION_BY_ID, type Mission } from '@shared/missions';
 import type { MissionAssignment, PlayerPublic } from '@shared/types';
 import { Button, Sheet, useCountdown } from './ui';
@@ -7,9 +7,9 @@ import { newClaimId, request } from '../net';
 import { useStore } from '../store';
 import { sfx } from '../audio';
 
-const DIFF = ['', 'Easy', 'Spicy', 'Legendary'];
+const DIFF = ['', 'Easy', 'Spicy', 'Big one'];
 
-async function compressImage(file: File, maxSide = 900, quality = 0.72): Promise<string> {
+export async function compressImage(file: File, maxSide = 900, quality = 0.72): Promise<string> {
   const url = URL.createObjectURL(file);
   try {
     const img = await new Promise<HTMLImageElement>((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
@@ -37,6 +37,12 @@ export function MissionCard({ mission, assignment, compact, onDone, showReroll, 
   const toast = useStore((s) => s.toast);
   const completed = group ? !!priv?.completedMissionIds.includes(mission.id) : status === 'done';
   const claimIdRef = useRef<string>(newClaimId());
+  const pendingSince = useRef<number | null>(null);
+  if (status === 'pending' && pendingSince.current === null) pendingSince.current = Date.now();
+  if (status !== 'pending') pendingSince.current = null;
+  const [, force] = useState(0);
+  useEffect(() => { if (status !== 'pending') return; const t = setInterval(() => force((n) => n + 1), 5000); return () => clearInterval(t); }, [status]);
+  const witnessStale = mission.method === 'witness' && status === 'pending' && pendingSince.current !== null && Date.now() - pendingSince.current > 2 * 60_000;
   const coolingDown = mission.method === 'self' && !mission.starter && !group && (priv?.honourCooldownUntil ?? 0) > Date.now();
   const coolLeft = useCountdown(coolingDown ? priv?.honourCooldownUntil : undefined);
 
@@ -45,7 +51,7 @@ export function MissionCard({ mission, assignment, compact, onDone, showReroll, 
     try {
       const res = await request<{ status: string; duplicate?: boolean }>({ type: 'claimMission', missionId: mission.id, claimId: claimIdRef.current, note: note || undefined, ...extra });
       claimIdRef.current = newClaimId();
-      if (res.status === 'pending') { sfx.select(); toast(mission.method === 'witness' ? 'Sent to your witness. Hassle them.' : 'Submitted to the host for approval.', '📨', 'success'); }
+      if (res.status === 'pending') { sfx.select(); toast(mission.method === 'witness' ? 'Sent. Go hassle them to tap yes.' : 'Sent to the host.', '📨', 'success'); }
       else sfx.mission();
       onDone?.();
     } catch (e) { setErr((e as Error).message); sfx.error(); }
@@ -68,16 +74,21 @@ export function MissionCard({ mission, assignment, compact, onDone, showReroll, 
 
   const cta = () => {
     if (completed) return <span className="pill pill-ok">✓ Done</span>;
-    if (status === 'pending') return <span className="pill pill-gold">⏳ Awaiting {mission.method === 'witness' ? 'witness' : 'host'}</span>;
+    if (status === 'pending') {
+      return witnessStale
+        ? <Button size="sm" variant="secondary" onClick={() => setPickWitness(true)} disabled={busy}>👀 Ask someone else</Button>
+        : <span className="pill pill-gold">⏳ Waiting on your mate</span>;
+    }
     switch (mission.method) {
       case 'self': return coolingDown && coolLeft > 0 ? <Button size="sm" variant="secondary" disabled title="One honour-system claim every 8 minutes">⏳ {Math.floor(coolLeft / 60)}:{String(coolLeft % 60).padStart(2, '0')}</Button> : <Button size="sm" onClick={() => submit()} disabled={busy}>{busy ? '…' : method.cta}</Button>;
       case 'photo': return (<><input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} /><Button size="sm" onClick={() => fileRef.current?.click()} disabled={busy}>{busy ? 'Uploading…' : `📸 ${method.cta}`}</Button></>);
       case 'witness': return <Button size="sm" onClick={() => setPickWitness(true)} disabled={busy}>{busy ? '…' : `👀 ${method.cta}`}</Button>;
-      case 'host': return <Button size="sm" onClick={() => submit()} disabled={busy}>{busy ? '…' : `📨 ${method.cta}`}</Button>;
+      default: return <Button size="sm" onClick={() => submit()} disabled={busy}>{busy ? '…' : method.cta}</Button>;
     }
   };
 
-  const witnesses = (party?.players ?? []).filter((p) => p.id !== myId && p.creature).sort((a, b) => Number(b.online) - Number(a.online) || a.nickname.localeCompare(b.nickname));
+  const groomId = party?.groomId;
+  const witnesses = (party?.players ?? []).filter((p) => p.id !== myId && p.creature).sort((a, b) => Number(b.id === groomId) - Number(a.id === groomId) || Number(b.online) - Number(a.online) || a.nickname.localeCompare(b.nickname));
 
   return (
     <div className={`mission-card ${mission.secret ? 'secret' : ''} ${completed ? 'done' : ''} ${status === 'pending' ? 'pending' : ''}`} style={{ ['--hue' as any]: meta.hue }}>
@@ -95,19 +106,19 @@ export function MissionCard({ mission, assignment, compact, onDone, showReroll, 
       <div className={`mc-body ${compact ? 'clamp' : ''}`}>{mission.instruction}</div>
       {err && <div className="field-error" style={{ padding: '0 14px' }}>{err}</div>}
       <div className="mc-foot">
-        <span className="tiny faint" style={{ maxWidth: '45%', lineHeight: 1.2 }}>{method.label}{mission.timeLimitMin ? ` · ${mission.timeLimitMin} min` : ''}{showReroll && status === 'active' && !mission.starter ? <><br /><button className="bold" style={{ color: 'var(--rose)', textDecoration: 'underline' }} onClick={reroll} disabled={busy || (priv?.rerollsLeft ?? 0) <= 0}>Swap ({priv?.rerollsLeft ?? 0} left)</button></> : null}</span>
+        <span className="tiny faint" style={{ maxWidth: '45%', lineHeight: 1.2 }}>{method.label}{showReroll && status === 'active' && !mission.starter ? <><br /><button className="bold" style={{ color: 'var(--rose)', textDecoration: 'underline' }} onClick={reroll} disabled={busy || (priv?.rerollsLeft ?? 0) <= 0}>Swap ({priv?.rerollsLeft ?? 0} left)</button></> : null}</span>
         <span className="row" style={{ gap: 6 }}>{cta()}</span>
       </div>
       {pickWitness && (
         <Sheet onClose={() => setPickWitness(false)}>
-          <div className="eyebrow center">Who saw it happen?</div>
-          <h3 className="display title-md center" style={{ margin: '6px 0 10px' }}>Pick your witness</h3>
+          <div className="eyebrow center">Who saw it?</div>
+          <h3 className="display title-md center" style={{ margin: '6px 0 10px' }}>Pick a mate to confirm</h3>
           <div className="scroll-y stack-6" style={{ maxHeight: '45vh' }}>
             {witnesses.length === 0 && <div className="center dim small pad">No mates have joined yet. Lonely.</div>}
             {witnesses.map((w: PlayerPublic) => (
               <button key={w.id} className="list-row" style={{ width: '100%', textAlign: 'left' }} onClick={() => { setPickWitness(false); submit({ witnessId: w.id }); }}>
-                <span className="avatar sm"><Creature creature={w.creature!} colorway={w.equipped.colorway} bare /></span>
-                <span className="grow"><div className="bold">{w.nickname}</div><div className="tiny faint">{w.creatureName} · Lv {w.level}</div></span>
+                <span className="avatar sm"><Creature creature={w.creature!} level={w.level} colorway={w.equipped.colorway} bare /></span>
+                <span className="grow"><div className="bold">{w.id === groomId ? '🤵 ' : ''}{w.nickname}</div><div className="tiny faint">{w.id === groomId ? 'The groom himself' : `${w.creatureName} · Lv ${w.level}`}</div></span>
                 <span className={`pill pill-xs ${w.online ? 'pill-ok' : ''}`}>{w.online ? 'online' : 'away'}</span>
               </button>
             ))}

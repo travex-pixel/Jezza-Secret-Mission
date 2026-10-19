@@ -13,6 +13,10 @@ import BattleScreen from './screens/Battle';
 import Ranks from './screens/Ranks';
 import Party from './screens/Party';
 import Host from './screens/Host';
+import Raid from './screens/Raid';
+import Wall from './screens/Wall';
+import Cellar from './screens/Cellar';
+import Gallery from './screens/Gallery';
 import { BottomNav, RewardOverlay, Toasts } from './components/ui';
 import IncomingChallenge from './components/IncomingChallenge';
 
@@ -39,6 +43,10 @@ export default function App() {
       case 'party': screen = <Party />; break;
       case 'profile': screen = <Profile />; break;
       case 'host': screen = <Host />; break;
+      case 'raid': screen = <Raid />; break;
+      case 'wall': screen = <Wall />; break;
+      case 'cellar': screen = <Cellar />; break;
+      case 'gallery': screen = <Gallery />; break;
       default: screen = <Home />;
     }
   }

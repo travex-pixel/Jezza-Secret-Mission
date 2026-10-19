@@ -40,9 +40,8 @@ server.listen(PORT, async () => {
   await page.waitForSelector('.reward'); await page.locator('.reward').click();
   await page.waitForSelector('.bottom-nav');
   check((await page.getByRole('button', { name: /host controls/i }).count()) === 1, 'hosting in demo gives you the host controls');
-  await page.getByRole('button', { name: /start friday/i }).click();
   await page.waitForTimeout(500);
-  await page.getByText(/Party →/).click();
+  await page.locator('.quick-btn', { hasText: 'Party' }).click();
   const legends = await page.locator('.topbar .pill').textContent();
   check(/15 legends/.test(legends ?? ''), `bots joined the party you host (${legends?.trim()})`);
   await page.locator('.bottom-nav').getByRole('button', { name: 'Battle' }).click();

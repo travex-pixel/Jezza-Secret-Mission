@@ -30,9 +30,9 @@ export default function IncomingChallenge() {
         <div className="eyebrow">Incoming challenge</div>
         <div className="display title-lg gold-text">{challenger?.nickname ?? 'A mate'}</div>
         <div className="row" style={{ justifyContent: 'center', gap: 16 }}>
-          <Creature creature={incoming.a.creature} colorway={challenger?.equipped.colorway} equipped={challenger?.equipped} state="attack" style={{ width: 110 }} />
+          <Creature creature={incoming.a.creature} level={challenger?.level} colorway={challenger?.equipped.colorway} equipped={challenger?.equipped} state="attack" style={{ width: 110 }} />
           <span className="display title-lg">VS</span>
-          <Creature creature={me.creature} colorway={me.equipped.colorway} equipped={me.equipped} state="happy" style={{ width: 110 }} flip />
+          <Creature creature={me.creature} level={me.level} colorway={me.equipped.colorway} equipped={me.equipped} state="happy" style={{ width: 110 }} flip />
         </div>
         <div className="small dim bold">{challenger?.creatureName} (Lv {challenger?.level}) wants a piece of {me.creatureName}.</div>
         <div className="btn-row"><Button variant="secondary" onClick={() => respond(false)}>Decline</Button><Button onClick={() => respond(true)}>Accept!</Button></div>

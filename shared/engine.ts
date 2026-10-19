@@ -4,16 +4,21 @@
 import type {
   Battle, BattleAction, Claim, TapQuality, ClientMessage, CreatureId, Equipped, FeedEvent, HostAction, HostView,
   MissionAssignment, PartyPublic, Phase, PlayerPrivate, PlayerPublic, ServerMessage, WitnessRequest,
+  Raid, Reaction, WallPost, CellarEntry, GalleryPhoto,
 } from './types';
-import { CREATURES, CREATURE_IDS } from './creatures';
-import { MISSIONS, MISSION_BY_ID, STARTER_MISSION, missionAvailableInPhase, type Mission } from './missions';
+import { CREATURES, CREATURE_IDS, FORMS } from './creatures';
+import { MISSIONS, MISSION_BY_ID, STARTER_MISSION, GROUP_MISSIONS, missionAvailableInPhase, type Mission } from './missions';
 import {
   ACHIEVEMENTS, COSMETIC_BY_ID, colorwaysUnlocked, computeAwards, cosmeticsForLevel, levelForXp, titleForLevel,
+  xpCapFor, stageForLevel, eloUpdate, START_RATING, sortLeaderboard,
 } from './progression';
-import { validateCreatureName, validateNickname } from './names';
+import { isClean, validateCreatureName, validateNickname } from './names';
 import {
-  BATTLE_REWARDS, CHALLENGE_TTL_MS, MAX_SCORED_VS_SAME_OPPONENT, ROUND_SECONDS, TAP_BAR_MS, finish, makeCreatureState, redactBattle, resolveRound,
+  BATTLE_REWARDS, CHALLENGE_TTL_MS, MAX_SCORED_VS_SAME_OPPONENT, ROUND_SECONDS, TAP_BAR_MS, TAP_MULT, finish, makeCreatureState, redactBattle, resolveRound,
 } from './battle';
+import {
+  BOSSES, RAID_DURATION_MS, RAID_HIT_COOLDOWN_MS, RAID_HP_PER_PLAYER, RAID_MISSION_DMG_MULT, RAID_MVP_POINTS, RAID_REWARD, RAID_THRESHOLD,
+} from './raid';
 
 export interface PlayerState extends PlayerPublic {
   hand: MissionAssignment[];
@@ -23,6 +28,7 @@ export interface PlayerState extends PlayerPublic {
   missedRounds: number;
   lastHonourClaimAt: number;
   flagged: string[];
+  rerollRefillAt: number;
 }
 
 export interface PartyState {
@@ -43,6 +49,13 @@ export interface PartyState {
   seq: number;
   hostPinHash?: string;
   pinAttempts?: { playerId: string; at: number }[];
+  groomId: string | null;
+  autoSaturdayAt: number | null;
+  nextGroupAt: number | null;
+  raids: Raid[];
+  wall: WallPost[];
+  cellar: CellarEntry[];
+  phaseMissions: { friday: number; saturday: number };
 }
 
 export interface EngineState {
@@ -86,7 +99,30 @@ export function hashPin(code: string, pin: string): string {
 export const HONOUR_COOLDOWN_MS = 8 * 60_000;   // one "I did it" per player per 8 minutes
 export const FLAGS_TO_DISPUTE = 2;              // distinct mates calling BS before points freeze
 const FLAG_WINDOW_MS = 45 * 60_000;             // BS can be called within 45 min of a completion
-const REROLLS_PER_PHASE = 3;
+const REROLLS_PER_PHASE = 3;                    // swap tokens held at most
+const REROLL_REFILL_MS = 20 * 60_000;           // one swap token back every 20 minutes
+const WITNESS_RENUDGE_MS = 2 * 60_000;          // ask someone else if your witness hasn't answered in 2 min
+const DISPUTE_TIMEOUT_MS = 30 * 60_000;         // a BS call nobody backs is struck out after 30 min
+const HAND_EXPIRE_MS = 2 * 3600_000;            // untouched challenges rotate out after 2 hours
+const GROUP_EVERY_MS = 40 * 60_000;             // a new group challenge goes live every 40 minutes
+const FIRST_GROUP_DELAY_MS = 20 * 60_000;
+export const FRESH_LEGS = 6;                    // Saturday arrivals: double points on their first 6 challenges
+const VARIETY_BONUS = 5;                        // first challenge in a new category
+const WALL_PER_PHASE = 3;
+const CELLAR_REWARDED_PER_PHASE = 3;
+
+/** Next Saturday 5:00am in Sydney after `from` (the party goes to Saturday on its own then). */
+export function nextSaturdayMorning(from: number): number {
+  const fmt = new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Sydney', weekday: 'short', hour: 'numeric', hourCycle: 'h23' });
+  let t = from - (from % 3600_000) + 3600_000;
+  for (let i = 0; i < 24 * 9; i++, t += 3600_000) {
+    const parts = fmt.formatToParts(new Date(t));
+    const wd = parts.find((x) => x.type === 'weekday')?.value; const hr = Number(parts.find((x) => x.type === 'hour')?.value);
+    if (wd === 'Sat' && hr === 5) return t;
+  }
+  return from + 7 * 86400_000;
+}
+const isJezza = (nick: string) => nick.toLowerCase().replace(/[^a-z]/g, '').includes('jezza');
 const FEED_LIMIT = 60;
 const MAX_PHOTO_CHARS = 450_000; // ~330KB jpeg base64
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -106,6 +142,24 @@ export class Engine {
     this.deletePhotos = opts.deletePhotos ?? (() => undefined);
     this.codeLength = opts.codeLength ?? 4;
     this.state = state ?? { parties: {}, playerParty: {}, identities: {} };
+    this.migrate();
+  }
+
+  /** Fill in fields added after a party was saved, so an older state.json keeps working. */
+  private migrate() {
+    for (const party of Object.values(this.state.parties)) {
+      party.groomId ??= Object.values(party.players).find((p) => isJezza(p.nickname))?.id ?? null;
+      party.autoSaturdayAt ??= party.phase === 'friday' || party.phase === 'lobby' ? nextSaturdayMorning(party.createdAt) : null;
+      party.nextGroupAt ??= null;
+      party.raids ??= []; party.wall ??= []; party.cellar ??= [];
+      party.phaseMissions ??= { friday: 0, saturday: 0 };
+      for (const p of Object.values(party.players)) {
+        p.rating ??= START_RATING; p.streak ??= 0; p.bestStreak ??= 0; p.bounties ??= 0;
+        p.laughs ??= 0; p.fires ??= 0; p.groomLoves ??= 0; p.wallVotes ??= 0; p.cellarCount ??= 0; p.cellarFires ??= 0;
+        p.raidDamage ??= 0; p.raidsJoined ??= 0; p.lowKey ??= false; p.freshLegs ??= 0; p.joinedPhase ??= 'friday';
+        p.rerollRefillAt ??= 0;
+      }
+    }
   }
 
   // ---------- identity ----------
@@ -140,7 +194,12 @@ export class Engine {
       .sort((a, b) => b.createdAt - a.createdAt)
       .slice(0, 20)
       .map((b) => (viewerId ? redactBattle(b, viewerId) : redactBattle(b, '')));
-    const showAwards = party.phase === 'finale' || party.phase === 'ended';
+    const eventByClaim = new Map(party.feed.filter((f) => f.claimId).map((f) => [f.claimId!, f.id]));
+    const gallery: GalleryPhoto[] = [
+      ...Object.values(party.claims).filter((c) => c.photoUrl && (c.status === 'approved' || c.status === 'disputed'))
+        .map((c) => ({ id: c.id, url: c.photoUrl!, at: c.resolvedAt ?? c.createdAt, playerId: c.playerId, caption: MISSION_BY_ID[c.missionId]?.secret ? 'A sneaky one' : MISSION_BY_ID[c.missionId]?.title ?? 'Challenge', source: 'mission' as const, eventId: eventByClaim.get(c.id) })),
+      ...party.cellar.filter((e) => e.photoUrl).map((e) => ({ id: e.id, url: e.photoUrl!, at: e.at, playerId: e.playerId, caption: e.drink, source: 'cellar' as const })),
+    ].sort((a, b) => b.at - a.at).slice(0, 80);
     return {
       code: party.code,
       name: party.name,
@@ -152,10 +211,19 @@ export class Engine {
       feed: party.feed.slice(-40),
       revealedGroupMissions: party.revealedGroupMissions,
       battles,
-      pendingApprovals: Object.values(party.claims).filter((c) => (c.status === 'pending' && c.method !== 'witness') || c.status === 'disputed').length,
-      awards: showAwards ? computeAwards(players, Object.values(party.battles), party.fridayPoints, party.awardOverrides) : null,
+      pendingApprovals: Object.values(party.claims).filter((c) => (c.status === 'pending' && c.method === 'host') || c.status === 'disputed').length,
+      awards: computeAwards(players, Object.values(party.battles), party.awardOverrides),
       finalized: party.finalized,
       hasHostPin: !!party.hostPinHash,
+      groomId: party.groomId,
+      raid: party.raids[party.raids.length - 1] ?? null,
+      raidsDone: party.raids.map((r) => r.phase),
+      wall: party.wall.filter((w) => !w.hidden).slice(-40),
+      cellar: party.cellar.slice(-30),
+      gallery,
+      autoSaturdayAt: party.autoSaturdayAt,
+      nextGroupAt: party.nextGroupAt,
+      phaseMissions: party.phaseMissions,
       serverTime: now,
     };
   }
@@ -170,6 +238,7 @@ export class Engine {
       hand: p.hand,
       completedMissionIds: p.completedMissionIds,
       rerollsLeft: p.rerollsLeft,
+      rerollRefillAt: p.rerollsLeft >= REROLLS_PER_PHASE ? 0 : p.rerollRefillAt,
       pendingWitness,
       honourCooldownUntil: (p.lastHonourClaimAt ?? 0) + HONOUR_COOLDOWN_MS,
       flagged: p.flagged ?? [],
@@ -178,7 +247,7 @@ export class Engine {
   }
 
   hostView(party: PartyState): HostView {
-    return { approvals: Object.values(party.claims).filter((c) => (c.status === 'pending' && c.method !== 'witness') || c.status === 'disputed').sort((a, b) => a.createdAt - b.createdAt) };
+    return { approvals: Object.values(party.claims).filter((c) => (c.status === 'pending' && c.method === 'host') || c.status === 'disputed').sort((a, b) => a.createdAt - b.createdAt) };
   }
 
   // ---------- main dispatcher ----------
@@ -200,6 +269,16 @@ export class Engine {
         case 'respondChallenge': return this.respondChallenge(playerId, msg.battleId, msg.accept);
         case 'battleAction': return this.battleAction(playerId, msg.battleId, msg.round, msg.action, msg.tap);
         case 'flagClaim': return this.flagClaim(playerId, msg.claimId);
+        case 'backClaim': return this.backClaim(playerId, msg.claimId);
+        case 'react': return this.react(playerId, msg.eventId, msg.emoji);
+        case 'wallPost': return this.wallPost(playerId, msg.kind, msg.text);
+        case 'wallVote': return this.wallVote(playerId, msg.postId);
+        case 'wallHide': return this.wallHide(playerId, msg.postId);
+        case 'cellarAdd': return this.cellarAdd(playerId, msg.drink, msg.stars, msg.note, msg.photo);
+        case 'cellarFire': return this.cellarFire(playerId, msg.entryId);
+        case 'raidHit': return this.raidHit(playerId, msg.raidId, msg.tap);
+        case 'setPrefs': return this.setPrefs(playerId, !!msg.lowKey);
+        case 'deletePhoto': return this.deletePhoto(playerId, msg.photoId);
         case 'surrender': return this.surrender(playerId, msg.battleId);
         case 'host': return this.hostAction(playerId, msg.action);
         default: res.ack = { ok: false, error: 'Unknown message.' }; return res;
@@ -235,10 +314,12 @@ export class Engine {
     const now = this.now();
     const code = this.newCode();
     const party: PartyState = {
-      code, name: (partyName ?? '').trim().slice(0, 40) || "Jezza's Bucks Weekend", hostId: playerId, phase: 'lobby', missionsOpen: false,
+      code, name: (partyName ?? '').trim().slice(0, 40) || "Jezza's Bucks Weekend", hostId: playerId, phase: 'friday', missionsOpen: true,
       createdAt: now, players: {}, feed: [], claims: {}, revealedGroupMissions: [], battles: {}, awardOverrides: {}, finalized: false, fridayPoints: null, seq: 0,
+      groomId: isJezza(v.name) ? playerId : null, autoSaturdayAt: nextSaturdayMorning(now), nextGroupAt: now + FIRST_GROUP_DELAY_MS,
+      raids: [], wall: [], cellar: [], phaseMissions: { friday: 0, saturday: 0 },
     };
-    party.players[playerId] = newPlayer(playerId, v.name, now, true);
+    party.players[playerId] = newPlayer(playerId, v.name, now, true, 'friday');
     if (pin) party.hostPinHash = hashPin(code, pin);
     this.state.parties[code] = party;
     this.state.playerParty[playerId] = code;
@@ -291,8 +372,11 @@ export class Engine {
     } else {
       const active = Object.values(party.players).filter((p) => !p.removed).length;
       if (active >= 40) return this.fail('This party is full (40 legends max).');
-      party.players[playerId] = newPlayer(playerId, v.name, now, false);
-      this.feed(party, { kind: 'join', text: `${v.name} wandered into the vineyard.`, playerId, emoji: '🍇' });
+      const np = newPlayer(playerId, v.name, now, false, party.phase);
+      if (party.phase === 'saturday') np.freshLegs = FRESH_LEGS;
+      party.players[playerId] = np;
+      if (!party.groomId && isJezza(v.name)) party.groomId = playerId;
+      this.feed(party, { kind: 'join', text: party.phase === 'saturday' ? `${v.name} rocked up for Saturday. Fresh legs: double points on their first ${FRESH_LEGS} challenges.` : `${v.name} wandered into the vineyard.`, playerId, emoji: '🍇' });
     }
     this.state.playerParty[playerId] = code;
     return this.ok(party, { code });
@@ -375,26 +459,24 @@ export class Engine {
     const phase = this.activePhase(party) ?? 'friday';
     const inHand = new Set(p.hand.map((h) => h.missionId));
     const secretInHand = p.hand.some((h) => MISSION_BY_ID[h.missionId]?.secret && h.status !== 'done');
-    const hostInHand = p.hand.some((h) => MISSION_BY_ID[h.missionId]?.method === 'host' && h.status !== 'done');
     return MISSIONS.filter((m) =>
-      m.scope === 'private' && !m.starter && missionAvailableInPhase(m, phase)
+      m.scope === 'private' && !m.starter && m.method !== 'host' && missionAvailableInPhase(m, phase)
       && !inHand.has(m.id) && !p.completedMissionIds.includes(m.id)
-      && !(m.secret && secretInHand) && !(m.method === 'host' && hostInHand),
+      && !(m.secret && secretInHand) && !(p.lowKey && m.loud),
     );
   }
 
-  private refillHand(party: PartyState, p: PlayerState) {
+  private refillHand(party: PartyState, p: PlayerState, sameDifficultyAs?: number) {
     p.hand = p.hand.filter((h) => h.status !== 'done');
-    if (!this.activePhase(party)) return; // only the starter mission before the host opens Friday
+    if (!this.activePhase(party)) return; // only the starter before the event is running
     while (p.hand.length < HAND_SIZE) {
       const pool = this.drawPool(party, p);
       if (!pool.length) break;
-      // Weight toward easier missions early, harder as the creature levels; prefer category variety.
-      const inHandCats = new Set(p.hand.filter((h) => h.status !== 'done').map((h) => MISSION_BY_ID[h.missionId]?.category));
+      // Prefer categories not already in hand. A swap returns the same difficulty, so swapping never farms easy ones.
+      const inHandCats = new Set(p.hand.map((h) => MISSION_BY_ID[h.missionId]?.category));
       const varied = pool.filter((m) => !inHandCats.has(m.category));
-      const base = varied.length ? varied : pool;
-      const weighted = base.filter((m) => m.difficulty <= Math.min(3, 1 + Math.floor(p.level / 3) + (this.rng() < 0.35 ? 1 : 0)));
-      const src = weighted.length ? weighted : base;
+      let src = varied.length ? varied : pool;
+      if (sameDifficultyAs) { const same = src.filter((m) => m.difficulty === sameDifficultyAs); if (same.length) src = same; sameDifficultyAs = undefined; }
       const m = src[Math.floor(this.rng() * src.length)];
       p.hand.push({ missionId: m.id, assignedAt: this.now(), status: 'active' });
     }
@@ -403,7 +485,7 @@ export class Engine {
   private claimMission(playerId: string, missionId: string, claimId: string, photo?: string, witnessId?: string, note?: string): HandleResult {
     const party = this.partyOf(playerId); const p = party?.players[playerId];
     if (!party || !p || p.removed) return this.fail('Join a party first.');
-    if (!p.creature) return this.fail('Adopt a creature before taking missions.');
+    if (!p.creature) return this.fail('Adopt a creature before taking challenges.');
     if (!claimId || !/^[A-Za-z0-9_-]{6,64}$/.test(claimId)) return this.fail('Bad claim id.');
     const existing = party.claims[claimId];
     if (existing) {
@@ -411,50 +493,57 @@ export class Engine {
       return { ack: { ok: true, data: { duplicate: true, status: existing.status } }, changed: false, direct: [] };
     }
     const mission = MISSION_BY_ID[missionId];
-    if (!mission) return this.fail('Unknown mission.');
-    if (p.completedMissionIds.includes(missionId)) return this.fail('Already completed. No double dipping.');
+    if (!mission) return this.fail('Unknown challenge.');
+    if (p.completedMissionIds.includes(missionId)) return this.fail('Already done that one. No double dipping.');
+    const now = this.now();
     const isGroup = mission.scope === 'group';
     if (isGroup) {
-      if (!party.revealedGroupMissions.includes(missionId)) return this.fail('The host has not revealed that group mission.');
+      if (!party.revealedGroupMissions.includes(missionId)) return this.fail('That group challenge isn\'t live yet.');
     } else {
       const h = p.hand.find((x) => x.missionId === missionId);
-      if (!h) return this.fail('That mission is not in your hand.');
-      if (h.status === 'pending') return this.fail('Already submitted. Patience, legend.');
-      if (h.status === 'done') return this.fail('Already completed.');
+      if (!h) return this.fail('That challenge isn\'t in your hand.');
+      if (h.status === 'done') return this.fail('Already done.');
+      if (h.status === 'pending') {
+        const prev = h.claimId ? party.claims[h.claimId] : undefined;
+        if (prev && prev.status === 'pending' && prev.method === 'witness' && now - prev.createdAt >= WITNESS_RENUDGE_MS) {
+          prev.status = 'rejected'; prev.resolvedAt = now; prev.note = 'Expired: witness never answered';
+          h.status = 'active'; h.claimId = undefined;
+        } else return this.fail('Already sent. Give them a sec. After two minutes you can ask someone else.');
+      }
     }
     if (!mission.starter) {
-      if (!this.activePhase(party)) return this.fail('The host has not started the event yet.');
-      if (!party.missionsOpen) return this.fail('Missions are closed right now. The host will reopen them.');
+      if (!this.activePhase(party)) return this.fail('The game is paused in the lobby right now.');
+      if (!party.missionsOpen) return this.fail('Challenges are paused for a bit. The host will turn them back on.');
     }
-    if (Object.values(party.claims).some((c) => c.playerId === playerId && c.missionId === missionId && c.status === 'pending')) return this.fail('Already submitted.');
+    if (Object.values(party.claims).some((c) => c.playerId === playerId && c.missionId === missionId && c.status === 'pending')) return this.fail('Already sent.');
 
-    const now = this.now();
     if (mission.method === 'self' && !mission.starter && !isGroup) {
       const wait = (p.lastHonourClaimAt ?? 0) + HONOUR_COOLDOWN_MS - now;
-      if (wait > 0) return this.fail(`Easy, legend. Next honour-system claim in ${Math.floor(wait / 60000)}:${String(Math.ceil((wait % 60000) / 1000)).padStart(2, '0')}. Photo and witness missions are still open.`);
-      p.lastHonourClaimAt = now;
+      if (wait > 0) return this.fail(`Easy, legend. Next honour-system claim in ${Math.floor(wait / 60000)}:${String(Math.ceil((wait % 60000) / 1000)).padStart(2, '0')}. Photo and mate-confirm ones are still open.`);
     }
     const claim: Claim = { id: claimId, playerId, missionId, method: mission.method, status: 'pending', createdAt: now, group: isGroup, note: (note ?? '').slice(0, 120) || undefined };
+    if (claim.note && !isClean(claim.note)) return this.fail('Keep the note clean, legend.');
     if (mission.method === 'photo') {
-      if (!photo || typeof photo !== 'string' || !photo.startsWith('data:image/')) return this.fail('This mission needs a photo.');
-      if (photo.length > MAX_PHOTO_CHARS) return this.fail('Photo too large. Try again, it will be compressed.');
+      if (!photo || typeof photo !== 'string' || !photo.startsWith('data:image/')) return this.fail('This one needs a photo.');
+      if (photo.length > MAX_PHOTO_CHARS) return this.fail('Photo too big. Try again, it gets shrunk automatically.');
       const url = this.storePhoto(photo, party.code);
-      if (!url) return this.fail('Could not save the photo. Try again.');
+      if (!url) return this.fail('Couldn\'t save the photo. Try again.');
       claim.photoUrl = url;
     }
     if (mission.method === 'witness') {
       const w = witnessId ? party.players[witnessId] : undefined;
-      if (!w || w.removed || w.id === playerId || !w.creature) return this.fail('Pick a mate in the party as your witness.');
+      if (!w || w.removed || w.id === playerId || !w.creature) return this.fail('Pick a mate who was there.');
       claim.witnessId = witnessId;
     }
+    if (mission.method === 'self' && !mission.starter && !isGroup) p.lastHonourClaimAt = now;
     party.claims[claimId] = claim;
     const direct: Outbound[] = [];
-    if (mission.method === 'self') {
-      this.approveClaim(party, claim, direct);
+    if (mission.method === 'self' || mission.method === 'photo') {
+      this.approveClaim(party, claim, direct); // self-service: points land straight away, mates can call BS
     } else {
       if (!isGroup) { const h = p.hand.find((x) => x.missionId === missionId)!; h.status = 'pending'; h.claimId = claimId; }
-      if (mission.method === 'witness') direct.push({ to: witnessId!, msg: { type: 'toast', text: `${p.nickname} needs you to witness "${mission.title}".`, emoji: '👀', tone: 'info' } });
-      if (mission.method !== 'witness') direct.push({ to: party.hostId, msg: { type: 'toast', text: `${p.nickname} submitted "${mission.title}" for approval.`, emoji: '📥', tone: 'info' } });
+      if (mission.method === 'witness') direct.push({ to: witnessId!, msg: { type: 'toast', text: `${p.nickname} reckons you saw "${mission.title}". Check your Missions tab.`, emoji: '👀', tone: 'info' } });
+      else direct.push({ to: party.hostId, msg: { type: 'toast', text: `${p.nickname} sent "${mission.title}" to you.`, emoji: '📥', tone: 'info' } });
     }
     return this.ok(party, { status: claim.status }, direct);
   }
@@ -467,29 +556,63 @@ export class Engine {
     if (!p.completedMissionIds.includes(mission.id)) p.completedMissionIds.push(mission.id);
     const h = p.hand.find((x) => x.missionId === mission.id);
     if (h) { h.status = 'done'; h.claimId = claim.id; }
+    const newCategory = (p.categoryCounts[mission.category] ?? 0) === 0;
     p.missionsCompleted += 1;
     p.categoryCounts[mission.category] = (p.categoryCounts[mission.category] ?? 0) + 1;
-    const reward = this.grant(party, p, mission.points, mission.xp, direct);
-    const label = mission.secret ? 'a SECRET mission' : `"${mission.title}"`;
-    this.feed(party, { kind: 'mission', text: `${p.nickname} completed ${label} (+${mission.points} pts)`, playerId: p.id, photoUrl: claim.photoUrl, emoji: mission.secret ? '🕵️' : '✅', claimId: claim.id, flags: 0 });
-    direct.push({ to: p.id, msg: { type: 'reward', points: mission.points, xp: mission.xp, ...reward, title: mission.title } });
+    const fresh = p.freshLegs > 0;
+    if (fresh) p.freshLegs -= 1;
+    const points = mission.points * (fresh ? 2 : 1) + (newCategory ? VARIETY_BONUS : 0);
+    const bonus = [fresh ? '🦵 Fresh Legs: double points' : '', newCategory ? `+${VARIETY_BONUS} new category` : ''].filter(Boolean).join(' · ') || undefined;
+    const reward = this.grant(party, p, points, mission.xp, direct);
+    const label = mission.secret ? 'a sneaky one' : `"${mission.title}"`;
+    this.feed(party, { kind: 'mission', text: `${p.nickname} did ${label} (+${points})`, playerId: p.id, photoUrl: claim.photoUrl, emoji: mission.secret ? '🕵️' : CATEGORY_EMOJI[mission.category], claimId: claim.id, flags: 0 });
+    direct.push({ to: p.id, msg: { type: 'reward', points, xp: mission.xp, ...reward, title: mission.title, bonus } });
+    // Raid + phase progress
+    const phase = this.activePhase(party);
+    if (phase && !mission.starter) party.phaseMissions[phase] += 1;
+    const raid = this.liveRaid(party);
+    if (raid) this.damageRaid(party, raid, p, mission.points * RAID_MISSION_DMG_MULT, false, 'mission', direct);
+    else this.maybeSpawnRaid(party, direct);
     this.refillHand(party, p);
   }
 
-  /** Award points + xp, handle level ups, unlocks, achievements. Returns level/unlock info. */
-  private grant(party: PartyState, p: PlayerState, points: number, xp: number, direct: Outbound[]) {
+  /** Add XP respecting the phase cap (one evolution max on Friday). Handles levels, unlocks and titles. */
+  private applyXp(party: PartyState, p: PlayerState, xp: number): { unlocked: string[]; capped: boolean } {
+    const cap = xpCapFor(party.phase);
     const before = p.level;
-    p.points = Math.max(0, p.points + points);
-    p.xp = Math.max(0, p.xp + xp);
+    const target = p.xp + xp;
+    const capped = xp > 0 && target > cap;
+    p.xp = Math.max(0, xp > 0 ? Math.min(target, Math.max(p.xp, cap)) : target);
     p.level = levelForXp(p.xp);
     const unlocked: string[] = [];
     if (p.level > before) {
       for (const c of cosmeticsForLevel(p.level)) if (!p.unlocked.includes(c)) { p.unlocked.push(c); unlocked.push(c); }
       p.title = titleForLevel(p.level);
-      this.feed(party, { kind: 'levelup', text: `${p.creatureName} (${p.nickname}) reached level ${p.level}!`, playerId: p.id, emoji: '⬆️' });
     }
+    return { unlocked, capped };
+  }
+
+  private medianLevel(party: PartyState, exceptId: string): number {
+    const lv = Object.values(party.players).filter((x) => !x.removed && x.creature && x.id !== exceptId).map((x) => x.level).sort((a, b) => a - b);
+    return lv.length ? lv[Math.floor(lv.length / 2)] : 1;
+  }
+
+  /** Award points + XP. Handles the Friday cap, Saturday catch-up, level ups, evolutions, unlocks, achievements. */
+  private grant(party: PartyState, p: PlayerState, points: number, xp: number, direct: Outbound[]) {
+    const before = p.level; const stageBefore = stageForLevel(before);
+    p.points = Math.max(0, p.points + points);
+    // Saturday arrivals earn double XP until they've caught up to the group.
+    const boosted = xp > 0 && p.joinedPhase === 'saturday' && p.level < this.medianLevel(party, p.id) ? xp * 2 : xp;
+    const { unlocked, capped } = this.applyXp(party, p, boosted);
+    if (p.level > before) this.feed(party, { kind: 'levelup', text: `${p.creatureName} (${p.nickname}) hit level ${p.level}`, playerId: p.id, emoji: '⬆️' });
     const ach = this.checkAchievements(party, p, direct);
-    return { levelUp: p.level > before ? p.level : undefined, unlocked: [...unlocked, ...ach.cosmetics], achievements: ach.ids };
+    const stageAfter = stageForLevel(p.level);
+    let evolved: { from: number; to: number } | undefined;
+    if (p.creature && stageAfter > stageBefore) {
+      evolved = { from: stageBefore, to: stageAfter };
+      this.feed(party, { kind: 'evolve', text: `🧬 ${p.nickname}'s ${p.creatureName} EVOLVED into a ${FORMS[p.creature][stageAfter - 1]}!`, playerId: p.id, emoji: '🧬' });
+    }
+    return { levelUp: p.level > before ? p.level : undefined, unlocked: [...unlocked, ...ach.cosmetics], achievements: ach.ids, evolved, capped: capped || undefined };
   }
 
   private checkAchievements(party: PartyState, p: PlayerState, direct: Outbound[]): { ids: string[]; cosmetics: string[] } {
@@ -502,9 +625,8 @@ export class Engine {
         if (!a.check(p, ctx)) continue;
         any = true;
         p.achievements.push(a.id); ids.push(a.id);
-        p.points += a.points; p.xp += a.xp;
-        const before = p.level; p.level = levelForXp(p.xp);
-        if (p.level > before) { for (const c of cosmeticsForLevel(p.level)) if (!p.unlocked.includes(c)) { p.unlocked.push(c); cosmetics.push(c); } p.title = titleForLevel(p.level); }
+        p.points += a.points;
+        cosmetics.push(...this.applyXp(party, p, a.xp).unlocked);
         if (a.cosmetic && !p.unlocked.includes(a.cosmetic)) { p.unlocked.push(a.cosmetic); cosmetics.push(a.cosmetic); }
         this.feed(party, { kind: 'achievement', text: `${p.nickname} unlocked "${a.name}"`, playerId: p.id, emoji: '🏅' });
         direct.push({ to: p.id, msg: { type: 'toast', text: `Achievement: ${a.name}`, emoji: '🏅', tone: 'success' } });
@@ -518,13 +640,38 @@ export class Engine {
     const party = this.partyOf(playerId); const p = party?.players[playerId];
     if (!party || !p || p.removed) return this.fail('Join a party first.');
     const h = p.hand.find((x) => x.missionId === missionId);
-    if (!h || h.status !== 'active') return this.fail('That mission cannot be swapped.');
-    if (MISSION_BY_ID[missionId]?.starter) return this.fail('The first mission is sacred. Do it.');
-    if (p.rerollsLeft <= 0) return this.fail('No swaps left this phase.');
+    if (!h || h.status !== 'active') return this.fail('That one can\'t be swapped.');
+    const m = MISSION_BY_ID[missionId];
+    if (m?.starter) return this.fail('The first one is sacred. Do it.');
+    this.refillRerolls(p);
+    if (p.rerollsLeft <= 0) return this.fail(`No swaps left. Next one in ${Math.max(1, Math.ceil((p.rerollRefillAt - this.now()) / 60000))} min.`);
+    if (p.rerollsLeft >= REROLLS_PER_PHASE) p.rerollRefillAt = this.now() + REROLL_REFILL_MS;
     p.rerollsLeft -= 1;
     p.hand = p.hand.filter((x) => x !== h);
-    this.refillHand(party, p);
+    this.refillHand(party, p, m?.difficulty);
     return this.ok(party, { rerollsLeft: p.rerollsLeft });
+  }
+
+  /** Swap tokens trickle back: one every 20 minutes, up to the max. */
+  private refillRerolls(p: PlayerState): boolean {
+    if (p.rerollsLeft >= REROLLS_PER_PHASE || !p.rerollRefillAt) return false;
+    const now = this.now();
+    if (now < p.rerollRefillAt) return false;
+    const n = 1 + Math.floor((now - p.rerollRefillAt) / REROLL_REFILL_MS);
+    p.rerollsLeft = Math.min(REROLLS_PER_PHASE, p.rerollsLeft + n);
+    p.rerollRefillAt = p.rerollsLeft >= REROLLS_PER_PHASE ? 0 : p.rerollRefillAt + n * REROLL_REFILL_MS;
+    return true;
+  }
+
+  private setPrefs(playerId: string, lowKey: boolean): HandleResult {
+    const party = this.partyOf(playerId); const p = party?.players[playerId];
+    if (!party || !p || p.removed) return this.fail('Join a party first.');
+    p.lowKey = lowKey;
+    if (lowKey) { // swap out performing challenges for free
+      p.hand = p.hand.filter((h) => !(h.status === 'active' && MISSION_BY_ID[h.missionId]?.loud && !MISSION_BY_ID[h.missionId]?.starter));
+      this.refillHand(party, p);
+    }
+    return this.ok(party);
   }
 
   private confirmWitness(playerId: string, claimId: string, approve: boolean): HandleResult {
@@ -537,7 +684,7 @@ export class Engine {
     return this.ok(party, undefined, direct);
   }
 
-  private resolve(party: PartyState, claim: Claim, approve: boolean, direct: Outbound[], resolver?: PlayerState) {
+  private resolve(party: PartyState, claim: Claim, approve: boolean, direct: Outbound[], resolver?: PlayerState, by: 'host' | 'mates' | 'timeout' = 'host') {
     const owner = party.players[claim.playerId];
     const mission = MISSION_BY_ID[claim.missionId];
     if (claim.status === 'disputed') {
@@ -549,13 +696,13 @@ export class Engine {
           const r = this.grant(party, owner, mission.points, mission.xp, direct);
           owner.missionsCompleted += 1; owner.categoryCounts[mission.category] = (owner.categoryCounts[mission.category] ?? 0) + 1;
           if (!owner.completedMissionIds.includes(mission.id)) owner.completedMissionIds.push(mission.id);
-          this.feed(party, { kind: 'host', text: `The host upheld ${owner.nickname}'s "${mission.title}". Points restored. Apologies owed.`, emoji: '⚖️' });
+          this.feed(party, { kind: 'host', text: by === 'mates' ? `The lads backed ${owner.nickname}'s "${mission.title}". Points restored. Apologies owed.` : `The host upheld ${owner.nickname}'s "${mission.title}". Points restored. Apologies owed.`, emoji: '⚖️' });
           direct.push({ to: owner.id, msg: { type: 'reward', points: mission.points, xp: mission.xp, ...r, title: `${mission.title} (upheld by the host)` } });
         } else {
           owner.hand = owner.hand.filter((h) => h.missionId !== mission.id);
           this.refillHand(party, owner);
-          this.feed(party, { kind: 'host', text: `The host struck out ${owner.nickname}'s "${mission.title}". BS confirmed.`, emoji: '🚩' });
-          direct.push({ to: owner.id, msg: { type: 'toast', text: `"${mission.title}" was struck out by the host. The people have spoken.`, emoji: '🚩', tone: 'warn' } });
+          this.feed(party, { kind: 'host', text: by === 'timeout' ? `Nobody backed ${owner.nickname}'s "${mission.title}". BS confirmed.` : `The host struck out ${owner.nickname}'s "${mission.title}". BS confirmed.`, emoji: '🚩' });
+          direct.push({ to: owner.id, msg: { type: 'toast', text: `"${mission.title}" got struck out. The people have spoken.`, emoji: '🚩', tone: 'warn' } });
         }
       }
       return;
@@ -590,7 +737,7 @@ export class Engine {
     const owner = party.players[claim.playerId];
     const direct: Outbound[] = [];
     if (claim.flags.length >= FLAGS_TO_DISPUTE) {
-      claim.status = 'disputed';
+      claim.status = 'disputed'; claim.disputedAt = this.now(); claim.backers = [];
       if (ev) ev.disputed = true;
       if (owner) {
         // Freeze: take the reward back until the host rules.
@@ -598,14 +745,243 @@ export class Engine {
         owner.missionsCompleted = Math.max(0, owner.missionsCompleted - 1);
         owner.categoryCounts[mission.category] = Math.max(0, (owner.categoryCounts[mission.category] ?? 1) - 1);
         owner.completedMissionIds = owner.completedMissionIds.filter((x) => x !== mission.id);
-        this.feed(party, { kind: 'host', text: `BS CALLED on ${owner.nickname}'s "${mission.title}". Points frozen until the host rules.`, emoji: '🚩' });
-        direct.push({ to: owner.id, msg: { type: 'toast', text: `Your mates called BS on "${mission.title}". The host decides. Start sweating.`, emoji: '🚩', tone: 'warn' } });
-        direct.push({ to: party.hostId, msg: { type: 'toast', text: `BS called on ${owner.nickname}'s "${mission.title}". Your call.`, emoji: '⚖️', tone: 'info' } });
+        this.feed(party, { kind: 'host', text: `BS CALLED on ${owner.nickname}'s "${mission.title}". Points frozen. Two lads can back it, or it's gone in 30 min.`, emoji: '🚩' });
+        direct.push({ to: owner.id, msg: { type: 'toast', text: `The lads called BS on "${mission.title}". Get two mates to back you or it's gone.`, emoji: '🚩', tone: 'warn' } });
       }
     } else if (owner) {
       direct.push({ to: owner.id, msg: { type: 'toast', text: `Someone side-eyed your "${mission.title}". One more and the host gets involved.`, emoji: '👀', tone: 'warn' } });
     }
     return this.ok(party, { flags: claim.flags.length, disputed: claim.status === 'disputed' }, direct);
+  }
+
+  private backClaim(playerId: string, claimId: string): HandleResult {
+    const party = this.partyOf(playerId); const p = party?.players[playerId];
+    if (!party || !p || p.removed) return this.fail('Join a party first.');
+    const claim = party.claims[claimId];
+    if (!claim || claim.status !== 'disputed') return this.fail('Nothing to back.');
+    if (claim.playerId === playerId) return this.fail('You can\'t back yourself. Nice try.');
+    if ((claim.flags ?? []).includes(playerId)) return this.fail('You called BS on it. Pick a side.');
+    claim.backers = claim.backers ?? [];
+    if (claim.backers.includes(playerId)) return this.fail('Already backed it.');
+    claim.backers.push(playerId);
+    const direct: Outbound[] = [];
+    if (claim.backers.length >= (claim.flags?.length ?? FLAGS_TO_DISPUTE)) this.resolve(party, claim, true, direct, p, 'mates');
+    return this.ok(party, { backers: claim.backers.length }, direct);
+  }
+
+  // ---------- reactions ----------
+  private react(playerId: string, eventId: string, emoji: Reaction): HandleResult {
+    const party = this.partyOf(playerId); const p = party?.players[playerId];
+    if (!party || !p || p.removed) return this.fail('Join a party first.');
+    if (!['😂', '🔥', '❤️'].includes(emoji)) return this.fail('Unknown reaction.');
+    const ev = party.feed.find((f) => f.id === eventId);
+    if (!ev || ev.kind !== 'mission' || !ev.playerId) return this.fail('Can\'t react to that.');
+    if (ev.playerId === playerId) return this.fail('Reacting to your own? Bold.');
+    if (emoji === '❤️' && playerId !== party.groomId) return this.fail('Only Jezza gives out hearts.');
+    ev.reactions = ev.reactions ?? {};
+    const list = (ev.reactions[emoji] = ev.reactions[emoji] ?? []);
+    if (list.includes(playerId)) return { ack: { ok: true, data: { already: true } }, changed: false, direct: [] };
+    list.push(playerId);
+    const owner = party.players[ev.playerId];
+    const direct: Outbound[] = [];
+    if (owner) {
+      if (emoji === '😂') owner.laughs += 1;
+      if (emoji === '🔥') owner.fires += 1;
+      if (emoji === '❤️') {
+        owner.groomLoves += 1;
+        this.grant(party, owner, 5, 0, direct);
+        direct.push({ to: owner.id, msg: { type: 'toast', text: 'Jezza gave your challenge a ❤️ (+5)', emoji: '❤️', tone: 'success' } });
+      }
+      this.checkAchievements(party, owner, direct);
+    }
+    return this.ok(party, undefined, direct);
+  }
+
+  // ---------- Jezza Wall ----------
+  private wallPost(playerId: string, kind: 'roast' | 'toast', textRaw: string): HandleResult {
+    const party = this.partyOf(playerId); const p = party?.players[playerId];
+    if (!party || !p || p.removed || !p.creature) return this.fail('Adopt a creature first.');
+    if (kind !== 'roast' && kind !== 'toast') return this.fail('Roast or toast?');
+    const text = String(textRaw ?? '').replace(/\s+/g, ' ').trim();
+    if (text.length < 6) return this.fail('Give it a bit more than that.');
+    if (text.length > 140) return this.fail('Keep it under 140 characters. Punchlines are short.');
+    if (!isClean(text)) return this.fail('Too far, mate. Keep it to stuff Jezza would laugh at in front of his mum.');
+    const mine = party.wall.filter((w) => w.playerId === playerId && w.phase === party.phase && !w.hidden).length;
+    if (mine >= WALL_PER_PHASE) return this.fail(`You've had your ${WALL_PER_PHASE} for today. Save some material for the speech.`);
+    const now = this.now();
+    const post: WallPost = { id: `w_${now.toString(36)}_${Math.floor(this.rng() * 1e6).toString(36)}`, at: now, playerId, kind, text, phase: party.phase, votes: [], groomLove: false };
+    party.wall.push(post);
+    if (party.wall.length > 200) party.wall = party.wall.slice(-200);
+    const direct: Outbound[] = [];
+    const r = this.grant(party, p, 5, 10, direct);
+    direct.push({ to: playerId, msg: { type: 'toast', text: `Posted (+5). ${r.achievements.length ? '' : 'Now get the lads to vote it up.'}`, emoji: kind === 'roast' ? '🔥' : '🥂', tone: 'success' } });
+    this.feed(party, { kind: 'wall', text: `${p.nickname} ${kind === 'roast' ? 'roasted' : 'toasted'} Jezza on the Wall`, emoji: kind === 'roast' ? '🎤' : '🥂' });
+    if (party.groomId && party.groomId !== playerId) direct.push({ to: party.groomId, msg: { type: 'toast', text: kind === 'roast' ? 'Someone just roasted you on the Jezza Wall 👀' : 'Someone just toasted you on the Jezza Wall 🥂', emoji: '🎤', tone: 'info' } });
+    return this.ok(party, { id: post.id }, direct);
+  }
+
+  private wallVote(playerId: string, postId: string): HandleResult {
+    const party = this.partyOf(playerId); const p = party?.players[playerId];
+    if (!party || !p || p.removed) return this.fail('Join a party first.');
+    const post = party.wall.find((w) => w.id === postId && !w.hidden);
+    if (!post) return this.fail('That post is gone.');
+    if (post.playerId === playerId) return this.fail('Voting for yourself? Classic.');
+    const author = party.players[post.playerId];
+    const direct: Outbound[] = [];
+    if (playerId === party.groomId) {
+      if (post.groomLove) return { ack: { ok: true, data: { already: true } }, changed: false, direct: [] };
+      post.groomLove = true;
+      if (author) { author.groomLoves += 1; this.grant(party, author, 10, 0, direct); direct.push({ to: author.id, msg: { type: 'toast', text: 'Jezza ❤️ your Wall post (+10)', emoji: '❤️', tone: 'success' } }); }
+      return this.ok(party, undefined, direct);
+    }
+    if (post.votes.includes(playerId)) return { ack: { ok: true, data: { already: true } }, changed: false, direct: [] };
+    post.votes.push(playerId);
+    if (author) {
+      author.wallVotes += 1;
+      if (post.votes.length <= 10) this.grant(party, author, 2, 0, direct);
+      else this.checkAchievements(party, author, direct);
+    }
+    return this.ok(party, undefined, direct);
+  }
+
+  private wallHide(playerId: string, postId: string): HandleResult {
+    const party = this.partyOf(playerId);
+    const post = party?.wall.find((w) => w.id === postId);
+    if (!party || !post) return this.fail('That post is gone.');
+    if (post.playerId !== playerId && party.groomId !== playerId && party.hostId !== playerId) return this.fail('Only the author, Jezza or the host can take a post down.');
+    post.hidden = true;
+    return this.ok(party);
+  }
+
+  // ---------- Cellar ----------
+  private cellarAdd(playerId: string, drinkRaw: string, starsRaw: number, noteRaw?: string, photo?: string): HandleResult {
+    const party = this.partyOf(playerId); const p = party?.players[playerId];
+    if (!party || !p || p.removed || !p.creature) return this.fail('Adopt a creature first.');
+    const drink = String(drinkRaw ?? '').replace(/\s+/g, ' ').trim().slice(0, 40);
+    const note = String(noteRaw ?? '').replace(/\s+/g, ' ').trim().slice(0, 90) || undefined;
+    const stars = Math.round(Number(starsRaw));
+    if (drink.length < 2) return this.fail('What are you drinking?');
+    if (!(stars >= 1 && stars <= 5)) return this.fail('Give it 1 to 5 stars.');
+    if (!isClean(drink) || (note && !isClean(note))) return this.fail('Keep it clean, sommelier.');
+    const now = this.now();
+    const entry: CellarEntry = { id: `ce_${now.toString(36)}_${Math.floor(this.rng() * 1e6).toString(36)}`, at: now, playerId, drink, stars, note, phase: party.phase, fires: [] };
+    if (photo) {
+      if (typeof photo !== 'string' || !photo.startsWith('data:image/') || photo.length > MAX_PHOTO_CHARS) return this.fail('That photo didn\'t work. Try again.');
+      const url = this.storePhoto(photo, party.code);
+      if (!url) return this.fail('Couldn\'t save the photo. Try again.');
+      entry.photoUrl = url;
+    }
+    party.cellar.push(entry);
+    if (party.cellar.length > 200) party.cellar = party.cellar.slice(-200);
+    const rewarded = party.cellar.filter((e) => e.playerId === playerId && e.phase === party.phase).length <= CELLAR_REWARDED_PER_PHASE;
+    p.cellarCount += 1;
+    const direct: Outbound[] = [];
+    if (rewarded) { this.grant(party, p, 5, 10, direct); direct.push({ to: playerId, msg: { type: 'toast', text: 'Reviewed (+5). Very sophisticated.', emoji: '🍷', tone: 'success' } }); }
+    else { this.checkAchievements(party, p, direct); direct.push({ to: playerId, msg: { type: 'toast', text: 'Logged. (Only your first 3 reviews a day score: the game never rewards drinking more.)', emoji: '🍷', tone: 'info' } }); }
+    this.feed(party, { kind: 'cellar', text: `${p.nickname} reviewed ${drink} ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}`, emoji: '🍷' });
+    return this.ok(party, { id: entry.id }, direct);
+  }
+
+  private cellarFire(playerId: string, entryId: string): HandleResult {
+    const party = this.partyOf(playerId); const p = party?.players[playerId];
+    if (!party || !p || p.removed) return this.fail('Join a party first.');
+    const e = party.cellar.find((x) => x.id === entryId);
+    if (!e) return this.fail('That review is gone.');
+    if (e.playerId === playerId) return this.fail('Can\'t 🔥 your own review.');
+    if (e.fires.includes(playerId)) return { ack: { ok: true, data: { already: true } }, changed: false, direct: [] };
+    e.fires.push(playerId);
+    const author = party.players[e.playerId];
+    if (author) author.cellarFires += 1;
+    return this.ok(party);
+  }
+
+  /** Anyone in the party can pull a photo (consent beats content). It's announced so nobody abuses it. */
+  private deletePhoto(playerId: string, photoId: string): HandleResult {
+    const party = this.partyOf(playerId); const p = party?.players[playerId];
+    if (!party || !p || p.removed) return this.fail('Join a party first.');
+    const claim = party.claims[photoId];
+    const entry = party.cellar.find((e) => e.id === photoId);
+    const url = claim?.photoUrl ?? entry?.photoUrl;
+    if (!url) return this.fail('That photo is already gone.');
+    if (claim) claim.photoUrl = undefined;
+    if (entry) entry.photoUrl = undefined;
+    for (const f of party.feed) if (f.photoUrl === url) f.photoUrl = undefined;
+    this.deletePhotos([url]);
+    const ownerName = party.players[claim?.playerId ?? entry?.playerId ?? '']?.nickname;
+    this.feed(party, { kind: 'host', text: ownerName && ownerName !== p.nickname ? `${p.nickname} took down a photo of ${ownerName}'s. Points stay.` : `${p.nickname} took down one of their photos.`, emoji: '🗑️' });
+    return this.ok(party);
+  }
+
+  // ---------- Boss raids ----------
+  private liveRaid(party: PartyState): Raid | undefined {
+    const r = party.raids[party.raids.length - 1];
+    return r && r.status === 'active' && this.now() < r.endsAt ? r : undefined;
+  }
+
+  private maybeSpawnRaid(party: PartyState, direct: Outbound[]) {
+    const phase = this.activePhase(party);
+    if (!phase || this.liveRaid(party) || party.raids.some((r) => r.phase === phase)) return;
+    if (party.phaseMissions[phase] >= RAID_THRESHOLD[phase]) this.spawnRaid(party, phase, direct);
+  }
+
+  private spawnRaid(party: PartyState, phase: 'friday' | 'saturday', direct: Outbound[]): Raid {
+    const now = this.now();
+    const boss = phase === 'friday' ? 'ibis' : 'hydra';
+    const online = Object.values(party.players).filter((x) => !x.removed && x.creature && x.online).length;
+    const maxHp = RAID_HP_PER_PLAYER * Math.max(4, online);
+    const raid: Raid = { id: `rd_${now.toString(36)}`, phase, boss, maxHp, hp: maxHp, startedAt: now, endsAt: now + RAID_DURATION_MS, status: 'active', damage: {}, lastHitAt: {}, log: [], cosmetic: BOSSES[boss].cosmetic };
+    party.raids.push(raid);
+    this.feed(party, { kind: 'raid', text: `👹 BOSS RAID: ${BOSSES[boss].name} has appeared! 15 minutes. Everyone who swings gets the loot.`, emoji: '👹' });
+    direct.push({ to: 'party', msg: { type: 'toast', text: `BOSS RAID: ${BOSSES[boss].name} is here! Tap the banner. Everyone who hits gets loot.`, emoji: '👹', tone: 'info' } });
+    return raid;
+  }
+
+  private damageRaid(party: PartyState, raid: Raid, p: PlayerState, dmg: number, crit: boolean, source: 'hit' | 'mission', direct: Outbound[]) {
+    const dealt = Math.min(raid.hp, Math.max(1, Math.round(dmg)));
+    raid.hp -= dealt;
+    raid.damage[p.id] = (raid.damage[p.id] ?? 0) + dealt;
+    p.raidDamage += dealt;
+    raid.log.push({ at: this.now(), playerId: p.id, dmg: dealt, crit, source });
+    if (raid.log.length > 14) raid.log = raid.log.slice(-14);
+    if (raid.hp <= 0) this.endRaid(party, raid, 'won', direct);
+  }
+
+  private raidHit(playerId: string, raidId: string, tap?: TapQuality): HandleResult {
+    const party = this.partyOf(playerId); const p = party?.players[playerId];
+    if (!party || !p || p.removed || !p.creature) return this.fail('Adopt a creature first.');
+    const raid = this.liveRaid(party);
+    if (!raid || raid.id !== raidId) return this.fail('That raid is over.');
+    const now = this.now();
+    const wait = (raid.lastHitAt[playerId] ?? 0) + RAID_HIT_COOLDOWN_MS - now;
+    if (wait > 0) return this.fail(`Catch your breath. Next hit in ${Math.ceil(wait / 1000)}s.`);
+    raid.lastHitAt[playerId] = now;
+    const quality: TapQuality = tap === 'perfect' || tap === 'good' ? tap : 'miss';
+    const atk = CREATURES[p.creature].stats.atk;
+    const dmg = atk * 2.25 * (0.9 + this.rng() * 0.3) * TAP_MULT[quality] * (1 + 0.03 * (p.level - 1));
+    const direct: Outbound[] = [];
+    const before = raid.hp;
+    this.damageRaid(party, raid, p, dmg, quality === 'perfect', 'hit', direct);
+    return this.ok(party, { dmg: before - Math.max(0, raid.hp), crit: quality === 'perfect', nextAt: now + RAID_HIT_COOLDOWN_MS }, direct);
+  }
+
+  private endRaid(party: PartyState, raid: Raid, outcome: 'won' | 'escaped', direct: Outbound[]) {
+    if (raid.status !== 'active') return;
+    raid.status = outcome; raid.finishedAt = this.now(); raid.hp = Math.max(0, raid.hp);
+    const boss = BOSSES[raid.boss];
+    const ranking = Object.entries(raid.damage).filter(([, d]) => d > 0).sort((a, b) => b[1] - a[1]);
+    const base = RAID_REWARD[outcome];
+    ranking.forEach(([pid], i) => {
+      const p = party.players[pid];
+      if (!p || p.removed) return;
+      p.raidsJoined += 1;
+      const mvp = RAID_MVP_POINTS[i] ?? 0;
+      const fresh = !p.unlocked.includes(raid.cosmetic);
+      if (fresh) p.unlocked.push(raid.cosmetic);
+      const r = this.grant(party, p, base.points + mvp, base.xp, direct);
+      direct.push({ to: pid, msg: { type: 'reward', points: base.points + mvp, xp: base.xp, ...r, unlocked: [...(fresh ? [raid.cosmetic] : []), ...r.unlocked], title: outcome === 'won' ? `${boss.name} defeated!` : `${boss.name} got away`, bonus: mvp ? `#${i + 1} damage: +${mvp} MVP bonus` : undefined } });
+    });
+    const top = ranking[0] ? party.players[ranking[0][0]]?.nickname : null;
+    this.feed(party, { kind: 'raid', text: `${outcome === 'won' ? boss.defeat : boss.escape}${top ? ` Top damage: ${top}.` : ''} ${ranking.length} legend${ranking.length === 1 ? '' : 's'} get loot.`, emoji: outcome === 'won' ? '🏆' : '💨' });
   }
 
   // ---------- battles ----------
@@ -628,8 +1004,10 @@ export class Engine {
       a: makeCreatureState(p.id, p.creature, p.level), b: makeCreatureState(o.id, o.creature, o.level), log: [],
       scored: (p.scoredBattlesVs[o.id] ?? 0) < MAX_SCORED_VS_SAME_OPPONENT && (o.scoredBattlesVs[p.id] ?? 0) < MAX_SCORED_VS_SAME_OPPONENT,
     };
+    const leader = sortLeaderboard(Object.values(party.players).filter((x) => x.creature))[0];
+    if (leader && leader.points > 0 && (leader.id === p.id || leader.id === o.id) && battle.scored) battle.bountyOn = leader.id;
     party.battles[id] = battle;
-    return this.ok(party, { battleId: id }, [{ to: o.id, msg: { type: 'toast', text: `${p.nickname} challenges you to a battle!`, emoji: '⚔️', tone: 'info' } }]);
+    return this.ok(party, { battleId: id }, [{ to: o.id, msg: { type: 'toast', text: battle.bountyOn === o.id ? `${p.nickname} is coming for your bounty! ⚔️` : `${p.nickname} challenges you to a battle!`, emoji: '⚔️', tone: 'info' } }]);
   }
 
   private respondChallenge(playerId: string, battleId: string, accept: boolean): HandleResult {
@@ -687,21 +1065,30 @@ export class Engine {
     w.wins += 1; l.losses += 1;
     b.rewards = {};
     const scored = b.scored && b.reason !== 'disconnect';
+    let bountyText = '';
     if (scored) {
       w.scoredBattlesVs[l.id] = (w.scoredBattlesVs[l.id] ?? 0) + 1;
       l.scoredBattlesVs[w.id] = (l.scoredBattlesVs[w.id] ?? 0) + 1;
-      const rw = this.grant(party, w, BATTLE_REWARDS.win.points, BATTLE_REWARDS.win.xp, direct);
-      const rl = b.reason === 'surrender' || b.reason === 'timeout' ? { levelUp: undefined, unlocked: [], achievements: [] } : this.grant(party, l, BATTLE_REWARDS.lose.points, BATTLE_REWARDS.lose.xp, direct);
-      b.rewards[w.id] = { ...BATTLE_REWARDS.win };
-      b.rewards[l.id] = b.reason === 'surrender' || b.reason === 'timeout' ? { points: 0, xp: 0 } : { ...BATTLE_REWARDS.lose };
-      direct.push({ to: w.id, msg: { type: 'reward', points: BATTLE_REWARDS.win.points, xp: BATTLE_REWARDS.win.xp, ...rw, title: `Victory over ${l.nickname}` } });
+      [w.rating, l.rating] = eloUpdate(w.rating, l.rating);
+      w.streak += 1; w.bestStreak = Math.max(w.bestStreak, w.streak); l.streak = 0;
+      const bounty = b.bountyOn === l.id;
+      if (bounty) { w.bounties += 1; bountyText = ' and claimed the BOUNTY 👑'; }
+      const streakBonus = Math.min(6, 2 * (w.streak - 1));
+      const winPts = BATTLE_REWARDS.win.points * (bounty ? 2 : 1) + streakBonus;
+      const lossy = b.reason === 'surrender' || b.reason === 'timeout';
+      const rw = this.grant(party, w, winPts, BATTLE_REWARDS.win.xp, direct);
+      const rl = lossy ? { levelUp: undefined, unlocked: [], achievements: [] } : this.grant(party, l, BATTLE_REWARDS.lose.points, BATTLE_REWARDS.lose.xp, direct);
+      b.rewards[w.id] = { points: winPts, xp: BATTLE_REWARDS.win.xp };
+      b.rewards[l.id] = lossy ? { points: 0, xp: 0 } : { ...BATTLE_REWARDS.lose };
+      const bonus = [bounty ? '👑 Bounty: double points' : '', streakBonus ? `🔥 ${w.streak}-win streak +${streakBonus}` : ''].filter(Boolean).join(' · ') || undefined;
+      direct.push({ to: w.id, msg: { type: 'reward', points: winPts, xp: BATTLE_REWARDS.win.xp, ...rw, title: `Victory over ${l.nickname}`, bonus } });
       if (b.rewards[l.id].xp > 0) direct.push({ to: l.id, msg: { type: 'reward', points: BATTLE_REWARDS.lose.points, xp: BATTLE_REWARDS.lose.xp, ...rl, title: `Honourable defeat to ${w.nickname}` } });
     } else {
       b.rewards[w.id] = { points: 0, xp: 0 }; b.rewards[l.id] = { points: 0, xp: 0 };
       this.checkAchievements(party, w, direct); this.checkAchievements(party, l, direct);
     }
     const how = b.reason === 'ko' ? 'knocked out' : b.reason === 'rounds' ? 'outlasted' : b.reason === 'surrender' ? 'accepted the surrender of' : 'outstayed';
-    this.feed(party, { kind: 'battle', text: `${w.creatureName} (${w.nickname}) ${how} ${l.creatureName} (${l.nickname})${scored ? '' : ' (friendly)'}`, emoji: '🏆' });
+    this.feed(party, { kind: 'battle', text: `${w.creatureName} (${w.nickname}) ${how} ${l.creatureName} (${l.nickname})${bountyText}${scored ? (w.streak >= 3 ? ` · 🔥${w.streak} streak` : '') : ' (friendly)'}`, emoji: bountyText ? '👑' : '🏆' });
   }
 
   private surrender(playerId: string, battleId: string): HandleResult {
@@ -716,7 +1103,7 @@ export class Engine {
     return this.ok(party, undefined, direct);
   }
 
-  /** Periodic housekeeping: expire challenges, auto-resolve timed-out rounds. Returns codes of changed parties + direct messages. */
+  /** Periodic housekeeping: battles, raids, auto-Saturday, group challenges, disputes, swaps. Keeps the game running with no host. */
   tick(): { changed: string[]; direct: Outbound[] } {
     const now = this.now();
     const changed: string[] = []; const direct: Outbound[] = [];
@@ -734,11 +1121,69 @@ export class Engine {
           dirty = true;
         }
       }
-      // prune old finished battles and feed
       for (const [id, b] of Object.entries(party.battles)) if (b.finishedAt && now - b.finishedAt > 6 * 3600_000 && Object.keys(party.battles).length > 60) delete party.battles[id];
+      // Raid timer
+      const raid = party.raids[party.raids.length - 1];
+      if (raid && raid.status === 'active' && now >= raid.endsAt) { this.endRaid(party, raid, 'escaped', direct); dirty = true; }
+      // Saturday turns up on its own at 5am Sydney time
+      if (party.autoSaturdayAt && now >= party.autoSaturdayAt) {
+        if (party.phase === 'friday' || party.phase === 'lobby') { this.applyPhase(party, 'saturday', direct, true); }
+        party.autoSaturdayAt = null; dirty = true;
+      }
+      // A new group challenge every so often
+      if (party.nextGroupAt && now >= party.nextGroupAt && this.activePhase(party)) {
+        const phase = this.activePhase(party)!;
+        const next = GROUP_MISSIONS.find((m) => !party.revealedGroupMissions.includes(m.id) && missionAvailableInPhase(m, phase));
+        if (next) { this.revealGroup(party, next.id, direct); party.nextGroupAt = now + GROUP_EVERY_MS; }
+        else party.nextGroupAt = null;
+        dirty = true;
+      }
+      // BS calls nobody backed get struck out
+      for (const c of Object.values(party.claims)) {
+        if (c.status === 'disputed' && c.disputedAt && now - c.disputedAt >= DISPUTE_TIMEOUT_MS) { this.resolve(party, c, false, direct, undefined, 'timeout'); dirty = true; }
+      }
+      // Swap tokens refill; stale challenges rotate out
+      for (const p of Object.values(party.players)) {
+        if (p.removed) continue;
+        if (this.refillRerolls(p)) dirty = true;
+        if (p.creature && this.activePhase(party)) {
+          const stale = p.hand.filter((h) => h.status === 'active' && !MISSION_BY_ID[h.missionId]?.starter && now - h.assignedAt > HAND_EXPIRE_MS);
+          if (stale.length) { p.hand = p.hand.filter((h) => !stale.includes(h)); this.refillHand(party, p); dirty = true; }
+        }
+      }
       if (dirty) { party.seq++; changed.push(party.code); }
     }
     return { changed, direct };
+  }
+
+  private revealGroup(party: PartyState, missionId: string, direct: Outbound[]) {
+    const m = MISSION_BY_ID[missionId];
+    if (!m || party.revealedGroupMissions.includes(m.id)) return;
+    party.revealedGroupMissions.push(m.id);
+    this.feed(party, { kind: 'group', text: `GROUP CHALLENGE LIVE: ${m.title}. Optional, everyone who's in claims it.`, emoji: '🫂' });
+    direct.push({ to: 'party', msg: { type: 'toast', text: `Group challenge live: ${m.title}`, emoji: '🫂', tone: 'info' } });
+  }
+
+  private applyPhase(party: PartyState, phase: Phase, direct: Outbound[], auto = false) {
+    const prev = party.phase;
+    party.phase = phase;
+    if (phase === 'friday' || phase === 'saturday') {
+      party.missionsOpen = true;
+      if (phase === 'saturday' && prev === 'friday') party.fridayPoints = Object.fromEntries(Object.values(party.players).map((p) => [p.id, p.points]));
+      if (!party.nextGroupAt) party.nextGroupAt = this.now() + FIRST_GROUP_DELAY_MS;
+      for (const p of Object.values(party.players)) { if (p.removed) continue; p.rerollsLeft = REROLLS_PER_PHASE; p.rerollRefillAt = 0; if (p.creature) this.refillHand(party, p); }
+    }
+    if (phase === 'finale' || phase === 'ended' || phase === 'lobby') party.missionsOpen = false;
+    if (phase === 'saturday') party.autoSaturdayAt = null;
+    const labels: Record<Phase, string> = {
+      lobby: 'The game is paused in the lobby.',
+      friday: 'FRIDAY is live. Challenges are on.',
+      saturday: `${auto ? 'Morning, legends. ' : ''}SATURDAY: THE CHAMPIONSHIP. Final evolutions unlocked.`,
+      finale: 'THE FINALE. Awards incoming.',
+      ended: 'That\'s a wrap. Legends, every one of you.',
+    };
+    this.feed(party, { kind: 'phase', text: labels[phase], emoji: phase === 'saturday' ? '☀️' : '📣' });
+    direct.push({ to: 'party', msg: { type: 'toast', text: labels[phase], emoji: phase === 'saturday' ? '☀️' : '📣', tone: 'info' } });
   }
 
   // ---------- host ----------
@@ -751,18 +1196,7 @@ export class Engine {
       case 'setPhase': {
         const order: Phase[] = ['lobby', 'friday', 'saturday', 'finale', 'ended'];
         if (!order.includes(action.phase)) return this.fail('Unknown phase.');
-        const prev = party.phase;
-        party.phase = action.phase;
-        if (action.phase === 'friday' || action.phase === 'saturday') {
-          party.missionsOpen = true;
-          if (action.phase === 'saturday' && prev === 'friday') party.fridayPoints = Object.fromEntries(Object.values(party.players).map((p) => [p.id, p.points]));
-          for (const p of Object.values(party.players)) { if (p.removed) continue; p.rerollsLeft = REROLLS_PER_PHASE; if (p.creature) this.refillHand(party, p); }
-        }
-        if (action.phase === 'finale' || action.phase === 'ended') party.missionsOpen = false;
-        if (action.phase === 'lobby') party.missionsOpen = false;
-        const labels: Record<Phase, string> = { lobby: 'The party returns to the lobby.', friday: 'FRIDAY: THE AWAKENING begins. Missions are live!', saturday: 'SATURDAY: THE CHAMPIONSHIP begins. New missions, new secrets.', finale: 'THE FINALE. Awards incoming. Hold onto your hats.', ended: 'The weekend is complete. Legends, every one of you.' };
-        this.feed(party, { kind: 'phase', text: labels[action.phase], emoji: '📣' });
-        direct.push({ to: 'party', msg: { type: 'toast', text: labels[action.phase], emoji: '📣', tone: 'info' } });
+        this.applyPhase(party, action.phase, direct);
         return this.ok(party, undefined, direct);
       }
       case 'setMissionsOpen': {
@@ -772,10 +1206,8 @@ export class Engine {
       }
       case 'revealGroupMission': {
         const m = MISSION_BY_ID[action.missionId];
-        if (!m || m.scope !== 'group') return this.fail('Not a group mission.');
-        if (!party.revealedGroupMissions.includes(m.id)) party.revealedGroupMissions.push(m.id);
-        this.feed(party, { kind: 'group', text: `GROUP MISSION: ${m.title}. Everyone in!`, emoji: '🫂' });
-        direct.push({ to: 'party', msg: { type: 'toast', text: `Group mission revealed: ${m.title}`, emoji: '🫂', tone: 'info' } });
+        if (!m || m.scope !== 'group') return this.fail('Not a group challenge.');
+        this.revealGroup(party, m.id, direct);
         return this.ok(party, undefined, direct);
       }
       case 'resolveClaim': {
@@ -851,8 +1283,23 @@ export class Engine {
         party.hostPinHash = hashPin(party.code, pin);
         return this.ok(party);
       }
+      case 'setGroom': {
+        const g = party.players[action.playerId];
+        if (!g || g.removed) return this.fail('No such player.');
+        party.groomId = g.id;
+        this.feed(party, { kind: 'host', text: `🤵 ${g.nickname} is officially the groom. Hearts unlocked.`, emoji: '🤵' });
+        return this.ok(party);
+      }
+      case 'summonRaid': {
+        const phase = this.activePhase(party);
+        if (!phase) return this.fail('Raids only run on Friday or Saturday.');
+        if (this.liveRaid(party)) return this.fail('A raid is already on.');
+        this.spawnRaid(party, phase, direct);
+        return this.ok(party, undefined, direct);
+      }
       case 'purgePhotos': {
         const urls: string[] = [];
+        for (const e of party.cellar) if (e.photoUrl) { urls.push(e.photoUrl); e.photoUrl = undefined; }
         for (const c of Object.values(party.claims)) if (c.photoUrl) { urls.push(c.photoUrl); c.photoUrl = undefined; }
         for (const f of party.feed) if (f.photoUrl) { if (!urls.includes(f.photoUrl)) urls.push(f.photoUrl); f.photoUrl = undefined; }
         this.deletePhotos(urls);
@@ -877,16 +1324,20 @@ export class Engine {
   }
 }
 
-function newPlayer(id: string, nickname: string, now: number, isHost: boolean): PlayerState {
+const CATEGORY_EMOJI: Record<string, string> = { laugh: '😂', dance: '🕺', sing: '🎤', photo: '📸', jezza: '🤵', cheers: '🍻', sneaky: '🕵️', chill: '😎', group: '🫂' };
+
+function newPlayer(id: string, nickname: string, now: number, isHost: boolean, joinedPhase: Phase = 'friday'): PlayerState {
   return {
     id, nickname, creature: null, creatureName: '', level: 1, xp: 0, points: 0, equipped: { colorway: 0 }, unlocked: [], achievements: [],
     missionsCompleted: 0, wins: 0, losses: 0, title: 'Fresh Legend', online: true, isHost, joinedAt: now, lastSeen: now, categoryCounts: {}, witnessed: 0,
-    hand: [], completedMissionIds: [], rerollsLeft: REROLLS_PER_PHASE, scoredBattlesVs: {}, missedRounds: 0, lastHonourClaimAt: 0, flagged: [],
+    rating: START_RATING, streak: 0, bestStreak: 0, bounties: 0, laughs: 0, fires: 0, groomLoves: 0, wallVotes: 0,
+    cellarCount: 0, cellarFires: 0, raidDamage: 0, raidsJoined: 0, lowKey: false, freshLegs: 0, joinedPhase,
+    hand: [], completedMissionIds: [], rerollsLeft: REROLLS_PER_PHASE, scoredBattlesVs: {}, missedRounds: 0, lastHonourClaimAt: 0, flagged: [], rerollRefillAt: 0,
   };
 }
 
 function toPublic(p: PlayerState): PlayerPublic {
-  const { hand, completedMissionIds, rerollsLeft, scoredBattlesVs, missedRounds, lastHonourClaimAt, flagged, ...pub } = p;
+  const { hand, completedMissionIds, rerollsLeft, scoredBattlesVs, missedRounds, lastHonourClaimAt, flagged, rerollRefillAt, ...pub } = p;
   return pub;
 }
 

@@ -26,3 +26,9 @@ export function validateCreatureName(raw: string): { ok: true; name: string } | 
   if (BLOCKED.some((b) => lower.includes(b))) return { ok: false, error: 'Your creature deserves a better name than that.' };
   return { ok: true, name };
 }
+
+/** True if free text (wall posts, drink reviews) contains nothing from the blocklist. */
+export function isClean(raw: string): boolean {
+  const lower = raw.toLowerCase().replace(/[^a-z0-9]/g, '');
+  return !BLOCKED.some((b) => lower.includes(b));
+}

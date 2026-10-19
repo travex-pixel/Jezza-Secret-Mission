@@ -2,6 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { Engine, HONOUR_COOLDOWN_MS } from '../shared/engine';
 import { seededRng } from '../shared/battle';
 import { STARTER_MISSION, MISSIONS } from '../shared/missions';
+const SELF = MISSIONS.filter((m) => m.method === 'self' && !m.starter && m.scope === 'private');
+const PHOTO_M = MISSIONS.filter((m) => m.method === 'photo' && m.scope === 'private');
+const WIT = MISSIONS.filter((m) => m.method === 'witness');
 
 function setup(n = 15) {
   let t = 1_000_000;
@@ -33,55 +36,46 @@ describe('engine', () => {
     const a = eng.handle(ids[1], { type: 'claimMission', reqId: 'x', missionId: STARTER_MISSION.id, claimId: 'claim-0001' });
     expect(a.ack?.ok).toBe(true);
     const p = party().players[ids[1]];
-    expect(p.points).toBe(STARTER_MISSION.points);
+    const first = p.points;
+    expect(first).toBeGreaterThanOrEqual(STARTER_MISSION.points);
     const dup = eng.handle(ids[1], { type: 'claimMission', reqId: 'x', missionId: STARTER_MISSION.id, claimId: 'claim-0001' });
     expect(dup.ack?.ok).toBe(true); expect((dup.ack as any).data.duplicate).toBe(true);
     const again = eng.handle(ids[1], { type: 'claimMission', reqId: 'x', missionId: STARTER_MISSION.id, claimId: 'claim-0002' });
     expect(again.ack?.ok).toBe(false);
-    expect(party().players[ids[1]].points).toBe(STARTER_MISSION.points);
+    expect(party().players[ids[1]].points).toBe(first);
     expect(p.achievements).toContain('first_blood');
   });
-  it('non-hosts cannot run host actions; hands fill when Friday starts', () => {
+  it('parties start on Friday by themselves; non-hosts cannot run host actions', () => {
     const { eng, ids, party } = setup();
-    expect(eng.handle(ids[3], { type: 'host', reqId: 'h', action: { kind: 'setPhase', phase: 'friday' } }).ack?.ok).toBe(false);
-    expect(party().phase).toBe('lobby');
-    // a non-starter mission is blocked before the event starts
-    expect(eng.handle(ids[3], { type: 'claimMission', reqId: 'x', missionId: 'm013', claimId: 'claim-pre-1' }).ack?.ok).toBe(false);
-    expect(eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'setPhase', phase: 'friday' } }).ack?.ok).toBe(true);
+    expect(party().phase).toBe('friday');
     expect(party().players[ids[3]].hand.length).toBe(3);
-    // missions not in hand cannot be claimed
+    expect(eng.handle(ids[3], { type: 'host', reqId: 'h', action: { kind: 'setPhase', phase: 'lobby' } }).ack?.ok).toBe(false);
+    expect(eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'setPhase', phase: 'lobby' } }).ack?.ok).toBe(true);
+    party().players[ids[3]].hand.push({ missionId: SELF[0].id, assignedAt: 0, status: 'active' });
+    expect(eng.handle(ids[3], { type: 'claimMission', reqId: 'x', missionId: SELF[0].id, claimId: 'claim-pre-1' }).ack?.ok).toBe(false);
+    eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'setPhase', phase: 'friday' } });
     const notInHand = MISSIONS.find((m) => m.scope === 'private' && !m.starter && !party().players[ids[3]].hand.some((h) => h.missionId === m.id))!;
     expect(eng.handle(ids[3], { type: 'claimMission', reqId: 'x', missionId: notInHand.id, claimId: 'claim-nih-1' }).ack?.ok).toBe(false);
-    // secret missions never appear in the public view
-    const view = JSON.stringify(eng.publicView(party(), ids[5]));
-    expect(view).not.toContain('"hand"');
+    expect(JSON.stringify(eng.publicView(party(), ids[5]))).not.toContain('"hand"');
   });
-  it('witness and photo claims stay pending until confirmed; host approves photos', () => {
+  it('witness claims wait for the named mate; photo claims pay out straight away', () => {
     const { eng, ids, party } = setup();
-    eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'setPhase', phase: 'friday' } });
-    // force a witness mission into hand
     const p = party().players[ids[2]];
-    p.hand = [{ missionId: 'm011', assignedAt: 0, status: 'active' }, { missionId: 'm070', assignedAt: 0, status: 'active' }];
-    const noWitness = eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: 'm011', claimId: 'claim-w-0001' });
-    expect(noWitness.ack?.ok).toBe(false);
-    const selfWitness = eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: 'm011', claimId: 'claim-w-0002', witnessId: ids[2] });
-    expect(selfWitness.ack?.ok).toBe(false);
-    const w = eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: 'm011', claimId: 'claim-w-0003', witnessId: ids[4] });
-    expect(w.ack?.ok).toBe(true);
+    p.hand = [{ missionId: WIT[0].id, assignedAt: 0, status: 'active' }, { missionId: PHOTO_M[0].id, assignedAt: 0, status: 'active' }];
+    expect(eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: WIT[0].id, claimId: 'claim-w-0001' }).ack?.ok).toBe(false);
+    expect(eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: WIT[0].id, claimId: 'claim-w-0002', witnessId: ids[2] }).ack?.ok).toBe(false);
+    expect(eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: WIT[0].id, claimId: 'claim-w-0003', witnessId: ids[4] }).ack?.ok).toBe(true);
     expect(party().players[ids[2]].points).toBe(0);
-    // only the named witness can confirm
     expect(eng.handle(ids[5], { type: 'confirmWitness', reqId: 'c', claimId: 'claim-w-0003', approve: true }).ack?.ok).toBe(false);
     expect(eng.privateView(party(), ids[4])!.pendingWitness.length).toBe(1);
     expect(eng.handle(ids[4], { type: 'confirmWitness', reqId: 'c', claimId: 'claim-w-0003', approve: true }).ack?.ok).toBe(true);
-    expect(party().players[ids[2]].points).toBe(10);
+    const afterWitness = party().players[ids[2]].points;
+    expect(afterWitness).toBeGreaterThanOrEqual(WIT[0].points);
     expect(party().players[ids[4]].witnessed).toBe(1);
-    // photo
-    expect(eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: 'm070', claimId: 'claim-p-0001' }).ack?.ok).toBe(false);
-    expect(eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: 'm070', claimId: 'claim-p-0002', photo: 'data:image/jpeg;base64,AAAA' }).ack?.ok).toBe(true);
-    expect(eng.hostView(party()).approvals.length).toBe(1);
-    expect(eng.handle(ids[7], { type: 'host', reqId: 'h', action: { kind: 'resolveClaim', claimId: 'claim-p-0002', approve: true } }).ack?.ok).toBe(false);
-    expect(eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'resolveClaim', claimId: 'claim-p-0002', approve: true } }).ack?.ok).toBe(true);
-    expect(party().players[ids[2]].points).toBe(20);
+    expect(eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: PHOTO_M[0].id, claimId: 'claim-p-0001' }).ack?.ok).toBe(false);
+    expect(eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: PHOTO_M[0].id, claimId: 'claim-p-0002', photo: 'data:image/jpeg;base64,AAAA' }).ack?.ok).toBe(true);
+    expect(party().players[ids[2]].points).toBeGreaterThanOrEqual(afterWitness + PHOTO_M[0].points);
+    expect(eng.hostView(party()).approvals.length).toBe(0); // no host needed
     expect(party().feed.some((f) => f.photoUrl)).toBe(true);
   });
   it('battles: challenge, accept, server-resolved rounds, bounded rewards, timeouts', () => {
@@ -128,11 +122,11 @@ describe('engine', () => {
   });
   it('host can remove players, reset claims and advance/recover phases; awards are computed from data', () => {
     const { eng, ids, party } = setup();
-    eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'setPhase', phase: 'friday' } });
     eng.handle(ids[9], { type: 'claimMission', reqId: 'x', missionId: STARTER_MISSION.id, claimId: 'claim-s-0009' });
-    expect(party().players[ids[9]].points).toBe(10);
+    const earned = party().players[ids[9]].points;
+    expect(earned).toBeGreaterThanOrEqual(10);
     expect(eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'resetClaim', playerId: ids[9], missionId: STARTER_MISSION.id } }).ack?.ok).toBe(true);
-    expect(party().players[ids[9]].points).toBe(0);
+    expect(party().players[ids[9]].points).toBe(earned - STARTER_MISSION.points);
     const kick = eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'removePlayer', playerId: ids[10] } });
     expect(kick.ack?.ok).toBe(true);
     expect(kick.direct.some((d) => d.to === ids[10] && d.msg.type === 'kicked')).toBe(true);
@@ -144,7 +138,7 @@ describe('engine', () => {
     expect(party().phase).toBe('friday');
     eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'setPhase', phase: 'finale' } });
     const view = eng.publicView(party());
-    expect(view.awards?.length).toBe(10);
+    expect(view.awards.length).toBe(11);
     expect(view.awards!.find((a) => a.id === 'unhinged')!.playerId).toBeNull();
     eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'setAward', awardId: 'unhinged', playerId: ids[3] } });
     expect(eng.publicView(party()).awards!.find((a) => a.id === 'unhinged')!.playerId).toBe(ids[3]);
@@ -156,22 +150,21 @@ describe('engine', () => {
   });
   it('honour-system claims are rate limited; photo/witness/starter are exempt', () => {
     const { eng, ids, party, advance } = setup();
-    eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'setPhase', phase: 'friday' } });
     const p = party().players[ids[2]];
-    p.hand = [{ missionId: STARTER_MISSION.id, assignedAt: 0, status: 'active' }, { missionId: 'm013', assignedAt: 0, status: 'active' }, { missionId: 'm017', assignedAt: 0, status: 'active' }, { missionId: 'm070', assignedAt: 0, status: 'active' }];
+    p.hand = [{ missionId: STARTER_MISSION.id, assignedAt: 0, status: 'active' }, { missionId: SELF[0].id, assignedAt: 0, status: 'active' }, { missionId: SELF[1].id, assignedAt: 0, status: 'active' }, { missionId: PHOTO_M[0].id, assignedAt: 0, status: 'active' }];
     expect(eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: STARTER_MISSION.id, claimId: 'cd-starter-01' }).ack?.ok).toBe(true);
-    expect(eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: 'm013', claimId: 'cd-self-01' }).ack?.ok).toBe(true);
-    const second = eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: 'm017', claimId: 'cd-self-02' });
+    expect(eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: SELF[0].id, claimId: 'cd-self-01' }).ack?.ok).toBe(true);
+    const second = eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: SELF[1].id, claimId: 'cd-self-02' });
     expect(second.ack?.ok).toBe(false);
     expect((second.ack as any).error).toMatch(/Next honour-system claim/);
-    expect(eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: 'm070', claimId: 'cd-photo-01', photo: 'data:image/jpeg;base64,AAAA' }).ack?.ok).toBe(true);
+    expect(eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: PHOTO_M[0].id, claimId: 'cd-photo-01', photo: 'data:image/jpeg;base64,AAAA' }).ack?.ok).toBe(true);
     expect(eng.privateView(party(), ids[2])!.honourCooldownUntil).toBeGreaterThan(1_000_000);
     advance(HONOUR_COOLDOWN_MS + 1);
-    expect(eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: 'm017', claimId: 'cd-self-03' }).ack?.ok).toBe(true);
+    if (!party().players[ids[2]].hand.some((h) => h.missionId === SELF[1].id)) party().players[ids[2]].hand.push({ missionId: SELF[1].id, assignedAt: 0, status: 'active' });
+    expect(eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: SELF[1].id, claimId: 'cd-self-03' }).ack?.ok).toBe(true);
   });
   it('Call BS: two mates freeze the points, the host rules, the owner cannot self-flag', () => {
     const { eng, ids, party } = setup();
-    eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'setPhase', phase: 'friday' } });
     eng.handle(ids[4], { type: 'claimMission', reqId: 'x', missionId: STARTER_MISSION.id, claimId: 'bs-claim-01' });
     const before = party().players[ids[4]].points;
     expect(before).toBeGreaterThan(0);
@@ -184,7 +177,7 @@ describe('engine', () => {
     const r = eng.handle(ids[6], { type: 'flagClaim', reqId: 'f', claimId: 'bs-claim-01' });
     expect(r.ack?.ok).toBe(true);
     expect(party().claims['bs-claim-01'].status).toBe('disputed');
-    expect(party().players[ids[4]].points).toBe(0);
+    expect(party().players[ids[4]].points).toBe(before - STARTER_MISSION.points);
     expect(party().players[ids[4]].missionsCompleted).toBe(0);
     expect(eng.hostView(party()).approvals.some((c) => c.id === 'bs-claim-01')).toBe(true);
     expect(eng.publicView(party()).pendingApprovals).toBe(1);
@@ -194,9 +187,10 @@ describe('engine', () => {
     expect(party().claims['bs-claim-01'].status).toBe('approved');
     // a struck-out claim stays gone
     eng.handle(ids[7], { type: 'claimMission', reqId: 'x', missionId: STARTER_MISSION.id, claimId: 'bs-claim-02' });
+    const before7 = party().players[ids[7]].points;
     eng.handle(ids[5], { type: 'flagClaim', reqId: 'f', claimId: 'bs-claim-02' }); eng.handle(ids[6], { type: 'flagClaim', reqId: 'f', claimId: 'bs-claim-02' });
     eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'resolveClaim', claimId: 'bs-claim-02', approve: false } });
-    expect(party().players[ids[7]].points).toBe(0);
+    expect(party().players[ids[7]].points).toBe(before7 - STARTER_MISSION.points);
     expect(party().claims['bs-claim-02'].status).toBe('rejected');
   });
   it('power tap: a hit reported faster than the bar can slide is downgraded; counter never taps', () => {

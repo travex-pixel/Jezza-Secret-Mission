@@ -73,25 +73,35 @@ describe('progression', () => {
     expect(cosmeticsForLevel(10).length).toBeGreaterThan(5);
   });
   it('awards are data driven and never hardcode a winner', () => {
-    const base = { creature: 'dragon' as const, creatureName: 'x', level: 1, xp: 0, equipped: { colorway: 0 }, unlocked: [], achievements: [], wins: 0, losses: 0, title: '', online: true, isHost: false, joinedAt: 0, lastSeen: 0, categoryCounts: {}, witnessed: 0 };
+    const base = { creature: 'dragon' as const, creatureName: 'x', level: 1, xp: 0, equipped: { colorway: 0 }, unlocked: [], achievements: [], wins: 0, losses: 0, title: '', online: true, isHost: false, joinedAt: 0, lastSeen: 0, categoryCounts: {}, witnessed: 0,
+      rating: 1000, streak: 0, bestStreak: 0, bounties: 0, laughs: 0, fires: 0, groomLoves: 0, wallVotes: 0, cellarCount: 0, cellarFires: 0, raidDamage: 0, raidsJoined: 0, lowKey: false, freshLegs: 0, joinedPhase: 'friday' as const };
     const players = [
-      { ...base, id: 'p1', nickname: 'Alpha', points: 100, missionsCompleted: 5 },
-      { ...base, id: 'p2', nickname: 'Beta', points: 150, missionsCompleted: 2, wins: 3 },
+      { ...base, id: 'p1', nickname: 'Alpha', points: 100, missionsCompleted: 5, laughs: 7, categoryCounts: { dance: 2 } },
+      { ...base, id: 'p2', nickname: 'Beta', points: 150, missionsCompleted: 2, wins: 3, rating: 1060, raidDamage: 400 },
     ];
-    const awards = computeAwards(players as any, [], { p1: 100, p2: 0 }, { unhinged: 'p1' });
+    const awards = computeAwards(players as any, [], { unhinged: 'p1' });
+    expect(awards.length).toBe(11);
     expect(awards.find((a) => a.id === 'legend')!.playerId).toBe('p2');
-    expect(awards.find((a) => a.id === 'assassin')!.playerId).toBe('p1');
-    expect(awards.find((a) => a.id === 'mvp')!.playerId).toBe('p2');
+    expect(awards.find((a) => a.id === 'funniest')!.playerId).toBe('p1');
+    expect(awards.find((a) => a.id === 'dance')!.playerId).toBe('p1');
+    expect(awards.find((a) => a.id === 'champion')!.playerId).toBe('p2');
+    expect(awards.find((a) => a.id === 'slayer')!.playerId).toBe('p2');
     expect(awards.find((a) => a.id === 'unhinged')!.playerId).toBe('p1');
-    expect(awards.find((a) => a.id === 'toastmaster')!.playerId).toBeNull();
+    expect(awards.find((a) => a.id === 'palate')!.playerId).toBeNull();
   });
 });
 
 describe('content', () => {
-  it('has at least 60 unique missions across all 10 categories', () => {
+  it('has at least 60 unique, short, self-service challenges across all 9 categories', () => {
     expect(MISSIONS.length).toBeGreaterThanOrEqual(60);
     expect(new Set(MISSIONS.map((m) => m.id)).size).toBe(MISSIONS.length);
-    expect(new Set(MISSIONS.map((m) => m.category)).size).toBe(10);
+    expect(new Set(MISSIONS.map((m) => m.category)).size).toBe(9);
+    for (const m of MISSIONS) {
+      expect(m.method, m.id).not.toBe('host');                    // no host bottleneck
+      expect(m.instruction.length, m.id).toBeLessThanOrEqual(130); // readable at a glance
+      expect(m.instruction, m.id).not.toMatch(/\b(shot|chug|skol|scull|finish your drink)/i); // never require drinking
+    }
+    expect(MISSIONS.filter((m) => !m.loud && m.scope === 'private').length).toBeGreaterThanOrEqual(30); // plenty for low-key players
   });
   it('filters names', () => {
     expect(validateNickname('Jezza').ok).toBe(true);

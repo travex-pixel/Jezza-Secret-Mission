@@ -3,7 +3,10 @@
 // identity spoofing, and server-resolved battles. Exits non-zero on any failure.
 import WebSocket from 'ws';
 import type { ClientMessage, ServerMessage, PartyPublic, PlayerPrivate } from '../shared/types';
-import { STARTER_MISSION } from '../shared/missions';
+import { STARTER_MISSION, MISSIONS } from '../shared/missions';
+const WIT_IDS = MISSIONS.filter((m) => m.method === 'witness').map((m) => m.id);
+const PHOTO_IDS = MISSIONS.filter((m) => m.method === 'photo' && m.scope === 'private').map((m) => m.id);
+const SELF_IDS = MISSIONS.filter((m) => m.method === 'self' && !m.starter && m.scope === 'private').map((m) => m.id);
 
 const URL = process.env.WS_URL ?? 'ws://localhost:8787/ws';
 const N = 15;
@@ -69,12 +72,16 @@ async function main() {
   check(mates[0].priv?.hand[0]?.missionId === STARTER_MISSION.id, 'starter mission dealt');
 
   console.log('\n[host permissions]');
-  await mates[0].req({ type: 'host', action: { kind: 'setPhase', phase: 'friday' } }).then(() => check(false, 'non-host cannot start event'), () => check(true, 'non-host cannot start event'));
+  check(host.party!.phase === 'friday', 'party starts on Friday by itself (no host needed)');
+  await mates[0].req({ type: 'host', action: { kind: 'setPhase', phase: 'lobby' } }).then(() => check(false, 'non-host cannot change the phase'), () => check(true, 'non-host cannot change the phase'));
   await mates[0].req({ type: 'host', action: { kind: 'removePlayer', playerId: mates[1].id } }).then(() => check(false, 'non-host cannot remove players'), () => check(true, 'non-host cannot remove players'));
   await mates[0].req({ type: 'host', action: { kind: 'grantPoints', playerId: mates[0].id, points: 100, reason: 'me' } }).then(() => check(false, 'non-host cannot grant points'), () => check(true, 'non-host cannot grant points'));
-  await mates[0].req({ type: 'claimMission', missionId: 'm013', claimId: `pre_${run}_1` }).then(() => check(false, 'non-starter mission blocked before event'), () => check(true, 'non-starter mission blocked before event'));
+  await host.req({ type: 'host', action: { kind: 'setPhase', phase: 'lobby' } });
+  check(await until(() => clients.every((c) => c.party?.phase === 'lobby')), 'host pauses the game, everyone sees it');
+  const paused = mates[0].priv!.hand.find((h) => h.missionId !== STARTER_MISSION.id)!;
+  await mates[0].req({ type: 'claimMission', missionId: paused.missionId, claimId: `pre_${run}_1`, photo: 'data:image/png;base64,AAAA', witnessId: mates[1].id }).then(() => check(false, 'challenges blocked while paused'), () => check(true, 'challenges blocked while paused'));
   await host.req({ type: 'host', action: { kind: 'setPhase', phase: 'friday' } });
-  check(await until(() => clients.every((c) => c.party?.phase === 'friday')), 'host started Friday, everyone sees it');
+  check(await until(() => clients.every((c) => c.party?.phase === 'friday')), 'host resumes Friday, everyone sees it');
   check(await until(() => mates.every((m) => (m.priv?.hand.length ?? 0) === 3)), 'everyone has a hand of 3 missions');
 
   console.log('\n[duplicate + concurrent claims]');
@@ -84,19 +91,19 @@ async function main() {
   check(results.every((r) => r.status === 'fulfilled'), 'same claim id sent 3x concurrently: all acked idempotently');
   await sleep(200);
   const me0 = () => host.party!.players.find((p) => p.id === m0.id)!;
-  check(me0().points === STARTER_MISSION.points, `points awarded exactly once (${me0().points})`);
+  check(me0().points === STARTER_MISSION.points + 5, `points awarded exactly once (${me0().points} = ${STARTER_MISSION.points} + 5 new-category bonus)`);
   await m0.req({ type: 'claimMission', missionId: STARTER_MISSION.id, claimId: `dup_${run}_b` }).then(() => check(false, 'fresh claim on completed mission rejected'), () => check(true, 'fresh claim on completed mission rejected'));
   // everyone claims their starter simultaneously
   await Promise.all(mates.slice(1).map((m) => m.req({ type: 'claimMission', missionId: STARTER_MISSION.id, claimId: `st_${run}_${m.id}` })));
   check(await until(() => host.party!.players.filter((p) => p.id !== host.id).every((p) => p.points >= STARTER_MISSION.points)), `14 simultaneous claims all landed`);
-  const notMine = (m0.party!.players.length, 'm019');
+  const notMine = MISSIONS.find((m) => m.scope === 'private' && !m.starter && !m0.priv!.hand.some((h) => h.missionId === m.id))!.id;
   await m0.req({ type: 'claimMission', missionId: notMine, claimId: `nm_${run}` }).then(() => check(false, 'mission not in hand rejected'), () => check(true, 'mission not in hand rejected'));
   check(!JSON.stringify(host.party).includes('"hand"'), 'public party view never exposes private hands');
 
   console.log('\n[witness + photo flows]');
   // find a witness mission in any hand; otherwise reroll until one appears (bounded)
   let wit: { c: Client; mid: string } | null = null;
-  for (const c of mates) { const h = c.priv!.hand.find((x) => ['m010', 'm011', 'm015', 'm020', 'm040', 'm046', 'm083', 'm093', 'm100', 'm102', 'm105'].includes(x.missionId)); if (h) { wit = { c, mid: h.missionId }; break; } }
+  for (const c of mates) { const h = c.priv!.hand.find((x) => WIT_IDS.includes(x.missionId)); if (h) { wit = { c, mid: h.missionId }; break; } }
   if (wit) {
     await wit.c.req({ type: 'claimMission', missionId: wit.mid, claimId: `w_${run}`, witnessId: mates[5].id === wit.c.id ? mates[6].id : mates[5].id });
     const witness = mates[5].id === wit.c.id ? mates[6] : mates[5];
@@ -107,17 +114,42 @@ async function main() {
     await witness.req({ type: 'confirmWitness', claimId: `w_${run}`, approve: true });
     check(await until(() => host.party!.players.find((p) => p.id === wit!.c.id)!.points > before), 'witness confirmation awards points');
   } else console.log('  (no witness mission dealt this run; skipped)');
-  const photoC = mates.find((m) => m.priv!.hand.some((h) => ['m022', 'm044', 'm070', 'm071', 'm072', 'm073', 'm075', 'm076', 'm063'].includes(h.missionId)));
+  const photoC = mates.find((m) => m.priv!.hand.some((h) => PHOTO_IDS.includes(h.missionId)));
   if (photoC) {
-    const mid = photoC.priv!.hand.find((h) => ['m022', 'm044', 'm070', 'm071', 'm072', 'm073', 'm075', 'm076', 'm063'].includes(h.missionId))!.missionId;
-    await photoC.req({ type: 'claimMission', missionId: mid, claimId: `p_${run}` }).then(() => check(false, 'photo mission without photo rejected'), () => check(true, 'photo mission without photo rejected'));
+    const mid = photoC.priv!.hand.find((h) => PHOTO_IDS.includes(h.missionId))!.missionId;
+    await photoC.req({ type: 'claimMission', missionId: mid, claimId: `p_${run}` }).then(() => check(false, 'photo challenge without a photo rejected'), () => check(true, 'photo challenge without a photo rejected'));
     const tiny = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
-    await photoC.req({ type: 'claimMission', missionId: mid, claimId: `p_${run}_2`, photo: tiny });
-    check(await until(() => host.party!.pendingApprovals >= 1), 'photo claim lands in host approval queue');
-    await mates[2].req({ type: 'host', action: { kind: 'resolveClaim', claimId: `p_${run}_2`, approve: true } }).then(() => check(false, 'non-host cannot approve'), () => check(true, 'non-host cannot approve'));
-    await host.req({ type: 'host', action: { kind: 'resolveClaim', claimId: `p_${run}_2`, approve: true } });
-    check(await until(() => host.party!.feed.some((f) => f.photoUrl?.startsWith('/photos/'))), 'approved photo appears in the feed as a stored URL');
-  } else console.log('  (no photo mission dealt this run; skipped)');
+    const before = host.party!.players.find((p) => p.id === photoC.id)!.points;
+    const res = await photoC.req<{ status: string }>({ type: 'claimMission', missionId: mid, claimId: `p_${run}_2`, photo: tiny });
+    check(res.status === 'approved', 'photo challenge pays out instantly (no host approval)');
+    check(await until(() => host.party!.players.find((p) => p.id === photoC.id)!.points > before), 'everyone sees the points land');
+    check(await until(() => host.party!.gallery.some((g) => g.id === `p_${run}_2` && g.url.startsWith('/photos/'))), 'photo lands in the party gallery as a stored file');
+    // Call BS → frozen → the lads back it → restored, all without the host
+    const others = mates.filter((m) => m !== photoC);
+    await others[0].req({ type: 'flagClaim', claimId: `p_${run}_2` });
+    await others[1].req({ type: 'flagClaim', claimId: `p_${run}_2` });
+    check(await until(() => host.party!.feed.some((f) => f.claimId === `p_${run}_2` && f.disputed)), 'two BS calls freeze the claim for everyone');
+    await others[0].req({ type: 'backClaim', claimId: `p_${run}_2` }).then(() => check(false, 'a flagger cannot back the claim'), () => check(true, 'a flagger cannot back the claim'));
+    await Promise.all([others[2].req({ type: 'backClaim', claimId: `p_${run}_2` }), others[3].req({ type: 'backClaim', claimId: `p_${run}_2` })]);
+    check(await until(() => host.party!.feed.some((f) => /backed/.test(f.text))), 'two mates back it and the points come back, no host involved');
+  } else console.log('  (no photo challenge dealt this run; skipped)');
+
+  console.log('\n[raid, wall, reactions]');
+  await mates[0].req({ type: 'host', action: { kind: 'summonRaid' } }).then(() => check(false, 'non-host cannot summon a raid'), () => check(true, 'non-host cannot summon a raid'));
+  await host.req({ type: 'host', action: { kind: 'summonRaid' } });
+  check(await until(() => clients.every((c) => c.party?.raid?.status === 'active')), 'boss raid goes live for everyone');
+  const raidId = host.party!.raid!.id;
+  const hits = await Promise.allSettled(mates.slice(0, 10).map((m) => m.req({ type: 'raidHit', raidId, tap: 'good' })));
+  check(hits.every((h) => h.status === 'fulfilled'), '10 simultaneous raid hits all land');
+  check(await until(() => Object.keys(host.party!.raid!.damage).length === 10), 'damage board shows all 10 hitters');
+  await mates[0].req({ type: 'raidHit', raidId }).then(() => check(false, 'raid hit cooldown enforced'), () => check(true, 'raid hit cooldown enforced'));
+  const post = await mates[3].req<{ id: string }>({ type: 'wallPost', kind: 'roast', text: 'Jezza claps when the plane lands. Every time.' });
+  check(await until(() => host.party!.wall.some((w) => w.id === post.id)), 'Jezza Wall post visible to everyone');
+  await mates[4].req({ type: 'wallVote', postId: post.id });
+  await host.req({ type: 'wallVote', postId: post.id }); // host is "HostJezza" → the groom → a heart
+  check(await until(() => { const w = host.party!.wall.find((x) => x.id === post.id); return !!w && w.votes.length === 1 && w.groomLove; }), 'mates vote 😂, Jezza gives a ❤️');
+  const ev = host.party!.feed.find((f) => f.kind === 'mission' && f.playerId === mates[1].id);
+  if (ev) { await mates[2].req({ type: 'react', eventId: ev.id, emoji: '😂' }); check(await until(() => host.party!.players.find((p) => p.id === mates[1].id)!.laughs >= 1), '😂 reaction counts toward Funniest Bloke'); }
 
   console.log('\n[battles]');
   const a = mates[7], b = mates[8];
@@ -169,16 +201,16 @@ async function main() {
   check(await until(() => mates[11].kicked !== null), 'removed player receives kick');
   check(await until(() => host.party!.players.length === N - 1), 'roster shrinks for everyone');
   await mates[11].req({ type: 'joinParty', code, nickname: 'SneakyReturn' }).then(() => check(false, 'removed player cannot rejoin'), () => check(true, 'removed player cannot rejoin'));
-  await host.req({ type: 'host', action: { kind: 'revealGroupMission', missionId: 'm051' } });
-  check(await until(() => mates[0].party!.revealedGroupMissions.includes('m051')), 'group mission revealed to all');
-  await Promise.all(mates.slice(0, 5).map((m) => m.req({ type: 'claimMission', missionId: 'm051', claimId: `g_${run}_${m.id}` })));
-  await mates[0].req({ type: 'claimMission', missionId: 'm051', claimId: `g2_${run}` }).then(() => check(false, 'group mission cannot be claimed twice'), () => check(true, 'group mission cannot be claimed twice'));
+  await host.req({ type: 'host', action: { kind: 'revealGroupMission', missionId: 'g03' } });
+  check(await until(() => mates[0].party!.revealedGroupMissions.includes('g03')), 'group challenge revealed to all');
+  await Promise.all(mates.slice(0, 5).map((m) => m.req({ type: 'claimMission', missionId: 'g03', claimId: `g_${run}_${m.id}` })));
+  await mates[0].req({ type: 'claimMission', missionId: 'g03', claimId: `g2_${run}` }).then(() => check(false, 'group challenge cannot be claimed twice'), () => check(true, 'group challenge cannot be claimed twice'));
   await host.req({ type: 'host', action: { kind: 'setPhase', phase: 'saturday' } });
   await host.req({ type: 'host', action: { kind: 'setPhase', phase: 'finale' } });
-  check(await until(() => (mates[0].party!.awards?.length ?? 0) === 10), 'finale computes 10 awards from play data');
+  check(await until(() => (mates[0].party!.awards?.length ?? 0) === 11), 'finale computes 11 awards from play data');
   const legend = mates[0].party!.awards!.find((x) => x.id === 'legend')!;
   const top = [...mates[0].party!.players].sort((x, y) => y.points - x.points)[0];
-  check(legend.playerId === top.id, `Legend of the Bucks = top scorer (${top.nickname}, ${top.points} pts)`);
+  check(legend.playerId === top.id, `Overall Legend = top scorer (${top.nickname}, ${top.points} pts)`);
   await host.req({ type: 'host', action: { kind: 'setPhase', phase: 'saturday' } });
   check(await until(() => mates[0].party!.phase === 'saturday'), 'host can recover from an accidental phase advance');
 

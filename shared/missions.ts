@@ -8,25 +8,24 @@ export interface Mission {
   difficulty: 1 | 2 | 3;
   points: number;
   xp: number;
-  method: CompletionMethod;
+  method: CompletionMethod; // 'self' honour system · 'photo' snap it · 'witness' a mate confirms
   scope: 'private' | 'group';
   phase: MissionPhase;
-  timeLimitMin?: number;
-  secret?: boolean;
+  loud?: boolean;   // performing (dance / sing / jokes). Low-key players never get these.
+  secret?: boolean; // only the holder sees the title; the feed says "a sneaky one"
   starter?: boolean;
 }
 
 export const CATEGORY_META: Record<MissionCategory, { label: string; emoji: string; hue: string }> = {
-  social:      { label: 'Social Chaos',  emoji: '🎭', hue: '#F07842' },
-  jezza:       { label: 'Jezza',         emoji: '🤴', hue: '#E5AD48' },
-  observation: { label: 'Observation',   emoji: '🔭', hue: '#B98286' },
-  creative:    { label: 'Creative',      emoji: '🎨', hue: '#D98A96' },
-  group:       { label: 'Group',         emoji: '🫂', hue: '#7FB069' },
-  secret:      { label: 'Secret',        emoji: '🕵️', hue: '#571827' },
-  photo:       { label: 'Photo',         emoji: '📸', hue: '#F6EBDD' },
-  vineyard:    { label: 'Vineyard',      emoji: '🍇', hue: '#76243A' },
-  creature:    { label: 'Creature',      emoji: '🐲', hue: '#E5AD48' },
-  toast:       { label: 'Toast',         emoji: '🥂', hue: '#F07842' },
+  laugh:  { label: 'Make Jezza Laugh', emoji: '😂', hue: '#F07842' },
+  dance:  { label: 'Dance',            emoji: '🕺', hue: '#B98286' },
+  sing:   { label: 'Sing',             emoji: '🎤', hue: '#E5AD48' },
+  photo:  { label: 'Cooked Photos',    emoji: '📸', hue: '#F6EBDD' },
+  jezza:  { label: 'Get Jezza In',     emoji: '🤵', hue: '#E5AD48' },
+  cheers: { label: 'Cheers',           emoji: '🍻', hue: '#F07842' },
+  sneaky: { label: 'Sneaky',           emoji: '🕵️', hue: '#571827' },
+  chill:  { label: 'Low-Key',          emoji: '😎', hue: '#7FB069' },
+  group:  { label: 'Group',            emoji: '🫂', hue: '#7FB069' },
 };
 
 const REWARD: Record<1 | 2 | 3, { points: number; xp: number }> = {
@@ -35,147 +34,114 @@ const REWARD: Record<1 | 2 | 3, { points: number; xp: number }> = {
   3: { points: 35, xp: 60 },
 };
 
-type M = Omit<Mission, 'points' | 'xp'> & { points?: number; xp?: number };
-const m = (x: M): Mission => ({ ...REWARD[x.difficulty], ...x });
+type M = Omit<Mission, 'points' | 'xp' | 'scope' | 'phase'> & Partial<Pick<Mission, 'points' | 'xp' | 'scope' | 'phase'>>;
+const m = (x: M): Mission => ({ ...REWARD[x.difficulty], scope: 'private', phase: 'any', ...x });
 
 export const MISSIONS: Mission[] = [
-  // ---------- STARTER ----------
-  m({ id: 'm001', starter: true, title: 'The Legend Begins', instruction: 'Get Jezza to say "absolutely cooked" without directly asking him to say it.', category: 'jezza', difficulty: 1, method: 'self', scope: 'private', phase: 'any' }),
+  // ---------- FIRST ONE ----------
+  m({ id: 'm001', starter: true, title: 'The Legend Begins', instruction: 'Get Jezza to say "absolutely cooked" without asking him to say it.', category: 'jezza', difficulty: 1, method: 'self' }),
 
-  // ---------- SOCIAL CHAOS ----------
-  m({ id: 'm010', title: 'The Sommelier Fraud', instruction: 'Describe a completely ordinary object (a thong, a coaster, a sausage) as if it were an outrageously exclusive luxury product. Minimum 20 seconds.', category: 'social', difficulty: 2, method: 'witness', scope: 'private', phase: 'any' }),
-  m({ id: 'm011', title: 'The Vineyard Diplomat', instruction: 'Introduce two mates to each other as if they were meeting at a royal summit. Full titles. Firm handshake.', category: 'social', difficulty: 1, method: 'witness', scope: 'private', phase: 'any' }),
-  m({ id: 'm012', title: 'The Goblin\'s Gambit', instruction: 'Convince a mate your creature has a tragic secret backstory. They must ask at least one follow-up question.', category: 'social', difficulty: 2, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm013', title: 'Weather Report', instruction: 'Deliver a dramatic live weather report about the vibe in the room. Use the phrase "a cold front of banter".', category: 'social', difficulty: 1, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm014', title: 'The Slow Clap', instruction: 'Start a slow clap for something utterly mundane (someone opening a packet of chips) and get at least 3 mates to join in.', category: 'social', difficulty: 2, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm015', title: 'Accent Hour', instruction: 'Hold a 60 second conversation in an accent you cannot do. Do not break. Do not apologise.', category: 'social', difficulty: 2, method: 'witness', scope: 'private', phase: 'any', timeLimitMin: 15 }),
-  m({ id: 'm016', title: 'The Nickname Launch', instruction: 'Give a mate a brand-new nickname and get two other people to use it unprompted within 20 minutes.', category: 'social', difficulty: 3, method: 'self', scope: 'private', phase: 'any', timeLimitMin: 20 }),
-  m({ id: 'm017', title: 'Motivational Speaker', instruction: 'Give a mate a deeply sincere, deeply unnecessary pep talk about a trivial task. Hand on shoulder. Eye contact.', category: 'social', difficulty: 1, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm018', title: 'Quiz Master', instruction: 'Run a 3-question pop quiz about Jezza for the nearest group. Award a made-up prize to the winner.', category: 'social', difficulty: 2, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm019', title: 'The Compliment Sniper', instruction: 'Deliver five genuine, oddly specific compliments to five different mates within 10 minutes.', category: 'social', difficulty: 2, method: 'self', scope: 'private', phase: 'any', timeLimitMin: 10 }),
+  // ---------- MAKE JEZZA LAUGH ----------
+  m({ id: 'l01', title: 'Crack Him Up', instruction: 'You\'ve got 30 seconds to make Jezza laugh. Joke, face, impression, whatever. Go.', category: 'laugh', difficulty: 1, method: 'witness', loud: true }),
+  m({ id: 'l02', title: 'Worst Joke of the Weekend', instruction: 'Tell Jezza your worst dad joke. Bonus respect if it\'s so bad he laughs anyway.', category: 'laugh', difficulty: 1, method: 'witness', loud: true }),
+  m({ id: 'l03', title: 'Cooked Impression', instruction: 'Do a 15-second impression of someone Jezza knows. Keep it affectionate, not savage.', category: 'laugh', difficulty: 2, method: 'witness', loud: true }),
+  m({ id: 'l04', title: 'Hype Man', instruction: 'Introduce Jezza like he\'s walking out for a title fight. Ten seconds. Full volume.', category: 'laugh', difficulty: 1, method: 'witness', loud: true }),
+  m({ id: 'l05', title: 'Laugh-Off', instruction: 'You and a mate get one go each at making Jezza laugh. Jezza picks the winner. Winner claims it.', category: 'laugh', difficulty: 2, method: 'witness', loud: true }),
+  m({ id: 'l06', title: 'Useless Magic Trick', instruction: 'Show Jezza the most useless magic trick you\'ve got, then act like you\'ve just changed his life.', category: 'laugh', difficulty: 1, method: 'witness', loud: true }),
+  m({ id: 'l07', title: 'The Callback', instruction: 'Make Jezza laugh by bringing up something stupid that already happened this weekend.', category: 'laugh', difficulty: 2, method: 'witness' }),
+  m({ id: 'l08', title: 'Weirdly Specific Compliment', instruction: 'Give Jezza a weirdly specific compliment. "Your elbows have great energy" sort of thing.', category: 'laugh', difficulty: 1, method: 'witness' }),
+  m({ id: 'l09', title: 'One-Line Roast', instruction: 'Roast Jezza in one sentence. Funny, not brutal. If he doesn\'t laugh, it doesn\'t count.', category: 'laugh', difficulty: 2, method: 'witness', loud: true }),
+  m({ id: 'l10', title: 'Staring Contest', instruction: 'Twenty-second staring contest with Jezza. First to crack loses. Claim it either way.', category: 'laugh', difficulty: 1, method: 'witness' }),
+  m({ id: 'l11', title: 'Slow Clap', instruction: 'Start a slow clap for something dead boring and get three lads to join in.', category: 'laugh', difficulty: 2, method: 'self', loud: true }),
 
-  // ---------- JEZZA ----------
-  m({ id: 'm020', title: 'The Jezza Tribute', instruction: 'Perform a ridiculous but genuinely affectionate 30 second tribute to the groom. Poem, rap, interpretive dance: your call.', category: 'jezza', difficulty: 2, method: 'witness', scope: 'private', phase: 'any' }),
-  m({ id: 'm021', title: 'Origin Story', instruction: 'Get Jezza to tell the story of how he met his partner. Interrupt only to say "no way".', category: 'jezza', difficulty: 1, method: 'self', scope: 'private', phase: 'friday' }),
-  m({ id: 'm022', title: 'The Royal Portrait', instruction: 'Take a photo of Jezza posed like a Renaissance king. Props encouraged. Dignity optional.', category: 'jezza', difficulty: 2, method: 'photo', scope: 'private', phase: 'any' }),
-  m({ id: 'm023', title: 'Fact Check', instruction: 'Ask Jezza three questions about his own wedding plans. Score him publicly out of 10.', category: 'jezza', difficulty: 1, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm024', title: 'Groom Whisperer', instruction: 'Get Jezza to agree to a completely made-up wedding tradition. Must include the words "it\'s actually traditional".', category: 'jezza', difficulty: 3, method: 'witness', scope: 'private', phase: 'saturday' }),
-  m({ id: 'm025', title: 'Signature Move', instruction: 'Get Jezza to demonstrate his "signature dance move". If he claims not to have one, invent it for him.', category: 'jezza', difficulty: 2, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm026', title: 'The Advice Column', instruction: 'Ask Jezza for relationship advice about an entirely fictional problem. Keep a straight face.', category: 'jezza', difficulty: 1, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm027', title: 'Best Mate Audition', instruction: 'Formally audition to be Jezza\'s best man, even if the role is taken. Include one prop.', category: 'jezza', difficulty: 2, method: 'witness', scope: 'private', phase: 'saturday' }),
-  m({ id: 'm028', title: 'Jezza Impression', instruction: 'Do your best Jezza impression to Jezza. He must rate it. Any score counts.', category: 'jezza', difficulty: 1, method: 'self', scope: 'private', phase: 'any' }),
+  // ---------- DANCE ----------
+  m({ id: 'd01', title: 'Ripper Dance', instruction: 'Give Jezza your most cooked 15-second dance. No warm-up. Full commitment.', category: 'dance', difficulty: 1, method: 'witness', loud: true }),
+  m({ id: 'd02', title: 'Worst Dancer Alive', instruction: 'Show Jezza your worst moves. Anything you\'re actually good at is banned.', category: 'dance', difficulty: 1, method: 'witness', loud: true }),
+  m({ id: 'd03', title: 'Dance-Off', instruction: 'Call out a mate for a 15-second dance-off. Jezza picks the winner. Winner claims, loser gets respect.', category: 'dance', difficulty: 2, method: 'witness', loud: true }),
+  m({ id: 'd04', title: 'Dad at a Wedding', instruction: 'Ten seconds of your best dad-at-a-wedding dance. Finger guns optional but encouraged.', category: 'dance', difficulty: 1, method: 'witness', loud: true }),
+  m({ id: 'd05', title: 'Backup Dancer', instruction: 'Be Jezza\'s way-too-keen backup dancer for ten seconds. He doesn\'t even have to be dancing.', category: 'dance', difficulty: 1, method: 'witness', loud: true }),
+  m({ id: 'd06', title: 'In Sync', instruction: 'Get two mates to pull the exact same dance move at the exact same time.', category: 'dance', difficulty: 2, method: 'witness', loud: true }),
+  m({ id: 'd07', title: 'Victory Dance', instruction: 'Do a massive victory dance for something completely boring, like finding your phone.', category: 'dance', difficulty: 1, method: 'witness', loud: true }),
+  m({ id: 'd08', title: 'Sorry, Through Dance', instruction: 'Dance an apology to Jezza for something tiny. No words allowed.', category: 'dance', difficulty: 2, method: 'witness', loud: true }),
+  m({ id: 'd09', title: 'Jezza Picks the Song', instruction: 'Jezza picks any song. You\'ve got 15 seconds to dance to it like your life depends on it.', category: 'dance', difficulty: 2, method: 'witness', loud: true }),
 
-  // ---------- OBSERVATION ----------
-  m({ id: 'm030', title: 'Spot the Sommelier', instruction: 'Catch a mate swirling, sniffing or describing a drink with unearned confidence. Call it out loudly.', category: 'observation', difficulty: 1, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm031', title: 'The Repeat Offender', instruction: 'Catch someone telling the same story twice this weekend. Announce "SEQUEL" when it happens.', category: 'observation', difficulty: 2, method: 'self', scope: 'private', phase: 'saturday' }),
-  m({ id: 'm032', title: 'Phone Zombie', instruction: 'Spot a mate scrolling their phone for over a minute while the group is talking. Gently rescue them.', category: 'observation', difficulty: 1, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm033', title: 'Count the Cheers', instruction: 'Count every "cheers" you hear in 15 minutes. Report the number to the group with full confidence.', category: 'observation', difficulty: 1, method: 'self', scope: 'private', phase: 'any', timeLimitMin: 15 }),
-  m({ id: 'm034', title: 'Who Said That', instruction: 'Note down the funniest quote of the hour. Read it back to the group with a dramatic pause.', category: 'observation', difficulty: 1, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm035', title: 'The Doppelgänger', instruction: 'Decide which celebrity each of three mates looks like. Present your findings. Accept no appeals.', category: 'observation', difficulty: 2, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm036', title: 'The Vanishing', instruction: 'Notice when someone leaves the group for more than 10 minutes. Greet them on return like a long-lost hero.', category: 'observation', difficulty: 2, method: 'self', scope: 'private', phase: 'any' }),
+  // ---------- SING ----------
+  m({ id: 's01', title: 'Song Dedication', instruction: 'Sing a chorus straight to Jezza like you wrote it for him. Eye contact the whole time.', category: 'sing', difficulty: 1, method: 'witness', loud: true }),
+  m({ id: 's02', title: 'Terrible Karaoke', instruction: 'Sing ten seconds of any song as badly as humanly possible.', category: 'sing', difficulty: 1, method: 'witness', loud: true }),
+  m({ id: 's03', title: 'Backup Vocals', instruction: 'Sing to Jezza while a mate does the most over-the-top backup vocals they can.', category: 'sing', difficulty: 2, method: 'witness', loud: true }),
+  m({ id: 's04', title: 'Boy Band', instruction: 'Get two mates to sing the same chorus with you. Harmonies optional. Confidence mandatory.', category: 'sing', difficulty: 2, method: 'witness', loud: true }),
+  m({ id: 's05', title: 'Jezza Chant', instruction: 'Make up a chant about Jezza and get at least one mate to join in.', category: 'sing', difficulty: 2, method: 'witness', loud: true }),
+  m({ id: 's06', title: 'Grand Final Anthem', instruction: 'Sing one line of any song like it\'s the anthem before the grand final. Hand on heart.', category: 'sing', difficulty: 1, method: 'witness', loud: true }),
+  m({ id: 's07', title: 'Duet', instruction: 'Sing a chorus with a mate. The worse the harmonies, the better.', category: 'sing', difficulty: 1, method: 'witness', loud: true }),
 
-  // ---------- CREATIVE ----------
-  m({ id: 'm040', title: 'The Safety Briefing', instruction: 'Deliver a deadly serious site safety briefing for tonight. Identify three hazards (one must be a specific mate). Hi-vis optional, clipboard energy mandatory.', category: 'creative', difficulty: 2, method: 'witness', scope: 'private', phase: 'any' }),
-  m({ id: 'm041', title: 'Wine Label', instruction: 'Design a wine label for a vintage named after a mate. Describe the tasting notes out loud. Be cruel but fair.', category: 'creative', difficulty: 2, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm042', title: 'The Incident Report', instruction: 'Write up a mate\'s last questionable decision as a formal site incident report. Date, time, root cause, corrective action. Read it to the group.', category: 'creative', difficulty: 1, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm043', title: 'Movie Pitch', instruction: 'Pitch this weekend as a Hollywood movie. Title, tagline, and who plays Jezza. 30 seconds max.', category: 'creative', difficulty: 2, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm044', title: 'Statue Garden', instruction: 'Arrange three mates into a statue representing "Friendship". Photograph your masterpiece.', category: 'creative', difficulty: 2, method: 'photo', scope: 'private', phase: 'any' }),
-  m({ id: 'm045', title: 'The Commercial', instruction: 'Film-free: perform a 20 second TV ad for a product that doesn\'t exist. Must include a jingle.', category: 'creative', difficulty: 2, method: 'witness', scope: 'private', phase: 'saturday' }),
-  m({ id: 'm046', title: 'Alphabet Toast', instruction: 'Give a toast where each sentence starts with the next letter of the alphabet. Reach at least G.', category: 'creative', difficulty: 3, method: 'witness', scope: 'private', phase: 'any' }),
+  // ---------- COOKED PHOTOS ----------
+  m({ id: 'p01', title: 'Most Cooked Selfie', instruction: 'Take the most ridiculous selfie you can with Jezza. You both have to be happy with it.', category: 'photo', difficulty: 1, method: 'photo' }),
+  m({ id: 'p02', title: 'Identical Idiots', instruction: 'Get three mates to pull the exact same face in one photo.', category: 'photo', difficulty: 2, method: 'photo' }),
+  m({ id: 'p03', title: 'Pyramid of Lads', instruction: 'Pyramid-shaped group photo: back row standing, middle row squatting, front row sitting. Nobody climbs on anyone.', category: 'photo', difficulty: 3, method: 'photo' }),
+  m({ id: 'p04', title: 'Jezza Is King', instruction: 'Everyone poses around Jezza like he\'s royalty. The more over the top, the better.', category: 'photo', difficulty: 2, method: 'photo' }),
+  m({ id: 'p05', title: 'Human Arrow', instruction: 'Line the lads up into an arrow pointing straight at Jezza.', category: 'photo', difficulty: 2, method: 'photo' }),
+  m({ id: 'p06', title: 'Everyone Different', instruction: 'Group photo where every single person pulls a different stupid pose.', category: 'photo', difficulty: 2, method: 'photo' }),
+  m({ id: 'p07', title: 'The Lean', instruction: 'Everyone leans the same way like gravity\'s given up. Feet stay on the ground.', category: 'photo', difficulty: 2, method: 'photo' }),
+  m({ id: 'p08', title: 'Worst Album Cover', instruction: 'Three or more lads pose for the world\'s worst album cover. Put the band name in the note.', category: 'photo', difficulty: 2, method: 'photo' }),
+  m({ id: 'p09', title: 'Olympic Gold', instruction: 'Photo of Jezza celebrating something completely ordinary like he\'s just won gold.', category: 'photo', difficulty: 1, method: 'photo' }),
+  m({ id: 'p10', title: 'Copycat Chain', instruction: 'Copy Jezza\'s pose exactly, then get two mates to copy you both. Photo of the lot.', category: 'photo', difficulty: 2, method: 'photo' }),
+  m({ id: 'p11', title: 'Statues', instruction: 'Everyone freezes in a different ridiculous pose. One photo.', category: 'photo', difficulty: 1, method: 'photo' }),
+  m({ id: 'p12', title: 'Fitness Influencers', instruction: 'Fake gym photo with the lads. Flex, point, pretend. Nobody actually works out.', category: 'photo', difficulty: 1, method: 'photo' }),
+  m({ id: 'p13', title: 'The Point', instruction: 'Get four or more mates pointing dramatically at something completely boring.', category: 'photo', difficulty: 2, method: 'photo' }),
+  m({ id: 'p14', title: 'Lads Calendar', instruction: 'Group photo where everyone pulls their most overconfident calendar pose.', category: 'photo', difficulty: 2, method: 'photo' }),
+  m({ id: 'p15', title: 'Bodyguards', instruction: 'Two mates pose as dead-serious bodyguards either side of Jezza.', category: 'photo', difficulty: 1, method: 'photo' }),
+  m({ id: 'p16', title: 'Cursed Family Portrait', instruction: 'Fake family portrait. Everyone pulls a different cursed expression.', category: 'photo', difficulty: 2, method: 'photo' }),
+  m({ id: 'p17', title: 'Wombat Squad', instruction: 'Everyone gets low in a comfy squat for a group photo. Lower is better, as long as nobody\'s knees complain.', category: 'photo', difficulty: 1, method: 'photo' }),
 
-  // ---------- GROUP (host-revealed) ----------
-  m({ id: 'm050', title: 'The Cellar Ceremony', instruction: 'Everyone gather for one dramatic group photo with your creature on your phone screen held proudly. Host approves the chaos.', category: 'group', difficulty: 2, method: 'photo', scope: 'group', phase: 'any', points: 25, xp: 40 }),
-  m({ id: 'm051', title: 'The Great Toast', instruction: 'The whole party toasts Jezza at once. Each person adds one word to a single collective sentence. Chaos guaranteed.', category: 'group', difficulty: 1, method: 'self', scope: 'group', phase: 'any', points: 15, xp: 30 }),
-  m({ id: 'm052', title: 'Silent Minute', instruction: 'The entire party stays silent for one full minute. First to break it owes the group a toast. Everyone else claims.', category: 'group', difficulty: 2, method: 'self', scope: 'group', phase: 'any', points: 20, xp: 30 }),
-  m({ id: 'm053', title: 'Creature Parade', instruction: 'Line up in creature-level order and do your creature\'s cry one by one. Yes, out loud. Yes, all of you.', category: 'group', difficulty: 2, method: 'self', scope: 'group', phase: 'saturday', points: 20, xp: 35 }),
-  m({ id: 'm054', title: 'The Human Pyramid of Lies', instruction: 'Each person tells one lie about Jezza. The group votes on the most believable. Everyone who voted claims.', category: 'group', difficulty: 2, method: 'self', scope: 'group', phase: 'any', points: 20, xp: 30 }),
-  m({ id: 'm055', title: 'Sunset Salute', instruction: 'Everyone outside, drinks raised (any drink counts), one synchronised "CHEERS JEZZA" at the sky. Photo for the archives.', category: 'group', difficulty: 1, method: 'photo', scope: 'group', phase: 'saturday', points: 20, xp: 35 }),
+  // ---------- GET JEZZA IN ----------
+  m({ id: 'j01', title: 'Jezza Joins In', instruction: 'Get Jezza into your most ridiculous group pose.', category: 'jezza', difficulty: 1, method: 'photo' }),
+  m({ id: 'j02', title: 'Jezza Picks', instruction: 'Give Jezza two stupid (harmless) options for what you do next. Do whichever he picks.', category: 'jezza', difficulty: 1, method: 'witness' }),
+  m({ id: 'j03', title: 'Groom\'s Award', instruction: 'Give Jezza a made-up award for something he did this weekend. Photo of the presentation.', category: 'jezza', difficulty: 1, method: 'photo' }),
+  m({ id: 'j04', title: 'Team Celebration', instruction: 'Get Jezza and two mates into a full team celebration pose.', category: 'jezza', difficulty: 1, method: 'photo' }),
+  m({ id: 'j05', title: 'Chant Leader', instruction: 'Get three mates chanting something about the weekend with Jezza. Five seconds is plenty.', category: 'jezza', difficulty: 2, method: 'witness', loud: true }),
+  m({ id: 'j06', title: 'Jezza\'s Best Side', instruction: 'Ask Jezza for his best pose, then get the lads to copy it. Photo.', category: 'jezza', difficulty: 2, method: 'photo' }),
+  m({ id: 'j07', title: 'Secret Handshake', instruction: 'Invent a ridiculously complicated handshake with Jezza and nail it twice in a row.', category: 'jezza', difficulty: 2, method: 'witness' }),
+  m({ id: 'j08', title: 'Odd One Out', instruction: 'Find two mates wearing similar colours and take a photo with Jezza as the odd one out.', category: 'jezza', difficulty: 1, method: 'photo' }),
+  m({ id: 'j09', title: 'Fan Club', instruction: 'Get three mates to pose as Jezza\'s way-too-keen fan club.', category: 'jezza', difficulty: 2, method: 'photo' }),
+  m({ id: 'j10', title: 'Groom\'s Choice', instruction: 'Offer Jezza three options: joke, song or dance. Do whichever one he picks.', category: 'jezza', difficulty: 2, method: 'witness', loud: true }),
+  m({ id: 'j11', title: 'Marriage Advice', instruction: 'Ask Jezza for his best marriage advice so far. Nod like it\'s the wisest thing you\'ve ever heard.', category: 'jezza', difficulty: 1, method: 'self' }),
 
-  // ---------- SECRET ----------
-  m({ id: 'm060', secret: true, title: 'The Mole', instruction: 'Secretly get three different mates to say the word "velvet" in conversation. Nobody can know this is a mission.', category: 'secret', difficulty: 3, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm061', secret: true, title: 'The Plant', instruction: 'Casually place a single grape somewhere it absolutely should not be. If someone finds it and reacts, claim.', category: 'secret', difficulty: 2, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm062', secret: true, title: 'The Echo', instruction: 'Repeat the last two words of whatever Jezza says, three times in a row, without him noticing.', category: 'secret', difficulty: 3, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm063', secret: true, title: 'The Hat Trick', instruction: 'Get a mate to wear something on their head they weren\'t wearing before. They must not realise it was a mission.', category: 'secret', difficulty: 2, method: 'photo', scope: 'private', phase: 'any' }),
-  m({ id: 'm064', secret: true, title: 'The Wingman', instruction: 'Secretly hype up a mate\'s terrible joke until the whole group laughs. Never reveal you were on a mission.', category: 'secret', difficulty: 2, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm065', secret: true, title: 'The Word Smuggler', instruction: 'Smuggle the phrase "structurally unsound" into three separate conversations tonight.', category: 'secret', difficulty: 3, method: 'self', scope: 'private', phase: 'saturday' }),
-  m({ id: 'm066', secret: true, title: 'Barrel 7', instruction: 'Convince one mate there is a haunted barrel somewhere on the property. Bonus if they go looking.', category: 'secret', difficulty: 2, method: 'self', scope: 'private', phase: 'any' }),
+  // ---------- CHEERS (any drink counts, nobody has to drink) ----------
+  m({ id: 'c01', title: 'Cheers with Jezza', instruction: 'Clink glasses with Jezza and get a funny photo of it. Any drink counts.', category: 'cheers', difficulty: 1, method: 'photo' }),
+  m({ id: 'c02', title: 'Ten-Second Toast', instruction: 'Give Jezza a ten-second toast. Heartfelt, ridiculous, or both.', category: 'cheers', difficulty: 1, method: 'witness', loud: true }),
+  m({ id: 'c03', title: 'Cheers Crew', instruction: 'Get three mates and Jezza into a group cheers photo.', category: 'cheers', difficulty: 2, method: 'photo' }),
+  m({ id: 'c04', title: 'Drink Review', instruction: 'Review whatever you\'re drinking like an overconfident food critic. No need to finish it.', category: 'cheers', difficulty: 1, method: 'witness' }),
+  m({ id: 'c05', title: 'Mocktail Champion', instruction: 'Make a toast with a non-alcoholic drink like you\'re accepting a world title.', category: 'cheers', difficulty: 1, method: 'witness' }),
+  m({ id: 'c06', title: 'Signature Cheers', instruction: 'Invent your own cheers move and get a mate to do it with you.', category: 'cheers', difficulty: 1, method: 'witness' }),
+  m({ id: 'c07', title: 'Cheers Round', instruction: 'Clink with five different lads in the next ten minutes. Clink, nod, move on.', category: 'cheers', difficulty: 1, method: 'self' }),
+  m({ id: 'c08', title: 'Absent Mates', instruction: 'Raise a glass to a mate who couldn\'t make it and send them the photo.', category: 'cheers', difficulty: 1, method: 'photo' }),
 
-  // ---------- PHOTO ----------
-  m({ id: 'm070', title: 'Creature Cosplay', instruction: 'Pose like your creature. Commit fully. Photo required, dignity not.', category: 'photo', difficulty: 1, method: 'photo', scope: 'private', phase: 'any' }),
-  m({ id: 'm071', title: 'The Boardroom', instruction: 'Photograph three mates in a deadly serious "board meeting" pose over snacks.', category: 'photo', difficulty: 2, method: 'photo', scope: 'private', phase: 'any' }),
-  m({ id: 'm072', title: 'Golden Hour', instruction: 'Take a genuinely beautiful photo of the vineyard, sky or landscape. The group will judge your artistry.', category: 'photo', difficulty: 1, method: 'photo', scope: 'private', phase: 'any' }),
-  m({ id: 'm073', title: 'Album Cover', instruction: 'Shoot a moody album cover for your mates\' imaginary band. Name the band in your claim note.', category: 'photo', difficulty: 2, method: 'photo', scope: 'private', phase: 'any' }),
-  m({ id: 'm074', title: 'Jump Shot', instruction: 'Capture at least three mates mid-air. Everyone\'s feet off the ground or it doesn\'t count.', category: 'photo', difficulty: 3, method: 'photo', scope: 'private', phase: 'saturday' }),
-  m({ id: 'm075', title: 'Tiny Tour Guide', instruction: 'Photo of a mate pointing at something totally unremarkable with huge enthusiasm.', category: 'photo', difficulty: 1, method: 'photo', scope: 'private', phase: 'any' }),
-  m({ id: 'm076', title: 'Shadow Puppets', instruction: 'Make a shadow creature on a wall with your hands. Photo it. Name it in your note.', category: 'photo', difficulty: 1, method: 'photo', scope: 'private', phase: 'any' }),
+  // ---------- SNEAKY (only you can see these) ----------
+  m({ id: 'x01', secret: true, title: 'Plant a Word', instruction: 'Get Jezza to say "ripper" without him knowing it\'s a mission.', category: 'sneaky', difficulty: 2, method: 'self' }),
+  m({ id: 'x02', secret: true, title: 'Copycat', instruction: 'Copy everything a mate does for a minute until they notice. Then act innocent.', category: 'sneaky', difficulty: 1, method: 'self' }),
+  m({ id: 'x03', secret: true, title: 'The Echo', instruction: 'Repeat the last two words Jezza says, three times in a row, without him clocking it.', category: 'sneaky', difficulty: 2, method: 'self' }),
+  m({ id: 'x04', secret: true, title: 'Nickname Launch', instruction: 'Give a mate a new nickname and get two other lads using it within 20 minutes.', category: 'sneaky', difficulty: 3, method: 'self' }),
+  m({ id: 'x05', secret: true, title: 'Photobomb', instruction: 'Sneak into the background of three different photos tonight. Nobody can notice until later.', category: 'sneaky', difficulty: 2, method: 'self' }),
 
-  // ---------- VINEYARD ATMOSPHERE ----------
-  m({ id: 'm080', title: 'Terroir Talk', instruction: 'Explain the word "terroir" to a mate with total confidence. Facts are optional. Conviction is not.', category: 'vineyard', difficulty: 1, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm081', title: 'The Vintage', instruction: 'Declare the current year "an excellent vintage for mateship" in a toast. Swirl something while you say it.', category: 'vineyard', difficulty: 1, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm082', title: 'Cellar Door Legend', instruction: 'Invent a legend about the vineyard\'s founder and tell it to two mates as absolute fact.', category: 'vineyard', difficulty: 2, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm083', title: 'Blind Tasting', instruction: 'Taste-test two drinks (anything, even water vs sparkling) blindfolded and identify them. Be wrong beautifully.', category: 'vineyard', difficulty: 2, method: 'witness', scope: 'private', phase: 'any' }),
-  m({ id: 'm084', title: 'Structural Inspection', instruction: 'Inspect the venue like it\'s a defects walk. Find three "defects" and announce them with full engineering confidence. Bonus if one is a person.', category: 'vineyard', difficulty: 1, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm085', title: 'Tasting Notes', instruction: 'Give tasting notes for a mate\'s personality. "Nose of chaos, long finish of loyalty." Deliver to their face.', category: 'vineyard', difficulty: 2, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm086', title: 'Load Rating', instruction: 'Pick a chair, bench or esky and announce its load rating in kN with a straight face. Then test it with the heaviest volunteer.', category: 'vineyard', difficulty: 1, method: 'self', scope: 'private', phase: 'any' }),
+  // ---------- LOW-KEY (no performing, no camera) ----------
+  m({ id: 'q01', title: 'Handshake Ratings', instruction: 'Rate three mates\' handshakes out of ten and tell them their score. Feedback encouraged.', category: 'chill', difficulty: 1, method: 'self' }),
+  m({ id: 'q02', title: 'Quote of the Night', instruction: 'Grab the funniest thing someone\'s said tonight and read it back to the group.', category: 'chill', difficulty: 1, method: 'self' }),
+  m({ id: 'q03', title: 'Sequel', instruction: 'Catch someone telling the same story twice this weekend and yell "SEQUEL".', category: 'chill', difficulty: 2, method: 'self', phase: 'saturday' }),
+  m({ id: 'q04', title: 'Phone Rescue', instruction: 'Catch a mate doom-scrolling while the boys are talking and drag them back into the yarn.', category: 'chill', difficulty: 1, method: 'self' }),
+  m({ id: 'q05', title: 'How\'d You Meet?', instruction: 'Ask Jezza how he met his partner. Only interrupt to say "no way".', category: 'chill', difficulty: 1, method: 'self', phase: 'friday' }),
+  m({ id: 'q06', title: 'Snack Delivery', instruction: 'Bring a mate a snack they didn\'t ask for. Hand it over like it\'s a trophy.', category: 'chill', difficulty: 1, method: 'self' }),
+  m({ id: 'q07', title: 'Cooked Counter', instruction: 'Count how many times someone says "cooked" in 15 minutes. Announce the total.', category: 'chill', difficulty: 1, method: 'self' }),
+  m({ id: 'q08', title: 'Group Chat Banger', instruction: 'Take one genuinely good photo of the view or the venue for the group chat.', category: 'chill', difficulty: 1, method: 'photo' }),
+  m({ id: 'q09', title: 'Wingman', instruction: 'Hype up a mate\'s average joke until the whole group laughs.', category: 'chill', difficulty: 2, method: 'self' }),
+  m({ id: 'q10', title: 'Lookalikes', instruction: 'Tell three mates which celebrity they look like. No appeals.', category: 'chill', difficulty: 1, method: 'self' }),
 
-  // ---------- CREATURE ----------
-  m({ id: 'm090', title: 'The Cry', instruction: 'Do your creature\'s battle cry, out loud, in front of at least three mates. Full commitment.', category: 'creature', difficulty: 1, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm091', title: 'Adoption Papers', instruction: 'Introduce your creature to a mate by name and explain its personality in detail. They must shake its hand (your phone).', category: 'creature', difficulty: 1, method: 'self', scope: 'private', phase: 'friday' }),
-  m({ id: 'm092', title: 'Rivalry', instruction: 'Challenge a mate to a creature battle and complete it. Win or lose, claim this mission.', category: 'creature', difficulty: 1, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm093', title: 'Trainer Montage', instruction: 'Perform a 15 second training montage with your creature (your phone). Dramatic music optional. Sweatband optional.', category: 'creature', difficulty: 2, method: 'witness', scope: 'private', phase: 'any' }),
-  m({ id: 'm094', title: 'Creature Diplomacy', instruction: 'Negotiate a formal alliance between your creature and a mate\'s creature. Shake on it. Announce the alliance name.', category: 'creature', difficulty: 2, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm095', title: 'Fashion Week', instruction: 'Equip a cosmetic on your creature and show it off to two mates with a runway commentary.', category: 'creature', difficulty: 1, method: 'self', scope: 'private', phase: 'saturday' }),
-
-  // ---------- TOAST ----------
-  m({ id: 'm100', title: 'The Royal Toast', instruction: 'Deliver an absurdly grand toast to Jezza. Minimum three titles ("Duke of Dad Jokes") and one dramatic pause.', category: 'toast', difficulty: 2, method: 'witness', scope: 'private', phase: 'any' }),
-  m({ id: 'm101', title: 'The Mystery Toast', instruction: 'Invent a toast that makes absolutely no sense but sounds deeply inspirational. "To the horizon within the sandwich."', category: 'toast', difficulty: 1, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm102', title: 'The Drinking Buddy', instruction: 'Get a mate to join you for a shared toast. Any drink counts: beer, wine, water, a cheeky mocktail.', category: 'toast', difficulty: 1, method: 'witness', scope: 'private', phase: 'any' }),
-  m({ id: 'm103', title: 'The Clink Chain', instruction: 'Start a toast where each glass must clink the next one in a chain. Five people minimum. No breaks.', category: 'toast', difficulty: 2, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm104', title: 'The Absent Friend', instruction: 'Toast to a mate who couldn\'t make it. Make it heartfelt. Make it slightly too long.', category: 'toast', difficulty: 1, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm105', title: 'The Villain Toast', instruction: 'Toast Jezza as if you are the villain in his life story. Slow clap optional. Monologue mandatory.', category: 'toast', difficulty: 2, method: 'witness', scope: 'private', phase: 'saturday' }),
-  m({ id: 'm106', title: 'Toast in Translation', instruction: 'Deliver a toast in a language you don\'t speak, then "translate" it. The translation must be longer than the toast.', category: 'toast', difficulty: 2, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm107', title: 'The Sommelier\'s Toast', instruction: 'Toast whatever you\'re holding with a full tasting note. "Hints of regret, finish of Saturday." Even if it\'s water.', category: 'toast', difficulty: 1, method: 'self', scope: 'private', phase: 'any' }),
-
-  // ---------- HOST-APPROVED SPECIALS ----------
-  m({ id: 'm110', title: 'The Grand Performance', instruction: 'Perform a full one-minute set (comedy, song, magic, anything) for the whole party. Host decides if it counted.', category: 'creative', difficulty: 3, method: 'host', scope: 'private', phase: 'saturday', points: 45, xp: 70 }),
-  m({ id: 'm111', title: 'Legendary Hospitality', instruction: 'Do something genuinely kind and useful for the group (sort food, fix the music, drive the vibe). Host approves.', category: 'social', difficulty: 2, method: 'host', scope: 'private', phase: 'any', points: 30, xp: 50 }),
-  m({ id: 'm112', title: 'The Speech', instruction: 'Give Jezza a proper, sincere speech. Make at least one person go "aww". Host approves.', category: 'jezza', difficulty: 3, method: 'host', scope: 'private', phase: 'saturday', points: 45, xp: 70 }),
-  // ---------- SITE WORKS (civil engineering) ----------
-  m({ id: 'm120', title: 'The RFI', instruction: 'Submit a formal Request For Information to Jezza about his own wedding. Demand a response within 10 business days. Chase it twice.', category: 'jezza', difficulty: 1, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm121', title: 'Variation Claim', instruction: 'Lodge a variation claim for something that changed this weekend (dinner time, the music, the vibe). Itemise costs. Present it to the host for approval.', category: 'social', difficulty: 2, method: 'host', scope: 'private', phase: 'any', points: 25, xp: 40 }),
-  m({ id: 'm122', title: 'Toolbox Talk', instruction: 'Gather three mates for a toolbox talk on the hazards of the next activity. Sign-on sheet required (a napkin counts).', category: 'group', difficulty: 2, method: 'photo', scope: 'private', phase: 'any' }),
-  m({ id: 'm123', title: 'Slump Test', instruction: 'Perform a slump test on a drink\'s foam, a dessert, or a mate\'s posture. Announce the result in millimetres and whether it passes spec.', category: 'vineyard', difficulty: 1, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm124', title: 'As-Built Drawing', instruction: 'Draw an as-built of the room on a napkin, including where every mate is standing. Mark Jezza as "critical infrastructure".', category: 'creative', difficulty: 2, method: 'photo', scope: 'private', phase: 'any' }),
-  m({ id: 'm125', title: 'Hi-Vis Hour', instruction: 'Wear anything hi-vis, orange or reflective for 30 minutes. If nothing is available, improvise with a tea towel and commitment.', category: 'photo', difficulty: 1, method: 'photo', scope: 'private', phase: 'any' }),
-  m({ id: 'm126', title: 'Concrete Cure Time', instruction: 'Explain to a mate, in detail, why hangovers are just concrete curing. 28 days to full strength. Do not break character.', category: 'social', difficulty: 1, method: 'self', scope: 'private', phase: 'saturday' }),
-  m({ id: 'm127', title: 'The Survey', instruction: 'Set out the dance floor using your phone as a total station. Call out bearings. Make someone hold a "staff" (a bottle).', category: 'creative', difficulty: 2, method: 'witness', scope: 'private', phase: 'any' }),
-  m({ id: 'm128', title: 'The Tender', instruction: 'Run a competitive tender for who buys the next round. Three bidders, evaluation criteria, a winner announced with a handshake.', category: 'toast', difficulty: 2, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm129', title: 'Defects Liability Period', instruction: 'Inform Jezza that his marriage comes with a 12-month defects liability period and explain exactly what\'s covered. Keep a straight face.', category: 'jezza', difficulty: 2, method: 'witness', scope: 'private', phase: 'saturday' }),
-  m({ id: 'm130', title: 'Risk Register', instruction: 'Build a risk register for the rest of the night: five risks, likelihood, consequence, and who is the owner of each. Read it like a project meeting.', category: 'creative', difficulty: 2, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm131', title: 'The Geotech Report', instruction: 'Assess the ground conditions of wherever you\'re standing. Soil type, bearing capacity, and whether it\'s suitable for Big Dave.', category: 'vineyard', difficulty: 1, method: 'self', scope: 'private', phase: 'any' }),
-
-  // ---------- YUM CHA & KARAOKE (Aussie-Asian family energy) ----------
-  m({ id: 'm132', title: 'Have You Eaten?', instruction: 'Ask every mate in the room "have you eaten?" in your best aunty voice. Anyone who says no must be handed food immediately.', category: 'social', difficulty: 1, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm133', title: 'The Yum Cha Order', instruction: 'Order the next round of drinks or snacks yum cha style: point, nod, and say "two of those" with total authority. No menu allowed.', category: 'toast', difficulty: 1, method: 'witness', scope: 'private', phase: 'any' }),
-  m({ id: 'm134', title: 'Parent Review', instruction: 'Review Jezza\'s life choices as his disappointed-but-proud parent. Mention a cousin who is a doctor. End with "...but I am happy for you lah".', category: 'jezza', difficulty: 2, method: 'witness', scope: 'private', phase: 'any' }),
-  m({ id: 'm135', title: 'Karaoke Ballad', instruction: 'Perform one chorus of a power ballad to Jezza, full karaoke commitment, eyes closed on the high note. Backing track optional.', category: 'creative', difficulty: 2, method: 'witness', scope: 'private', phase: 'saturday' }),
-  m({ id: 'm136', title: 'Chopstick Challenge', instruction: 'Pick up an ice cube with chopsticks (or two pens) and carry it across the room to a mate\'s glass. Drops reset the attempt.', category: 'social', difficulty: 2, method: 'witness', scope: 'private', phase: 'any' }),
-  m({ id: 'm137', title: 'The Red Packet', instruction: 'Present Jezza with a red packet (any envelope, any colour, any contents, a coaster counts) with a formal two-sentence blessing for his marriage.', category: 'jezza', difficulty: 1, method: 'photo', scope: 'private', phase: 'any' }),
-  m({ id: 'm138', title: 'Hotpot Diplomacy', instruction: 'Settle a fake argument between two mates by declaring one of them "the one who orders for the table". Explain why. Both must accept the ruling.', category: 'social', difficulty: 2, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm139', title: 'Asian Glow Check', instruction: 'Conduct an official glow inspection of the room and rank the top three. Use a torch. Announce the results like a Lunar New Year lucky draw.', category: 'observation', difficulty: 1, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm140', title: 'Bubble Tea Sommelier', instruction: 'Review whatever drink you\'re holding as if it were a bubble tea order: sugar level, ice level, pearls out of ten. Deliver to two mates.', category: 'toast', difficulty: 1, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm141', title: 'The Family WhatsApp', instruction: 'Narrate the next 5 minutes of the party as a 60-year-old relative forwarding it to the family group chat. Good morning images included.', category: 'creative', difficulty: 2, method: 'self', scope: 'private', phase: 'any' }),
-
-  // ---------- THE DARK ARTS (roasts, eulogies, paperwork) ----------
-  m({ id: 'm142', title: 'Eulogy for the Single Life', instruction: 'Deliver a solemn eulogy for Jezza\'s single life. Fond memories, a moment of silence, one tasteful lie. The groom must bow his head.', category: 'toast', difficulty: 2, method: 'witness', scope: 'private', phase: 'any' }),
-  m({ id: 'm143', title: 'Last Will and Testament', instruction: 'Read out Jezza\'s will for his bachelor possessions: who gets the gaming chair, who inherits the group chat admin rights. Witnessed and signed.', category: 'jezza', difficulty: 2, method: 'witness', scope: 'private', phase: 'saturday' }),
-  m({ id: 'm144', title: 'Cause of Death: Banter', instruction: 'When a mate gets roasted, pronounce time of death and give the cause in medical terms. Minimum three pronouncements tonight.', category: 'observation', difficulty: 2, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm145', title: 'The Roast Permit', instruction: 'Apply to the host for a Roast Permit, then deliver a 30-second roast of a mate of the host\'s choosing. Affectionate. Brutal. Approved.', category: 'social', difficulty: 3, method: 'host', scope: 'private', phase: 'saturday', points: 40, xp: 60 }),
-  m({ id: 'm146', title: 'Performance Review', instruction: 'Give a mate their annual performance review as a friend. Strengths, areas for development, and whether they\'re getting the bonus (a drink).', category: 'social', difficulty: 2, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm147', title: 'The Exit Interview', instruction: 'Conduct Jezza\'s exit interview from bachelorhood. "What could we have done to keep you?" Take notes. Report findings to the group.', category: 'jezza', difficulty: 2, method: 'self', scope: 'private', phase: 'any' }),
-  m({ id: 'm148', title: 'Memorial Plaque', instruction: 'Photograph a spot where something embarrassing happened this weekend and caption it like a heritage plaque. "On this site, in 2026…"', category: 'photo', difficulty: 1, method: 'photo', scope: 'private', phase: 'saturday' }),
-  m({ id: 'm149', title: 'Secret Shopper', instruction: 'Secretly rate three mates\' handshakes out of 10 tonight. Reveal the scores at once, with feedback. Grip strength will be discussed.', category: 'secret', difficulty: 2, method: 'self', scope: 'private', phase: 'any', secret: true }),
-  m({ id: 'm150', title: 'The Snag Ceremony', instruction: 'Group mission: everyone lines up for a sausage sizzle style photo, bread in hand (any food counts), and salutes the groom. Host approves.', category: 'group', difficulty: 2, method: 'photo', scope: 'group', phase: 'saturday', points: 25, xp: 40 }),
+  // ---------- GROUP (go live on their own every so often; optional) ----------
+  m({ id: 'g01', title: 'The Big Cheers', instruction: 'Everyone raises a drink at once and yells "CHEERS JEZZA". Any drink counts. One photo.', category: 'group', difficulty: 1, method: 'photo', scope: 'group', points: 15, xp: 30 }),
+  m({ id: 'g02', title: 'Creature Parade', instruction: 'Everyone holds up their phone showing their creature for one massive group photo.', category: 'group', difficulty: 2, method: 'photo', scope: 'group', points: 25, xp: 40 }),
+  m({ id: 'g03', title: 'Silent Minute', instruction: 'The whole group stays dead silent for one minute. First to crack grabs the next round of snacks. Everyone else claims.', category: 'group', difficulty: 2, method: 'self', scope: 'group', points: 20, xp: 30 }),
+  m({ id: 'g04', title: 'The Wave', instruction: 'Do a Mexican wave with the whole group for Jezza. Snap the best moment.', category: 'group', difficulty: 1, method: 'photo', scope: 'group', points: 15, xp: 30 }),
+  m({ id: 'g05', title: 'Sunset Salute', instruction: 'Everyone outside, drinks up, one massive "CHEERS JEZZA" at the sky. Photo.', category: 'group', difficulty: 1, method: 'photo', scope: 'group', phase: 'saturday', points: 20, xp: 35 }),
+  m({ id: 'g06', title: 'Squad Goals', instruction: 'Pull the most dramatic group pose you can think of. Everyone in, Jezza in the middle.', category: 'group', difficulty: 2, method: 'photo', scope: 'group', points: 25, xp: 40 }),
 ];
 
 export const MISSION_BY_ID: Record<string, Mission> = Object.fromEntries(MISSIONS.map((x) => [x.id, x]));
@@ -187,8 +153,14 @@ export function missionAvailableInPhase(mission: Mission, phase: 'friday' | 'sat
 }
 
 export const METHOD_META: Record<CompletionMethod, { label: string; cta: string; hint: string }> = {
-  self:    { label: 'Honour system', cta: 'I DID IT', hint: 'Tap when it\'s done. Your mates will know if you\'re lying.' },
-  photo:   { label: 'Photo proof',   cta: 'SNAP PROOF', hint: 'Take a photo. The host approves it and it hits the feed.' },
-  witness: { label: 'Needs a witness', cta: 'PICK A WITNESS', hint: 'A mate confirms on their phone that it happened.' },
-  host:    { label: 'Host approved', cta: 'SUBMIT TO HOST', hint: 'The host decides. Bribery is not supported in this version.' },
+  self:    { label: 'Honour system', cta: 'I DID IT', hint: 'Tap when it\'s done. The lads will know if you\'re lying.' },
+  photo:   { label: 'Snap it', cta: 'SNAP IT', hint: 'Take the photo. Points land straight away. Mates can call BS.' },
+  witness: { label: 'A mate confirms', cta: 'WHO SAW IT?', hint: 'Pick a mate who was there. They tap yes on their phone.' },
+  host:    { label: 'Host decides', cta: 'SUBMIT', hint: 'The host decides.' },
 };
+
+export const REWARD_QUIPS = [
+  'Absolute scenes.', 'Jezza will remember that. Unfortunately.', 'Cooked. Beautifully cooked.', 'The lads are proud. Probably.',
+  'That\'s going in the speech.', 'Ripper effort.', 'Unreal. Do it again.', 'Certified legend behaviour.', 'No notes.',
+  'Questionable. Points anyway.', 'Main character energy.', 'Mum would be proud. Don\'t tell her.',
+];

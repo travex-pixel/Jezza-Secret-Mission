@@ -39,7 +39,7 @@ export default function Reveal() {
       <div className="screen-body" style={{ gap: 10 }}>
         <div className="stage grow" style={{ minHeight: 0 }}>
           <div className="stage-rays" /><div className="stage-pool" /><Sparkles n={18} />
-          <Creature creature={me.creature} colorway={me.equipped.colorway} equipped={me.equipped} state={stage >= 1 ? 'victory' : 'enter'} animKey={stage >= 1 ? 'v' : 'e'} style={{ height: '100%', maxHeight: 300, width: 'auto', aspectRatio: '1', zIndex: 1 }} />
+          <Creature creature={me.creature} level={me.level} colorway={me.equipped.colorway} equipped={me.equipped} state={stage >= 1 ? 'victory' : 'enter'} animKey={stage >= 1 ? 'v' : 'e'} style={{ height: '100%', maxHeight: 300, width: 'auto', aspectRatio: '1', zIndex: 1 }} />
         </div>
         <div className={`center ${stage >= 1 ? 'fade-up' : ''}`} style={{ opacity: stage >= 1 ? 1 : 0 }}>
           <p className="bold" style={{ fontSize: 15 }}>Your legend begins. <span className="dim">Your judgement may not survive the weekend.</span></p>

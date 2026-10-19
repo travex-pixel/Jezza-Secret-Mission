@@ -164,6 +164,18 @@ export const CREATURE_IDS: CreatureId[] = ['dragon', 'wombat', 'possum', 'owl', 
 
 export const ACTION_LABELS: Record<BattleAction, string> = { attack: 'ATTACK', counter: 'COUNTER', special: 'SPECIAL' };
 
+/** Evolution forms: base (Lv1-3), evolved (Lv4-7), final (Lv8+). */
+export const FORMS: Record<CreatureId, [string, string, string]> = {
+  dragon: ['Vineyard Dragon', 'Vintage Dragon', 'Grand Cru Dragon'],
+  wombat: ['Wombat Warrior', 'Wombat Warlord', 'Wombat Overlord'],
+  possum: ['Possum Trickster', 'Possum Bandit', 'Possum Kingpin'],
+  owl: ['Moonlit Owl', 'Midnight Owl', 'Eclipse Owl'],
+  goblin: ['Cellar Goblin', 'Cellar Boss', 'Cellar Overlord'],
+  sprite: ['Grapevine Sprite', 'Vine Sylph', 'Harvest Spirit'],
+  barrel: ['Barrel Beast', 'Keg Titan', 'Cask Colossus'],
+  fox: ['Hunter Fox', 'Silver Fox', 'Nine-Tail Fox'],
+};
+
 /** Deterministic trio of starters for a given seed string; `offset` cycles to show the rest of the roster. */
 export function starterTrio(seed: string, offset = 0): CreatureId[] {
   let h = 2166136261;
