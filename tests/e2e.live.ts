@@ -85,7 +85,11 @@ async function main() {
   // Mate: plan + charge-up tap
   await mate.page.locator('.plan-btn.plan-aggro').click();
   await mate.page.waitForSelector('.pt-screen', { timeout: 3000 });
-  await mate.page.waitForTimeout(650);
+  const xs: number[] = [];
+  for (let i = 0; i < 12; i++) { xs.push(await mate.page.locator('.pt-marker').evaluate((el) => parseFloat((el as HTMLElement).style.left))); await mate.page.waitForTimeout(120); }
+  check(xs.some((x, i) => i > 1 && (x - xs[i - 1]) * (xs[i - 1] - xs[i - 2]) < 0), `power bar swings back and forth (${xs.map((x) => Math.round(x)).join(',')})`);
+  await mate.page.screenshot({ path: path.join(OUT, 'power-bar.png') });
+  await mate.page.waitForTimeout(150);
   await mate.page.locator('.pt-screen').click({ position: { x: 20, y: 300 } });
   await mate.page.getByText(/locked in/).first().waitFor({ timeout: 5000 });
   await host.page.getByText(/🔒 ready/).waitFor({ timeout: 5000 }).catch(() => undefined);

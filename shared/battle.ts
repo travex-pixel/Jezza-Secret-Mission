@@ -7,8 +7,18 @@ export const CHALLENGE_TTL_MS = 2 * 60 * 1000;
 export const SPECIAL_COOLDOWN = 2; // rounds that must pass after a special
 export const BATTLE_REWARDS = { win: { points: 15, xp: 30 }, lose: { points: 5, xp: 15 } };
 export const MAX_SCORED_VS_SAME_OPPONENT = 3;
-export const TAP_BAR_MS = 1100;          // how long the power-tap marker takes to cross the bar
-export const TAP_MULT: Record<TapQuality, number> = { perfect: 1.22, good: 1.08, miss: 1 };
+export const TAP_BAR_MS = 1100;          // legacy: how long the old one-pass marker took to cross the bar
+export const TAP_SWEEP_MS = 800;         // power tap: one sweep of the oscillating marker (it keeps going until you tap)
+export const TAP_MIN_MS = 300;           // a tap can't plausibly land before the marker first reaches the middle
+// Power tap accuracy: 0 = tapped at the very edge, 1 = dead centre. The bonus grows with the square of it,
+// so the last few pixels near the middle are worth the most. Max stays +22%, same as the old gold zone.
+export const POWER_BONUS = 0.22;
+const clamp01 = (x: number) => (Number.isFinite(x) ? Math.max(0, Math.min(1, x)) : 0);
+export const powerMult = (p: number) => 1 + POWER_BONUS * clamp01(p) ** 2;
+export const qualityFor = (p: number): TapQuality => (clamp01(p) >= 0.9 ? 'perfect' : clamp01(p) >= 0.6 ? 'good' : 'miss');
+export const POWER_FOR: Record<TapQuality, number> = { perfect: 1, good: 0.6, miss: 0 }; // older clients send a tier
+export const TAP_MULT: Record<TapQuality, number> = { perfect: powerMult(1), good: powerMult(0.6), miss: 1 };
+export const cleanPower = (power: unknown, tap?: TapQuality): number => (typeof power === 'number' ? clamp01(power) : POWER_FOR[tap === 'perfect' || tap === 'good' ? tap : 'miss']);
 export const COUNTER_TAKE = 0.5;         // damage multiplier while countering
 export const COUNTER_REFLECT = 0.45;     // share of the (reduced) damage thrown back
 
@@ -29,7 +39,7 @@ function name(c: BattleCreatureState, names: Record<string, string>) { return na
 /** Raw attack damage before the target's mitigation. */
 function baseDamage(c: BattleCreatureState, rng: Rng, mult = 1): number {
   const roll = 0.9 + rng() * 0.3;
-  return Math.max(1, Math.round(atkOf(c) * 2.25 * roll * mult * TAP_MULT[c.tap ?? 'miss']));
+  return Math.max(1, Math.round(atkOf(c) * 2.25 * roll * mult * powerMult(c.power ?? POWER_FOR[c.tap ?? 'miss'])));
 }
 
 /** Apply target's defence stat and counter stance. */
@@ -135,7 +145,7 @@ export function resolveRound(battle: Battle, rng: Rng, names: Record<string, str
   b.specialCooldown = bEff === 'special' ? SPECIAL_COOLDOWN : Math.max(0, b.specialCooldown - 1);
   a.lastAction = aEff; b.lastAction = bEff;
   const aTap = a.tap, bTap = b.tap;
-  a.action = undefined; b.action = undefined; a.tap = undefined; b.tap = undefined;
+  a.action = undefined; b.action = undefined; a.tap = undefined; b.tap = undefined; a.power = undefined; b.power = undefined;
 
   // Faster creature's line first for drama
   const lines = spdOf(a) >= spdOf(b) ? [...ra.lines, ...rb.lines] : [...rb.lines, ...ra.lines];
@@ -194,15 +204,16 @@ export const isPlan = (p: unknown): p is GamePlan => typeof p === 'string' && p 
 
 /**
  * How a creature fights on its own: same three moves a person has, weighted by its game plan.
- * `charge` is the power-tap result locked in before a quick battle (used on every damaging move);
+ * `charge` is the power-tap accuracy (0-1) locked in before a quick battle, used on every damaging move;
  * without one (auto-battles) each swing gets a random tap.
  */
-export function autoPick(side: BattleCreatureState, rng: Rng, plan: GamePlan = 'balanced', charge?: TapQuality): { action: BattleAction; tap: TapQuality } {
+export function autoPick(side: BattleCreatureState, rng: Rng, plan: GamePlan = 'balanced', charge?: number): { action: BattleAction; tap: TapQuality; power: number } {
   const w = PLANS[plan];
   const action: BattleAction = side.specialCooldown === 0 && rng() < w.special ? 'special' : rng() < w.attack ? 'attack' : 'counter';
   const r = rng();
-  const tap: TapQuality = charge ?? (r < 0.15 ? 'perfect' : r < 0.5 ? 'good' : 'miss');
-  return { action, tap: action === 'counter' ? 'miss' : tap };
+  const power = charge ?? (r < 0.15 ? 0.9 + rng() * 0.1 : r < 0.5 ? 0.6 + rng() * 0.3 : rng() * 0.6);
+  if (action === 'counter') return { action, tap: 'miss', power: 0 };
+  return { action, tap: qualityFor(power), power };
 }
 
 /** Simple seeded RNG (mulberry32) for tests and replays. */
@@ -221,6 +232,6 @@ export function redactBattle(battle: Battle, viewerId: string): Battle {
   const live = battle.status === 'active';
   const hide = (s: BattleCreatureState): BattleCreatureState => s.playerId === viewerId
     ? { ...s, locked: !!s.action || !!s.plan }
-    : { ...s, action: undefined, plan: live ? undefined : s.plan, charge: live ? undefined : s.charge, locked: !!s.action || !!s.plan };
+    : { ...s, action: undefined, plan: live ? undefined : s.plan, charge: live ? undefined : s.charge, chargePower: live ? undefined : s.chargePower, locked: !!s.action || !!s.plan };
   return { ...battle, a: hide(battle.a), b: hide(battle.b), log: [...battle.log] };
 }

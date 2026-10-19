@@ -403,6 +403,8 @@ img, svg { display: block; max-width: 100%; }
 .powertap { width: 86%; max-width: 360px; text-align: center; display: flex; flex-direction: column; gap: 8px; align-items: center; padding: 16px 14px; border-radius: 20px; background: rgba(29,24,31,.92); border: 1px solid var(--line-strong); box-shadow: var(--shadow), var(--glow-gold); user-select: none; touch-action: manipulation; }
 .pt-bar { position: relative; width: 100%; height: 26px; border-radius: 999px; background: rgba(0,0,0,.55); border: 1px solid var(--line); overflow: visible; }
 .pt-zone { position: absolute; top: 0; bottom: 0; border-radius: 999px; }
+.pt-bar.pt-heat { background: linear-gradient(90deg, rgba(0,0,0,.55) 0%, rgba(229,173,72,.18) 25%, rgba(229,173,72,.55) 42%, #fbe3a6 50%, rgba(229,173,72,.55) 58%, rgba(229,173,72,.18) 75%, rgba(0,0,0,.55) 100%); box-shadow: inset 0 0 0 1px var(--line), 0 0 18px rgba(229,173,72,.25); }
+.pt-centre { position: absolute; left: 50%; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; background: #fff; opacity: .85; border-radius: 1px; }
 .pt-zone.good { background: rgba(229,173,72,.22); }
 .pt-zone.perfect { background: linear-gradient(90deg, rgba(229,173,72,.55), rgba(251,227,166,.9), rgba(229,173,72,.55)); box-shadow: 0 0 16px rgba(229,173,72,.6); }
 .pt-marker { position: absolute; top: -6px; bottom: -6px; width: 6px; margin-left: -3px; border-radius: 3px; background: var(--cream); box-shadow: 0 0 10px rgba(255,255,255,.8); left: 0; animation: pt-slide linear both; }

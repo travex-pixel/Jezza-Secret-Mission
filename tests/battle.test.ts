@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { makeCreatureState, resolveRound, seededRng, MAX_ROUNDS } from '../shared/battle';
+import { makeCreatureState, resolveRound, seededRng, MAX_ROUNDS, powerMult, qualityFor, cleanPower } from '../shared/battle';
 import { CREATURE_IDS } from '../shared/creatures';
 import type { Battle, CreatureId } from '../shared/types';
 import { levelForXp, levelProgress, computeAwards, cosmeticsForLevel, AWARDS } from '../shared/progression';
@@ -110,5 +110,14 @@ describe('content', () => {
     expect(validateNickname('host').ok).toBe(false);
     expect(validateNickname('a').ok).toBe(false);
     expect(validateNickname('Dave', ['dave']).ok).toBe(false);
+  });
+  it('power tap is graded: dead centre = +22%, the bonus falls away towards the edges, junk is clamped', () => {
+    expect(powerMult(1)).toBeCloseTo(1.22);
+    expect(powerMult(0.5)).toBeCloseTo(1.055);
+    expect(powerMult(0)).toBe(1);
+    expect(powerMult(0.9) - powerMult(0.8)).toBeGreaterThan(powerMult(0.3) - powerMult(0.2)); // the middle is worth the most
+    expect(qualityFor(0.95)).toBe('perfect'); expect(qualityFor(0.7)).toBe('good'); expect(qualityFor(0.2)).toBe('miss');
+    expect(cleanPower(5)).toBe(1); expect(cleanPower(-2)).toBe(0); expect(cleanPower(Number.NaN)).toBe(0);
+    expect(cleanPower(undefined, 'perfect')).toBe(1); // older phones still send a tier
   });
 });

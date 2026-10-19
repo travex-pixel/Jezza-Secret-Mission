@@ -1,5 +1,5 @@
 // Simulates quick battles: every game plan vs every other, across all creature pairings.
-import { makeCreatureState, resolveRound, seededRng, autoPick, PLANS, type GamePlan } from '../shared/battle';
+import { makeCreatureState, resolveRound, seededRng, autoPick, PLANS, POWER_FOR, type GamePlan } from '../shared/battle';
 import { CREATURE_IDS } from '../shared/creatures';
 import type { Battle, TapQuality } from '../shared/types';
 const rng = seededRng(5);
@@ -12,7 +12,7 @@ for (const pa of ids) for (const pb of ids) {
     const b = { status: 'active', round: 1, a: makeCreatureState('a', ca, 5), b: makeCreatureState('b', cb, 5), log: [] } as unknown as Battle;
     const ta = taps[k % 3], tb = taps[(k + 1) % 3];
     while (b.status === 'active') {
-      for (const [s, plan, tap] of [[b.a, pa, ta], [b.b, pb, tb]] as const) { const p = autoPick(s, rng, plan, tap); s.action = p.action; s.tap = p.tap; }
+      for (const [s, plan, tap] of [[b.a, pa, ta], [b.b, pb, tb]] as const) { const p = autoPick(s, rng, plan, POWER_FOR[tap]); s.action = p.action; s.tap = p.tap; }
       resolveRound(b, rng, {}, 0);
     }
     n++; if (b.winnerId === 'a') w++;

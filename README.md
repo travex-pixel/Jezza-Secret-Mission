@@ -218,8 +218,10 @@ single charge-up power tap. Then the whole fight plays itself and both phones sh
 * **Game plans** change *how* your creature fights, not whether it wins: *Balanced* (a bit of everything, the odd
   counter), *All-out* (never blocks, keeps swinging), *Sneaky* (specials whenever they're ready). They're tuned to
   within a few percent of each other (`npx tsx scripts/plans-balance.ts`), so the creature, the charge and luck decide it.
-* **Charge-up tap**: a marker slides across a bar; stop it in the gold zone for +22% on every hit that fight,
-  the wider zone for +8%, a miss is normal damage. The server ignores a tap that arrives faster than the bar can move.
+* **Charge-up tap**: a marker sweeps back and forth across a bar (about 0.8 s each way) until you tap. The closer
+  to dead centre, the harder you hit: the bonus rises smoothly from +0% at the edges to +22% in the middle, and
+  applies to every hit that fight (boss raid hits use the same bar). No tap in 5 s counts as a whiff, so nobody can
+  stall. The server clamps the value and ignores a tap that arrives before the marker could reach the middle.
 * Every round is still resolved by the same engine (Attack / Counter / Special, the creature specials, reflect
   damage); the plan only decides which move the creature picks each round. Rewards, bounty, streaks, ratings and
   the 3-scored-bouts-per-opponent rule are unchanged. The result pop-up and achievements wait until the fight has

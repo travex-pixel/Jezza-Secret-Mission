@@ -15,7 +15,7 @@ import {
 } from './progression';
 import { isClean, validateCreatureName, validateNickname } from './names';
 import {
-  BATTLE_REWARDS, CHALLENGE_TTL_MS, MAX_SCORED_VS_SAME_OPPONENT, PLAN_SECONDS, ROUND_SECONDS, TAP_BAR_MS, TAP_MULT, autoPick, finish, isPlan, makeCreatureState, redactBattle, resolveRound, type GamePlan,
+  BATTLE_REWARDS, CHALLENGE_TTL_MS, MAX_SCORED_VS_SAME_OPPONENT, PLAN_SECONDS, ROUND_SECONDS, TAP_BAR_MS, TAP_MIN_MS, autoPick, cleanPower, powerMult, qualityFor, finish, isPlan, makeCreatureState, redactBattle, resolveRound, type GamePlan,
 } from './battle';
 import {
   BOSSES, RAID_DURATION_MS, RAID_HIT_COOLDOWN_MS, RAID_HP_PER_PLAYER, RAID_MISSION_DMG_MULT, RAID_MVP_POINTS, RAID_REWARD, RAID_THRESHOLD,
@@ -311,7 +311,7 @@ export class Engine {
         case 'challenge': return this.challenge(playerId, msg.opponentId);
         case 'respondChallenge': return this.respondChallenge(playerId, msg.battleId, msg.accept);
         case 'battleAction': return this.battleAction(playerId, msg.battleId, msg.round, msg.action, msg.tap);
-        case 'battlePlan': return this.battlePlan(playerId, msg.battleId, msg.plan, msg.tap);
+        case 'battlePlan': return this.battlePlan(playerId, msg.battleId, msg.plan, msg.tap, msg.power);
         case 'flagClaim': return this.flagClaim(playerId, msg.claimId);
         case 'backClaim': return this.backClaim(playerId, msg.claimId);
         case 'react': return this.react(playerId, msg.eventId, msg.emoji);
@@ -320,7 +320,7 @@ export class Engine {
         case 'wallHide': return this.wallHide(playerId, msg.postId);
         case 'cellarAdd': return this.cellarAdd(playerId, msg.drink, msg.stars, msg.note, msg.photo);
         case 'cellarFire': return this.cellarFire(playerId, msg.entryId);
-        case 'raidHit': return this.raidHit(playerId, msg.raidId, msg.tap);
+        case 'raidHit': return this.raidHit(playerId, msg.raidId, msg.tap, msg.power);
         case 'setPrefs': return this.setPrefs(playerId, !!msg.lowKey);
         case 'deletePhoto': return this.deletePhoto(playerId, msg.photoId);
         case 'votePhoto': return this.votePhoto(playerId, msg.claimId, !!msg.up);
@@ -1175,7 +1175,7 @@ export class Engine {
     b.a.plan = plans[Math.floor(this.rng() * plans.length)]; b.b.plan = plans[Math.floor(this.rng() * plans.length)];
     const names = { [pa.id]: pa.creatureName || CREATURES[pa.creature!].name, [pb.id]: pb.creatureName || CREATURES[pb.creature!].name };
     for (let guard = 0; b.status === 'active' && guard < 20; guard++) {
-      for (const side of [b.a, b.b]) { const pick = autoPick(side, this.rng, side.plan); side.action = pick.action; side.tap = pick.tap; }
+      for (const side of [b.a, b.b]) { const pick = autoPick(side, this.rng, side.plan); side.action = pick.action; side.tap = pick.tap; side.power = pick.power; }
       resolveRound(b, this.rng, names, now);
     }
     party.battles[id] = b;
@@ -1221,7 +1221,7 @@ export class Engine {
     if (raid.hp <= 0) this.endRaid(party, raid, 'won', direct);
   }
 
-  private raidHit(playerId: string, raidId: string, tap?: TapQuality): HandleResult {
+  private raidHit(playerId: string, raidId: string, tap?: TapQuality, power?: number): HandleResult {
     const party = this.partyOf(playerId); const p = party?.players[playerId];
     if (!party || !p || p.removed || !p.creature) return this.fail('Adopt a creature first.');
     const raid = this.liveRaid(party);
@@ -1230,13 +1230,14 @@ export class Engine {
     const wait = (raid.lastHitAt[playerId] ?? 0) + RAID_HIT_COOLDOWN_MS - now;
     if (wait > 0) return this.fail(`Catch your breath. Next hit in ${Math.ceil(wait / 1000)}s.`);
     raid.lastHitAt[playerId] = now;
-    const quality: TapQuality = tap === 'perfect' || tap === 'good' ? tap : 'miss';
+    const pw = cleanPower(power, tap);
     const atk = CREATURES[p.creature].stats.atk;
-    const dmg = atk * 2.25 * (0.9 + this.rng() * 0.3) * TAP_MULT[quality] * (1 + 0.03 * (p.level - 1));
+    const dmg = atk * 2.25 * (0.9 + this.rng() * 0.3) * powerMult(pw) * (1 + 0.03 * (p.level - 1));
     const direct: Outbound[] = [];
     const before = raid.hp;
-    this.damageRaid(party, raid, p, dmg, quality === 'perfect', 'hit', direct);
-    return this.ok(party, { dmg: before - Math.max(0, raid.hp), crit: quality === 'perfect', nextAt: now + RAID_HIT_COOLDOWN_MS }, direct);
+    const crit = qualityFor(pw) === 'perfect';
+    this.damageRaid(party, raid, p, dmg, crit, 'hit', direct);
+    return this.ok(party, { dmg: before - Math.max(0, raid.hp), crit, nextAt: now + RAID_HIT_COOLDOWN_MS }, direct);
   }
 
   private endRaid(party: PartyState, raid: Raid, outcome: 'won' | 'escaped', direct: Outbound[]) {
@@ -1300,7 +1301,7 @@ export class Engine {
     return this.ok(party, undefined, [nudge(b.challengerId)]);
   }
 
-  private battlePlan(playerId: string, battleId: string, plan: GamePlan, tap?: TapQuality): HandleResult {
+  private battlePlan(playerId: string, battleId: string, plan: GamePlan, tap?: TapQuality, power?: number): HandleResult {
     const party = this.partyOf(playerId);
     const b = party?.battles[battleId];
     if (!party || !b || b.status !== 'active' || !b.quick) return this.fail('That battle is not waiting on a plan.');
@@ -1308,10 +1309,11 @@ export class Engine {
     if (!side) return this.fail('Not your battle.');
     if (!isPlan(plan)) return this.fail('Pick a game plan.');
     if (side.plan) return { ack: { ok: true, data: { locked: true } }, changed: false, direct: [] };
-    // The charge-up tap can't arrive faster than the bar can physically slide.
+    // The charge-up tap can't arrive before the marker could first reach the middle.
     const sinceStart = this.now() - (b.startedAt ?? this.now());
     side.plan = plan;
-    side.charge = (tap === 'perfect' || tap === 'good') && sinceStart >= TAP_BAR_MS * 0.6 ? tap : 'miss';
+    side.chargePower = sinceStart >= TAP_MIN_MS ? cleanPower(power, tap) : 0;
+    side.charge = qualityFor(side.chargePower);
     const direct: Outbound[] = [];
     if (b.a.plan && b.b.plan) this.resolveQuick(party, b, direct);
     return this.ok(party, undefined, direct);
@@ -1320,11 +1322,11 @@ export class Engine {
   /** Play out a quick battle with the same round resolver a hand-played fight uses. */
   private resolveQuick(party: PartyState, b: Battle, direct: Outbound[]) {
     if (b.status !== 'active') return;
-    for (const s of [b.a, b.b]) { s.plan ??= 'balanced'; s.charge ??= 'miss'; s.action = undefined; s.tap = undefined; }
+    for (const s of [b.a, b.b]) { s.plan ??= 'balanced'; s.chargePower ??= cleanPower(undefined, s.charge); s.charge = qualityFor(s.chargePower); s.action = undefined; s.tap = undefined; }
     const names: Record<string, string> = {};
     for (const s of [b.a, b.b]) names[s.playerId] = party.players[s.playerId]?.creatureName ?? CREATURES[s.creature].name;
     for (let guard = 0; b.status === 'active' && guard < 20; guard++) {
-      for (const s of [b.a, b.b]) { const p = autoPick(s, this.rng, s.plan, s.charge); s.action = p.action; s.tap = p.tap; }
+      for (const s of [b.a, b.b]) { const p = autoPick(s, this.rng, s.plan, s.chargePower); s.action = p.action; s.tap = p.tap; s.power = p.power; }
       resolveRound(b, this.rng, names, this.now());
     }
     if (b.winnerId && b.loserId) this.settleBattle(party, b, direct);

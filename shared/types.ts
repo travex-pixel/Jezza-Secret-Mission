@@ -233,10 +233,12 @@ export interface BattleCreatureState {
   specialCooldown: number;
   action?: BattleAction; // chosen this round (hidden from opponent until resolved)
   tap?: TapQuality;      // power-tap result submitted with the action
+  power?: number;        // power-tap accuracy for this round, 0 (edge) to 1 (dead centre)
   lastAction?: BattleAction;
   locked?: boolean; // redacted view: has this side chosen this round?
   plan?: 'balanced' | 'aggro' | 'sneaky'; // quick battle: chosen game plan (hidden from the opponent until it's over)
   charge?: TapQuality;                    // quick battle: the one power tap, applied to every damaging move
+  chargePower?: number;                   // ...and its exact accuracy, 0-1
 }
 
 export interface BattleRoundLog {
@@ -360,7 +362,7 @@ export type ClientMessage =
   | { type: 'wallHide'; reqId: string; postId: string }
   | { type: 'cellarAdd'; reqId: string; drink: string; stars: number; note?: string; photo?: string }
   | { type: 'cellarFire'; reqId: string; entryId: string }
-  | { type: 'raidHit'; reqId: string; raidId: string; tap?: TapQuality }
+  | { type: 'raidHit'; reqId: string; raidId: string; tap?: TapQuality; power?: number }
   | { type: 'setPrefs'; reqId: string; lowKey: boolean }
   | { type: 'deletePhoto'; reqId: string; photoId: string }
   | { type: 'votePhoto'; reqId: string; claimId: string; up: boolean }
@@ -370,7 +372,7 @@ export type ClientMessage =
   | { type: 'leaveEpic'; reqId: string; epicId: string }
   | { type: 'finishEpic'; reqId: string; epicId: string }
   | { type: 'setAutoBattles'; reqId: string; on: boolean }
-  | { type: 'battlePlan'; reqId: string; battleId: string; plan: 'balanced' | 'aggro' | 'sneaky'; tap?: TapQuality }
+  | { type: 'battlePlan'; reqId: string; battleId: string; plan: 'balanced' | 'aggro' | 'sneaky'; tap?: TapQuality; power?: number }
   | { type: 'surrender'; reqId: string; battleId: string }
   | { type: 'host'; reqId: string; action: HostAction }
   | { type: 'ping'; t: number };

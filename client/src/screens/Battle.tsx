@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Battle, PlayerPublic, TapQuality } from '@shared/types';
 import { CREATURES } from '@shared/creatures';
-import { autoPick, makeCreatureState, resolveRound, PLANS, PLAN_SECONDS, type GamePlan } from '@shared/battle';
+import { autoPick, makeCreatureState, resolveRound, PLANS, PLAN_SECONDS, powerMult, qualityFor, type GamePlan } from '@shared/battle';
 import { rankFor, sortLeaderboard } from '@shared/progression';
 import { Creature } from '../components/Creature';
 import { Button, Sheet, useCountdown } from '../components/ui';
@@ -18,7 +18,7 @@ interface ArenaProps {
   battle: Battle;
   meId: string;
   names: Record<string, { nick: string; name: string; level: number; colorway: number; equipped: PlayerPublic['equipped'] }>;
-  onPlan: (plan: GamePlan, tap: TapQuality) => Promise<void> | void;
+  onPlan: (plan: GamePlan, power: number, tap: TapQuality) => Promise<void> | void;
   onSurrender?: () => void;
   onRematch?: () => void;
   onExit: () => void;
@@ -39,7 +39,7 @@ function Arena({ battle, meId, names, onPlan, onSurrender, onRematch, onExit, pr
   // Hold this battle's reward pop-up until the fight has played out on screen.
   useEffect(() => { if (practice) return; watchBattle(battle.id); return () => watchBattle(null); }, [battle.id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (resultReady && !practice) watchBattle(null); }, [resultReady]); // eslint-disable-line react-hooks/exhaustive-deps
-  const commit = async (plan: GamePlan, tap: TapQuality) => { setCharging(null); setBusy(true); try { await onPlan(plan, tap); } finally { setBusy(false); } };
+  const commit = async (plan: GamePlan, power: number, tap: TapQuality) => { setCharging(null); setBusy(true); try { await onPlan(plan, power, tap); } finally { setBusy(false); } };
   const pick = (plan: GamePlan) => { if (busy || charging || mine.locked || mine.plan) return; sfx.tap(); setCharging(plan); };
   const myInfo = names[mine.playerId]; const foeInfo = names[foe.playerId];
   const finished = battle.status === 'finished';
@@ -57,7 +57,7 @@ function Arena({ battle, meId, names, onPlan, onSurrender, onRematch, onExit, pr
         status={(who) => finished ? null : who === 'far'
           ? <span className="pill pill-xs status">{foe.locked || foe.plan ? '🔒 ready' : '🤔 picking'}</span>
           : <span className="pill pill-xs status">{locked ? '🔒 locked in' : 'your call'}</span>}
-        overlay={charging && <PowerTap label={`${PLANS[charging].emoji} Charge up!`} onDone={(q) => commit(charging, q)} />}
+        overlay={charging && <PowerTap label={`${PLANS[charging].emoji} Charge up!`} onDone={(power, q) => commit(charging, power, q)} />}
       />
       {finished ? (
         <div className="arena-log">{lastLog ? lastLog.lines.slice(-2).map((l, i) => <div key={`${lastLog.round}-${i}`} className="log-line ellipsis">{l}</div>) : <div className="log-line">Here we go…</div>}</div>
@@ -73,7 +73,7 @@ function Arena({ battle, meId, names, onPlan, onSurrender, onRematch, onExit, pr
         </div>
       ) : locked ? (
         <div className="panel pad center stack-6">
-          <div className="bold">🔒 {PLANS[mine.plan ?? 'balanced'].emoji} {PLANS[mine.plan ?? 'balanced'].name} locked in{mine.charge && mine.charge !== 'miss' ? ` · ${mine.charge === 'perfect' ? 'perfect charge ⚡' : 'good charge'}` : ''}</div>
+          <div className="bold">🔒 {PLANS[mine.plan ?? 'balanced'].emoji} {PLANS[mine.plan ?? 'balanced'].name} locked in{mine.chargePower ? ` · +${Math.round((powerMult(mine.chargePower) - 1) * 100)}% charge${mine.charge === 'perfect' ? ' ⚡' : ''}` : ''}</div>
           <div className="small dim">Waiting on {foeInfo?.nick ?? 'them'}. It plays out automatically in {left}s either way.</div>
         </div>
       ) : (
@@ -103,16 +103,16 @@ function usePractice(me: PlayerPublic | undefined) {
     const now = Date.now();
     setBattle({ id: `practice-${now}`, challengerId: me.id, opponentId: 'bot', status: 'active', quick: true, createdAt: now, startedAt: now, round: 1, roundDeadline: now + PLAN_SECONDS * 1000, a: makeCreatureState(me.id, me.creature, me.level), b: makeCreatureState('bot', creature, Math.max(1, me.level)), log: [], scored: false });
   };
-  const play = (plan: GamePlan, tap: TapQuality) => {
+  const play = (plan: GamePlan, power: number) => {
     setBattle((cur) => {
       if (!cur || cur.status !== 'active') return cur;
       const b: Battle = JSON.parse(JSON.stringify(cur));
       const plans = Object.keys(PLANS) as GamePlan[];
-      b.a.plan = plan; b.a.charge = tap;
-      b.b.plan = plans[Math.floor(Math.random() * plans.length)]; b.b.charge = Math.random() < 0.3 ? 'perfect' : Math.random() < 0.5 ? 'good' : 'miss';
+      b.a.plan = plan; b.a.chargePower = power; b.a.charge = qualityFor(power);
+      b.b.plan = plans[Math.floor(Math.random() * plans.length)]; b.b.chargePower = Math.random() ** 0.6; b.b.charge = qualityFor(b.b.chargePower);
       const names = { [b.a.playerId]: me?.creatureName ?? 'You', bot: `Sparring ${CREATURES[b.b.creature].name}` };
       for (let guard = 0; b.status === 'active' && guard < 20; guard++) {
-        for (const s of [b.a, b.b]) { const p = autoPick(s, Math.random, s.plan, s.charge); s.action = p.action; s.tap = p.tap; }
+        for (const s of [b.a, b.b]) { const p = autoPick(s, Math.random, s.plan, s.chargePower); s.action = p.action; s.tap = p.tap; s.power = p.power; }
         resolveRound(b, Math.random, names, Date.now());
       }
       return b;
@@ -121,7 +121,7 @@ function usePractice(me: PlayerPublic | undefined) {
   useEffect(() => {
     // nobody picked in time: Balanced, no charge
     if (!battle || battle.status !== 'active') return;
-    const t = window.setTimeout(() => play('balanced', 'miss'), PLAN_SECONDS * 1000);
+    const t = window.setTimeout(() => play('balanced', 0), PLAN_SECONDS * 1000);
     return () => clearTimeout(t);
   }, [battle?.id, battle?.status]); // eslint-disable-line react-hooks/exhaustive-deps
   return { battle, start, play, stop: () => setBattle(null), rematch: () => start(foeCreature) };
@@ -160,7 +160,7 @@ export default function BattleScreen() {
     return (
       <div className="screen with-nav">
         <div className="topbar"><h2 className="display title-md">Battle arena</h2><span className="pill pill-ember">⚔️ vs {names[foeId]?.nick ?? '?'}</span></div>
-        <Arena key={b.id} battle={b} meId={me.id} names={names} onPlan={(plan, tap) => request({ type: 'battlePlan', battleId: b.id, plan, tap }).then(() => undefined).catch((e) => toast((e as Error).message, '⚠️', 'warn'))} onSurrender={() => request({ type: 'surrender', battleId: b.id }).catch(() => undefined)} onExit={() => setDismissed(b.id)} onRematch={() => { setDismissed(b.id); challenge(foeId); }} />
+        <Arena key={b.id} battle={b} meId={me.id} names={names} onPlan={(plan, power, tap) => request({ type: 'battlePlan', battleId: b.id, plan, tap, power }).then(() => undefined).catch((e) => toast((e as Error).message, '⚠️', 'warn'))} onSurrender={() => request({ type: 'surrender', battleId: b.id }).catch(() => undefined)} onExit={() => setDismissed(b.id)} onRematch={() => { setDismissed(b.id); challenge(foeId); }} />
       </div>
     );
   }

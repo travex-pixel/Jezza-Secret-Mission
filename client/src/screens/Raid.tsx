@@ -38,10 +38,10 @@ export default function Raid() {
   const myDmg = raid.damage[me.id] ?? 0;
   const ranking = Object.entries(raid.damage).sort((a, b) => b[1] - a[1]);
   const nick = (id: string) => party.players.find((p) => p.id === id)?.nickname ?? '?';
-  const hit = async (tap: TapQuality) => {
+  const hit = async (power: number, tap: TapQuality) => {
     setTapping(false);
     try {
-      const r = await request<{ dmg: number; crit: boolean; nextAt: number }>({ type: 'raidHit', raidId: raid.id, tap });
+      const r = await request<{ dmg: number; crit: boolean; nextAt: number }>({ type: 'raidHit', raidId: raid.id, tap, power });
       setNextAt(r.nextAt); setPop({ k: Date.now(), text: `${r.crit ? 'CRIT ' : ''}-${r.dmg}`, crit: r.crit });
       sfx.hit(); buzz(r.crit ? [30, 30, 60] : 25);
     } catch (e) { toast((e as Error).message, '⏳', 'warn'); }
@@ -71,7 +71,7 @@ export default function Raid() {
           <Button variant="secondary" onClick={() => setTab('home')}>{myDmg ? 'Loot collected. Back to it' : 'Back to the lobby'}</Button>
         )}
       </div>
-      {tapping && <PowerTap label={`Hit ${boss.name}`} onDone={(q) => hit(q)} />}
+      {tapping && <PowerTap label={`Hit ${boss.name}`} onDone={(power, q) => hit(power, q)} />}
     </div>
   );
 }

@@ -206,6 +206,14 @@ describe('engine', () => {
     eng.handle(ids[2], { type: 'battlePlan', reqId: 'p', battleId: id, plan: 'balanced', tap: 'good' });
     expect(party().battles[id].b.charge).toBe('good');
     expect(party().battles[id].log.every((r) => r.b.action === 'counter' ? r.b.tap === 'miss' : r.b.tap === 'good')).toBe(true); // counter never taps
+    // graded: the exact accuracy is kept, and a cheeky out-of-range number is clamped
+    const id2 = (eng.handle(ids[3], { type: 'challenge', reqId: 'b', opponentId: ids[4] }).ack as any).data.battleId as string;
+    eng.handle(ids[4], { type: 'respondChallenge', reqId: 'r', battleId: id2, accept: true });
+    advance(1000);
+    eng.handle(ids[3], { type: 'battlePlan', reqId: 'p', battleId: id2, plan: 'aggro', power: 0.83 });
+    eng.handle(ids[4], { type: 'battlePlan', reqId: 'p', battleId: id2, plan: 'aggro', power: 7 });
+    expect(party().battles[id2].a.chargePower).toBeCloseTo(0.83);
+    expect(party().battles[id2].b.chargePower).toBe(1);
   });
   it('host PIN: claim from another phone, wrong guesses are limited and reported', () => {
     let t = 5_000_000;
