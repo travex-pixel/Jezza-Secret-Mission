@@ -112,7 +112,7 @@ async function run() {
     await page.getByRole('button', { name: /^🍷 Cellar$|Cellar/ }).first().click();
     await shot(page, vp, '16-cellar');
     await page.locator('.bottom-nav').getByRole('button', { name: 'Lobby' }).click();
-    await page.getByRole('button', { name: /photos/i }).click();
+    await page.locator('.quick-btn', { hasText: 'Photos' }).click();
     await shot(page, vp, '17-gallery');
     await page.evaluate(() => (window as any).__demo.giveXp(300));
     await page.waitForTimeout(600);
