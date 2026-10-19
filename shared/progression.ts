@@ -166,19 +166,19 @@ export function computeAwards(players: PlayerPublic[], _battles: Battle[], overr
   return AWARDS.map((a) => {
     let r: { playerId: string | null; reason: string };
     switch (a.id) {
-      case 'legend': r = pick((p) => p.points, (_p, s) => `${s} points`); break;
+      case 'legend': r = pick((p) => p.points, (_p, s) => `${s} point${s === 1 ? '' : 's'}`); break;
       case 'menace': { const last = ranked.length > 1 ? ranked[ranked.length - 1] : null; r = last ? { playerId: last.id, reason: `${last.points} points. Legendary effort. Somewhere.` } : { playerId: null, reason: 'Needs at least two legends.' }; break; }
       case 'funniest': r = pick((p) => p.laughs, (_p, s) => `${s} 😂`); break;
-      case 'dance': r = pick((p) => cat(p, 'dance'), (_p, s) => `${s} dances`); break;
+      case 'dance': r = pick((p) => cat(p, 'dance'), (_p, s) => `${s} dance${s === 1 ? '' : 's'}`); break;
       case 'photo': r = pick((p) => p.fires, (_p, s) => `${s} 🔥`); break;
       case 'jezzafav': r = pick((p) => p.groomLoves, (_p, s) => `${s} ❤️ from Jezza`); break;
       case 'hypeman': r = pick((p) => p.witnessed * 2 + (p.reactionsGiven ?? 0), (p) => `${p.witnessed} confirmation${p.witnessed === 1 ? '' : 's'}, ${p.reactionsGiven ?? 0} reaction${(p.reactionsGiven ?? 0) === 1 ? '' : 's'}`); break;
-      case 'roast': r = pick((p) => p.wallVotes, (_p, s) => `${s} laughs on the Wall`); break;
+      case 'roast': r = pick((p) => p.wallVotes, (_p, s) => `${s} laugh${s === 1 ? '' : 's'} on the Wall`); break;
       case 'choke': r = pick((p) => p.upsetLosses ?? 0, (_p, s) => `${s} upset loss${s === 1 ? '' : 'es'}`); break;
       case 'champion': r = pick((p) => (p.wins + p.losses ? p.rating : 0), (p) => `${p.wins}W ${p.losses}L · ${rankFor(p.rating).name}`); break;
       case 'slayer': r = pick((p) => p.raidDamage, (_p, s) => `${s} raid damage`); break;
       case 'palate': r = pick((p) => p.cellarFires, (_p, s) => `${s} 🔥 on drink reviews`); break;
-      case 'group': r = pick((p) => cat(p, 'group'), (_p, s) => `${s} group challenges`); break;
+      case 'group': r = pick((p) => cat(p, 'group'), (_p, s) => `${s} group challenge${s === 1 ? '' : 's'}`); break;
       default: r = { playerId: null, reason: 'Waiting on the host.' };
     }
     if (a.id in overrides) { const pid = overrides[a.id]; r = { playerId: pid, reason: pid ? 'The host has spoken.' : 'Withheld by the host.' }; }
