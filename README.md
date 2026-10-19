@@ -20,18 +20,21 @@ More screenshots at every tested viewport live in [`docs/screenshots/`](docs/scr
 | Cinematic Three.js opening (moonlit vineyard, fog, gold particles, cellar) with CSS/SVG fallback | ✅ |
 | 30-second onboarding: enter → nickname (code comes from the share link) → creature → reveal → first challenge | ✅ |
 | **Runs itself, no host needed**: Friday starts on creation, Saturday at 5am Sydney, group challenges every 40 min | ✅ |
-| 85 quick challenges in Aussie English (make Jezza laugh, dance, sing, cooked photos, get Jezza in, cheers, sneaky, low-key, group) | ✅ |
-| Self-service checks: honour system (8-min cooldown), photo (instant), a mate confirms. 🚩 Call BS, settled by the lads or the host | ✅ |
+| 92 quick challenges in Aussie English (make Jezza laugh, dance, sing, cooked photos, get Jezza in, cheers, sneaky, low-key, group) | ✅ |
+| Self-service checks: honour system (8-min cooldown), photo (the lads vote 👍/👎 by default; host can switch to *I approve* or *Instant*), a mate confirms. 🚩 Call BS, settled by the lads or the host | ✅ |
 | Low-key mode: no performing challenges for anyone who'd rather not | ✅ |
 | Boss raids on Friday (Bin Chicken King) and Saturday (Hangover Hydra): 15 min, loot for everyone who swings | ✅ |
 | Evolutions at Lv4 and Lv8, max one on Friday, teased ahead ("twitching…", mystery silhouette), full reveal animation | ✅ |
 | Saturday arrivals: Fresh Legs (2× points on first 6 challenges, 2× XP until caught up) | ✅ |
 | Battles: Attack / Counter / Special + power tap, ranked ladder, win streaks, bounty on the leader | ✅ |
+| **Animated battles**: creatures enter, dash across the arena, hit-stop, knockback, per-creature specials, KO and victory, all replayed from the engine's real round log; Fast / Skip / replay; reduced motion respected | ✅ |
+| **Auto-battles**: every avatar fights a mate's avatar about every 45 min, phones away or not; "While you were away" summary with replays | ✅ |
+| Rivalries (head-to-head, nemesis / bunny), battle highlights, Battles tab on the leaderboard | ✅ |
 | The Jezza Wall (roasts and toasts, votes, Jezza's ❤️, Roast Reel at the finale) | ✅ |
 | The Cellar: drink reviews with label photos (any drink counts; only 3 a day score) | ✅ |
 | 😂 🔥 reactions (❤️ for Jezza only) that drive the awards | ✅ |
 | Party camera roll; anyone can take a photo down | ✅ |
-| 11 data-driven awards + live "Award race" tab; finale reveal | ✅ |
+| 14 data-driven awards (The Jezza Legend, The Weekend Menace, Best Hype Man, Biggest Choke…) + live "Award race" tab; animated finale ceremony with podium and weekend recap | ✅ |
 | Host PIN, leave/new room, join-by-link, link previews, persistence, keepsake photo export | ✅ |
 
 Deliberately **not** built: Wine Snob Championship, Mr & Mrs Hot Seat, Jezza Bingo, video uploads
@@ -138,7 +141,20 @@ this event; if you ever need multi-instance scale, the engine is already pure an
   Tap to hit (20 s cooldown, power tap for crits). Finishing challenges mid-raid hits it too. Everyone who lands a hit
   gets the raid cosmetic and XP; top three damage get bonus points. It still pays out if it escapes.
 * **Saturday** kicks in by itself at 5am Sydney time: final evolutions unlock, new challenges appear, a new raid.
+* **Auto-battles** start ~10 minutes in. The matchmaker pairs whoever has waited longest, avoids recent rematches,
+  usually (65%) picks someone of similar rating so upsets stay possible, and resolves the fight with the same engine
+  and the same moves a person has. Players can switch it off on the Battle tab.
 * **Finale** is the one thing the host does: Host → Event → Finale, then reveal the awards one tap at a time.
+  The Weekend Menace (last on points) opens, The Jezza Legend (first) closes. Suggested prize: a cheap trophy or
+  sash, optionally a $50–$100 pool. The Menace's forfeit (a 20-second speech or dance) is optional and easy to decline.
+
+### Being the host (optional, but you can run a lot of it)
+
+Host → Event: pause/resume, summon a raid, reveal group challenges, and **Photo checks**:
+*The lads vote* (default: two 👍 count it, two 👎 bin it and delete the photo, unsettled after 20 min counts),
+*I approve them* (photos wait in your Queue; anything left 45 min goes through), or *Instant*. The Queue also shows
+photos being voted on, so you can settle them early, plus any BS disputes. Players tab: rename, reset, grant points,
+remove. Awards tab: override any award, pick *Most Unhinged*.
 
 ### Progression
 
@@ -158,7 +174,7 @@ this event; if you ever need multi-instance scale, the engine is already pure an
   points. Then the lads settle it: two other mates tapping 🤝 *Legit* restores it, otherwise it's struck out after
   30 minutes. The host can rule early from the queue but never has to. Flags are one per player per claim, within
   45 minutes, never on your own claim.
-* **Photos pay out instantly** and witnesses confirm from their own phone, so nothing waits on the host.
+* **Photos go to a vote** (or the host, or instant: the host's choice). Nothing ever gets stuck: unsettled checks resolve in the snapper's favour. Witnesses confirm from their own phone.
 * **Nothing rewards drinking.** Any drink counts for every cheers challenge, only the first 3 Cellar reviews a day
   score, and the content test fails the build if a challenge mentions shots, chugging or finishing a drink.
 * **Bounded battles.** Fixed rewards, three scored bouts per opponent per day, then "friendly".
@@ -176,6 +192,17 @@ Attack and Special start a **power tap**: a marker slides across a bar for about
 zone is a crit (+22%), the wider zone is +8%, a miss is normal damage. Missing never hurts you. The server only
 trusts a hit that arrives after the bar could physically have been crossed, and the bonus is capped, so a tampered
 client gains a few points at most.
+
+**Auto-battles and scoring.** Auto-battles call the same `resolveRound` and the same `grant()` as everything else,
+but pay **XP (win 15 / loss 8), battle rating, streaks and win/loss records only, never weekend points or bounties**,
+and don't use up the 3-scored-bouts-per-opponent quota. Weekend points still come only from challenges, raids, the
+Wall/Cellar and fights you play yourself, so the points scoring is unchanged. (Battle achievements such as *Taste of
+Victory* can still trigger from an auto win and pay their usual small bonus.) The Friday XP cap still applies.
+
+**Animations.** `client/src/battle/timeline.ts` turns `battle.log` into steps (stance, strike, heal, reflect, recoil,
+settle). Each round ends on HP recomputed with the engine's own formula, so a replay always lands on the real result;
+a unit test checks this for 300 random fights. `BattleStage.tsx` plays the steps with the Web Animations API.
+Skipping jumps straight to the engine's final state.
 
 ### Photos and privacy
 
@@ -230,9 +257,11 @@ client gains a few points at most.
 | `npm run test:multiplayer` | 15 real WebSocket clients against a running server (`WS_URL`, default `ws://localhost:8787/ws`) |
 | `npm run test:viewports` | Playwright walkthrough at 4 phone viewports → `test-results/screenshots/` (curated copies live in `docs/screenshots/`), fails on overflow/scroll/console errors |
 | `npx tsx tests/e2e.live.ts` | Two separate browser sessions playing together against a built server (`BASE_URL`) |
-| `npx tsx tests/e2e.static.ts` | Serves the GitHub Pages demo build under its base path and plays it headless (no server) |
-| `npx tsx tests/e2e.host.ts` | Host UI against a built server: phases, group reveal, photo approval → feed, witness confirmation, finale awards |
+| `npx tsx tests/e2e.static.ts` | (build first with `VITE_BASE=/Jezza-Secret-Mission/ VITE_STATIC_DEMO=1 npm run build:client`) Serves the GitHub Pages demo build under its base path and plays it headless (no server) |
+| `npx tsx tests/e2e.host.ts` | Host UI against a built server: phases, group reveal, photo vote → gallery, BS dispute, witness confirmation, finale ceremony |
 | `npx tsx tests/persistence.sim.ts` | Boots a server, creates a party, restarts it, verifies the party is restored |
+| `npx tsx tests/handover.sim.ts` | Two server copies on one data folder (a redeploy): the old one hands its players to the new one and stops saving |
+| `npx tsx tests/shots.anim.ts` | Battle animation QA in demo mode at 4 viewports: creatures really move, replay lands on the engine's HP, ~8–9 s, Fast/Skip, reduced motion. Filmstrips → `test-results/screenshots/anim/` |
 | `npx tsx scripts/balance.ts` | Prints simulated win rates for every creature |
 
 Playwright tests use the Chromium that ships with `playwright-core`'s matching browser revision
@@ -295,6 +324,17 @@ fine for testing but will drop live connections (the client reconnects automatic
   last action or two. Acceptable for the event; not a general-purpose database.
 * Single server instance. Horizontal scaling would need the engine behind a shared store (the engine is
   pure, so this is a server-only change).
+* **Redeploys during play.** While a new version starts, Cloud Run briefly runs the old one too, and each copy has
+  its own memory. Two guards: the deploy script deletes old revisions, and an old copy that sees a newer one has
+  claimed the data folder drops its players (they reconnect to the new copy) and stops saving. Actions made on the
+  old copy in its last few seconds can still be lost, so **don't redeploy mid-weekend**, and start a fresh room
+  after the final deploy.
+* **Auto-battles and background time.** The server checks for due auto-battles every second while it is running.
+  Cloud Run is deployed with one always-on instance, but by default Cloud Run may throttle the CPU when no requests
+  or connections are open. If that happens, nothing is lost: on the next tick the matchmaker catches up on the
+  battles it missed (capped at about one per avatar per catch-up) and resolves them then. It does **not** pretend
+  they happened at the earlier time. To keep it truly continuous, add `--no-cpu-throttling` to the
+  `gcloud run deploy` line (always-on CPU; roughly US$1–2 a day at this size, check Google's Cloud Run pricing page).
 * Photos are stored unencrypted on the server disk and reachable by anyone with the link; the host's *Delete all photos*
   button clears them. Tell your mates.
 * Creature "evolutions" are cosmetic (crown, auras, capes at levels 8–10) rather than new silhouettes.
