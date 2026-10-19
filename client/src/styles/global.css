@@ -338,6 +338,8 @@ img, svg { display: block; max-width: 100%; }
 .confetti { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .confetti i { position: absolute; top: -12px; width: 7px; height: 11px; border-radius: 2px; animation: confetti-fall linear infinite; }
 @keyframes confetti-fall { from { transform: translateY(0) rotate(0); opacity: 1; } to { transform: translateY(520px) rotate(720deg); opacity: .2; } }
+.qr-box { width: min(260px, 70vw); margin: 0 auto; padding: 10px; background: #fff; border-radius: 14px; }
+.qr-box svg { display: block; width: 100%; height: auto; }
 .replay-bar { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
 .replay-sheet { display: flex; flex-direction: column; gap: 8px; height: min(560px, 78vh); }
 .replay-sheet .arena { flex: 1; min-height: 260px; }

@@ -43,6 +43,11 @@ async function main() {
   await page.waitForSelector('.bottom-nav');
   await page.locator('.quick-btn', { hasText: 'Party' }).click();
   const code = (await page.locator('.code-display').textContent())!.trim();
+  await page.getByRole('button', { name: /show qr code/i }).click();
+  await page.locator('.qr-box svg').waitFor({ timeout: 3000 });
+  await page.screenshot({ path: path.join(OUT, 'party-qr.png') });
+  check(true, 'party screen shows a scannable QR code for the join link');
+  await page.getByRole('button', { name: /^done$/i }).click();
   await page.locator('.bottom-nav').getByRole('button', { name: 'Lobby' }).click();
   await page.screenshot({ path: path.join(OUT, 'host-lobby-pregame.png') });
 
@@ -102,6 +107,9 @@ async function main() {
   // Summon a raid from the Event tab
   await page.getByRole('button', { name: 'Event', exact: true }).click();
   await page.getByRole('button', { name: /summon/i }).click();
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download', exact: true }).click()]);
+  const keep = fs.readFileSync((await dl.path())!, 'utf8');
+  check(/The final board/.test(keep) && /The Jezza Wall/.test(keep) && /Robbo/.test(keep), `host downloads the keepsake page (${dl.suggestedFilename()})`);
   await page.getByText(/‹ Host controls/).click();
   await page.locator('.raid-banner').waitFor({ timeout: 4000 });
   check(true, 'host can summon a boss raid and the banner appears');

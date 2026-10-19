@@ -93,7 +93,7 @@ const server = http.createServer(app);
 
 // ---------- websocket ----------
 interface Conn { ws: WebSocket; playerId: string | null; alive: boolean }
-const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 1024 * 1024 });
+const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 2 * 1024 * 1024 });
 const conns = new Set<Conn>();
 const byPlayer = new Map<string, Set<Conn>>();
 

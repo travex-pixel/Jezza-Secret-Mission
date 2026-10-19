@@ -111,6 +111,7 @@ export interface Claim {
   flags?: string[]; // player ids who called BS
   backers?: string[]; // player ids who said "legit" on a disputed claim
   review?: 'vote' | 'host'; // photo waiting on the lads' vote or the host
+  takedown?: TakedownRequest; // someone (not the owner) asked the host to remove the photo
   votesUp?: string[];
   votesDown?: string[];
   disputedAt?: number;
@@ -188,7 +189,10 @@ export interface CellarEntry {
   photoUrl?: string;
   phase: Phase;
   fires: string[];
+  takedown?: TakedownRequest;
 }
+
+export interface TakedownRequest { by: string[]; at: number }
 
 export interface GalleryPhoto {
   id: string;        // claim id or cellar entry id
@@ -281,6 +285,18 @@ export interface PartyPublic {
 
 export interface HostView {
   approvals: Claim[]; // pending photo/host claims and disputed (BS-called) claims
+  takedowns: { photoId: string; url: string; ownerId: string; caption: string; by: string[]; at: number }[];
+}
+
+/** Everything worth keeping from the weekend, for the host's keepsake download. */
+export interface Keepsake {
+  name: string;
+  code: string;
+  board: { nickname: string; creatureName: string; level: number; points: number; missions: number; wins: number; losses: number }[];
+  awards: { name: string; winner: string; reason: string }[];
+  wall: { author: string; kind: 'roast' | 'toast'; text: string; votes: number; groomLove: boolean; at: number }[];
+  cellar: { author: string; drink: string; stars: number; note?: string; fires: number; at: number }[];
+  photos: { url: string; caption: string; author: string; at: number }[];
 }
 
 // ---------- Protocol ----------
@@ -344,7 +360,9 @@ export type HostAction =
   | { kind: 'setHostPin'; pin: string }
   | { kind: 'setGroom'; playerId: string }
   | { kind: 'summonRaid' }
-  | { kind: 'setPhotoMode'; mode: PhotoMode };
+  | { kind: 'setPhotoMode'; mode: PhotoMode }
+  | { kind: 'resolveTakedown'; photoId: string; remove: boolean }
+  | { kind: 'keepsake' };
 
 export type ServerMessage =
   | { type: 'welcome'; playerId: string; serverTime: number; inParty: boolean }

@@ -9,7 +9,7 @@ import { sfx } from '../audio';
 
 const DIFF = ['', 'Easy', 'Spicy', 'Big one'];
 
-export async function compressImage(file: File, maxSide = 900, quality = 0.72): Promise<string> {
+export async function compressImage(file: File, maxSide = 1600, quality = 0.82): Promise<string> {
   const url = URL.createObjectURL(file);
   try {
     const img = await new Promise<HTMLImageElement>((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
@@ -17,7 +17,7 @@ export async function compressImage(file: File, maxSide = 900, quality = 0.72): 
     const c = document.createElement('canvas'); c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
     c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height);
     let q = quality; let out = c.toDataURL('image/jpeg', q);
-    while (out.length > 420_000 && q > 0.3) { q -= 0.1; out = c.toDataURL('image/jpeg', q); }
+    while (out.length > 1_300_000 && q > 0.4) { q -= 0.08; out = c.toDataURL('image/jpeg', q); }
     return out;
   } finally { URL.revokeObjectURL(url); }
 }

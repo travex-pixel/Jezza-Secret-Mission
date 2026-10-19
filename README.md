@@ -33,7 +33,8 @@ More screenshots at every tested viewport live in [`docs/screenshots/`](docs/scr
 | The Jezza Wall (roasts and toasts, votes, Jezza's ❤️, Roast Reel at the finale) | ✅ |
 | The Cellar: drink reviews with label photos (any drink counts; only 3 a day score) | ✅ |
 | 😂 🔥 reactions (❤️ for Jezza only) that drive the awards | ✅ |
-| Party camera roll; anyone can take a photo down | ✅ |
+| Party camera roll; delete your own photos any time, ask the host to take down anyone else's | ✅ |
+| Host keepsake download (every roast, toast, review, award and the final board) and a scan-to-join QR code | ✅ |
 | 14 data-driven awards (The Jezza Legend, The Weekend Menace, Best Hype Man, Biggest Choke…) + live "Award race" tab; animated finale ceremony with podium and weekend recap | ✅ |
 | Host PIN, leave/new room, join-by-link, link previews, persistence, keepsake photo export | ✅ |
 
@@ -206,11 +207,16 @@ Skipping jumps straight to the engine's final state.
 
 ### Photos and privacy
 
-* Mission photos are compressed on the phone (~900 px, JPEG) and uploaded over the WebSocket to **your own game
+* Mission photos are resized on the phone (1600 px on the long edge, JPEG ~82%, usually 250–500 KB) and uploaded over the WebSocket to **your own game
   server**. They are written to `DATA_DIR/photos/` and served from `/photos/<random-id>.jpeg`. No third-party
   service ever sees them.
 * URLs are long random ids (not guessable), but anyone holding a URL can open it; there is no per-photo login.
   Treat them as visible to the party.
+* **Taking photos down.** The person who took a photo, or the host, deletes it instantly (the file is gone for good).
+  Anyone else taps *Ask the host*: the photo stays up and a request lands in Host → Queue, where the host picks
+  *Take it down* or *Keep it up*.
+* **Roasts, toasts and the rest.** Host → Event → Keepsake → *Download* saves one page with every Wall post (author,
+  votes, Jezza's ❤️), every Cellar review, the awards and the final board. The raw data is `state.json` in the bucket.
 * The host has a **Delete all photos** button (Host → Event → Photos) that removes the files from disk and strips
   them from the feed. Do this at the end of the weekend. Points already awarded are kept.
 * In the GitHub Pages demo nothing leaves the phone: photos live in that browser tab's memory only.

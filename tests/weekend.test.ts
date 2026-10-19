@@ -188,10 +188,36 @@ describe('self-running weekend', () => {
     const awards = eng.publicView(party()).awards;
     expect(awards.find((a) => a.id === 'funniest')!.playerId).toBe(ids[2]);
     expect(awards.find((a) => a.id === 'jezzafav')!.playerId).toBe(ids[2]);
-    // gallery shows it and anyone can take it down
+    // gallery shows it; a mate can only ASK for it to come down, the host decides
     expect(eng.publicView(party()).gallery.some((g) => g.id === 'react-claim-1')).toBe(true);
-    expect(eng.handle(ids[5], { type: 'deletePhoto', reqId: 'd', photoId: 'react-claim-1' }).ack?.ok).toBe(true);
+    const ask = eng.handle(ids[5], { type: 'deletePhoto', reqId: 'd', photoId: 'react-claim-1' });
+    expect((ask.ack as any).data.requested).toBe(true);
+    expect(eng.publicView(party()).gallery.some((g) => g.id === 'react-claim-1')).toBe(true);
+    expect(eng.hostView(party()).takedowns.map((t) => t.photoId)).toEqual(['react-claim-1']);
+    expect(eng.publicView(party()).pendingApprovals).toBe(1);
+    expect(eng.handle(ids[5], { type: 'host', reqId: 'h', action: { kind: 'resolveTakedown', photoId: 'react-claim-1', remove: true } }).ack?.ok).toBe(false);
+    eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'resolveTakedown', photoId: 'react-claim-1', remove: false } }); // host keeps it
+    expect(eng.publicView(party()).gallery.some((g) => g.id === 'react-claim-1')).toBe(true);
+    expect(eng.hostView(party()).takedowns.length).toBe(0);
+    eng.handle(ids[4], { type: 'deletePhoto', reqId: 'd', photoId: 'react-claim-1' });
+    eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'resolveTakedown', photoId: 'react-claim-1', remove: true } }); // second request: host agrees
     expect(eng.publicView(party()).gallery.some((g) => g.id === 'react-claim-1')).toBe(false);
+  });
+  it('the snapper can delete their own photo straight away; the host keepsake has the whole Wall', () => {
+    const { eng, ids, party, give } = setup();
+    const m = MISSIONS.find((x) => x.method === 'photo' && x.scope === 'private')!;
+    give(ids[2], m.id);
+    eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: m.id, claimId: 'own-claim-1', photo: PHOTO });
+    expect((eng.handle(ids[2], { type: 'deletePhoto', reqId: 'd', photoId: 'own-claim-1' }).ack as any).data).toBeUndefined();
+    expect(eng.publicView(party()).gallery.some((g) => g.id === 'own-claim-1')).toBe(false);
+    eng.handle(ids[3], { type: 'wallPost', reqId: 'w', kind: 'roast', text: 'Jezza parallel parks like it is a group project' });
+    eng.handle(ids[4], { type: 'wallPost', reqId: 'w', kind: 'toast', text: 'Best bloke we know. Cheers Jez.' });
+    expect(eng.handle(ids[3], { type: 'host', reqId: 'k', action: { kind: 'keepsake' } }).ack?.ok).toBe(false); // host only
+    const k = (eng.handle(ids[0], { type: 'host', reqId: 'k', action: { kind: 'keepsake' } }).ack as any).data;
+    expect(k.wall.map((w: any) => w.text)).toEqual(expect.arrayContaining(['Jezza parallel parks like it is a group project', 'Best bloke we know. Cheers Jez.']));
+    expect(k.wall.find((w: any) => w.kind === 'roast').author).toBe('Big Dave');
+    expect(k.board.length).toBe(6);
+    expect(k.awards.find((a: any) => a.name === 'The Jezza Legend').winner).toBeTruthy();
   });
   it('beating the leader claims the bounty; streaks and ratings move', () => {
     const { eng, ids, party } = setup();

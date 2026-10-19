@@ -4,7 +4,7 @@
 import type {
   Battle, BattleAction, Claim, TapQuality, ClientMessage, CreatureId, Equipped, FeedEvent, HostAction, HostView,
   MissionAssignment, PartyPublic, Phase, PlayerPrivate, PlayerPublic, ServerMessage, WitnessRequest,
-  Raid, Reaction, WallPost, CellarEntry, GalleryPhoto, PhotoMode, AwayEvent,
+  Raid, Reaction, WallPost, CellarEntry, GalleryPhoto, PhotoMode, AwayEvent, Keepsake,
 } from './types';
 import { CREATURES, CREATURE_IDS, FORMS } from './creatures';
 import { MISSIONS, MISSION_BY_ID, STARTER_MISSION, GROUP_MISSIONS, missionAvailableInPhase, type Mission } from './missions';
@@ -141,7 +141,7 @@ export function nextSaturdayMorning(from: number): number {
 }
 const isJezza = (nick: string) => nick.toLowerCase().replace(/[^a-z]/g, '').includes('jezza');
 const FEED_LIMIT = 60;
-const MAX_PHOTO_CHARS = 450_000; // ~330KB jpeg base64
+const MAX_PHOTO_CHARS = 1_400_000; // ~1MB jpeg as base64 (phones send ~1600px, usually 250-500KB)
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 export class Engine {
@@ -232,7 +232,7 @@ export class Engine {
       feed: party.feed.slice(-40),
       revealedGroupMissions: party.revealedGroupMissions,
       battles,
-      pendingApprovals: Object.values(party.claims).filter(needsHost).length,
+      pendingApprovals: Object.values(party.claims).filter(needsHost).length + this.takedowns(party).length,
       awards: computeAwards(players, Object.values(party.battles), party.awardOverrides),
       finalized: party.finalized,
       hasHostPin: !!party.hostPinHash,
@@ -273,7 +273,14 @@ export class Engine {
   }
 
   hostView(party: PartyState): HostView {
-    return { approvals: Object.values(party.claims).filter((c) => needsHost(c) || (c.status === 'pending' && c.review === 'vote')).sort((a, b) => a.createdAt - b.createdAt) };
+    return { approvals: Object.values(party.claims).filter((c) => needsHost(c) || (c.status === 'pending' && c.review === 'vote')).sort((a, b) => a.createdAt - b.createdAt), takedowns: this.takedowns(party) };
+  }
+
+  private takedowns(party: PartyState): HostView['takedowns'] {
+    return [
+      ...Object.values(party.claims).filter((c) => c.photoUrl && c.takedown?.by.length).map((c) => ({ photoId: c.id, url: c.photoUrl!, ownerId: c.playerId, caption: MISSION_BY_ID[c.missionId]?.title ?? 'Challenge', by: c.takedown!.by, at: c.takedown!.at })),
+      ...party.cellar.filter((e) => e.photoUrl && e.takedown?.by.length).map((e) => ({ photoId: e.id, url: e.photoUrl!, ownerId: e.playerId, caption: e.drink, by: e.takedown!.by, at: e.takedown!.at })),
+    ].sort((a, b) => a.at - b.at);
   }
 
   // ---------- main dispatcher ----------
@@ -941,7 +948,10 @@ export class Engine {
     return this.ok(party);
   }
 
-  /** Anyone in the party can pull a photo (consent beats content). It's announced so nobody abuses it. */
+  /**
+   * Your own photo (or any photo, if you're the host) comes down straight away.
+   * Anyone else's request goes to the host to decide, so one person can't wipe the camera roll.
+   */
   private deletePhoto(playerId: string, photoId: string): HandleResult {
     const party = this.partyOf(playerId); const p = party?.players[playerId];
     if (!party || !p || p.removed) return this.fail('Join a party first.');
@@ -949,13 +959,31 @@ export class Engine {
     const entry = party.cellar.find((e) => e.id === photoId);
     const url = claim?.photoUrl ?? entry?.photoUrl;
     if (!url) return this.fail('That photo is already gone.');
+    const ownerId = claim?.playerId ?? entry?.playerId;
+    if (ownerId !== playerId && party.hostId !== playerId) {
+      const target = (claim ?? entry)!;
+      target.takedown ??= { by: [], at: this.now() };
+      if (target.takedown.by.includes(playerId)) return { ack: { ok: true, data: { requested: true, already: true } }, changed: false, direct: [] };
+      target.takedown.by.push(playerId);
+      return this.ok(party, { requested: true }, [{ to: party.hostId, msg: { type: 'toast', text: 'Someone asked for a photo to come down. It\'s in your Queue.', emoji: '🗑️', tone: 'info' } }]);
+    }
+    return this.removePhoto(party, p, photoId);
+  }
+
+  private removePhoto(party: PartyState, p: PlayerState, photoId: string): HandleResult {
+    const claim = party.claims[photoId];
+    const entry = party.cellar.find((e) => e.id === photoId);
+    const url = claim?.photoUrl ?? entry?.photoUrl;
+    if (!url) return this.fail('That photo is already gone.');
+    if (claim) claim.takedown = undefined;
+    if (entry) entry.takedown = undefined;
     if (claim?.status === 'pending' && claim.review) this.withdrawPending(party, claim);
     if (claim) claim.photoUrl = undefined;
     if (entry) entry.photoUrl = undefined;
     for (const f of party.feed) if (f.photoUrl === url) f.photoUrl = undefined;
     this.deletePhotos([url]);
     const ownerName = party.players[claim?.playerId ?? entry?.playerId ?? '']?.nickname;
-    this.feed(party, { kind: 'host', text: ownerName && ownerName !== p.nickname ? `${p.nickname} took down a photo of ${ownerName}'s. Points stay.` : `${p.nickname} took down one of their photos.`, emoji: '🗑️' });
+    this.feed(party, { kind: 'host', text: ownerName && ownerName !== p.nickname ? `The host took down a photo of ${ownerName}'s. Points stay.` : `${p.nickname} took down one of their photos.`, emoji: '🗑️' });
     return this.ok(party);
   }
 
@@ -1509,6 +1537,31 @@ export class Engine {
         const label = { vote: 'Photos now go to a vote: two 👍 and they count.', host: 'Photos now go to the host for a tick.', instant: 'Photos now count straight away.' }[action.mode];
         this.feed(party, { kind: 'host', text: label, emoji: '📸' });
         return this.ok(party);
+      }
+      case 'resolveTakedown': {
+        const claim = party.claims[action.photoId];
+        const entry = party.cellar.find((e) => e.id === action.photoId);
+        const target = claim ?? entry;
+        if (!target?.takedown) return this.fail('Nothing to decide on that one.');
+        if (action.remove) return this.removePhoto(party, party.players[playerId], action.photoId);
+        target.takedown = undefined;
+        return this.ok(party);
+      }
+      case 'keepsake': {
+        const nick = (id: string) => party.players[id]?.nickname ?? 'Someone';
+        const players = Object.values(party.players).filter((x) => !x.removed && x.creature);
+        const data: Keepsake = {
+          name: party.name, code: party.code,
+          board: sortLeaderboard(players).map((x) => ({ nickname: x.nickname, creatureName: x.creatureName, level: x.level, points: x.points, missions: x.missionsCompleted, wins: x.wins, losses: x.losses })),
+          awards: computeAwards(players.map(toPublic), Object.values(party.battles), party.awardOverrides).map((a) => ({ name: a.name, winner: a.playerId ? nick(a.playerId) : 'Nobody', reason: a.reason })),
+          wall: party.wall.filter((w) => !w.hidden).map((w) => ({ author: nick(w.playerId), kind: w.kind, text: w.text, votes: w.votes.length, groomLove: w.groomLove, at: w.at })).sort((a, b) => b.votes + (b.groomLove ? 3 : 0) - (a.votes + (a.groomLove ? 3 : 0))),
+          cellar: party.cellar.map((e) => ({ author: nick(e.playerId), drink: e.drink, stars: e.stars, note: e.note, fires: e.fires.length, at: e.at })),
+          photos: [
+            ...Object.values(party.claims).filter((c) => c.photoUrl && (c.status === 'approved' || c.status === 'disputed')).map((c) => ({ url: c.photoUrl!, caption: MISSION_BY_ID[c.missionId]?.title ?? 'Challenge', author: nick(c.playerId), at: c.resolvedAt ?? c.createdAt })),
+            ...party.cellar.filter((e) => e.photoUrl).map((e) => ({ url: e.photoUrl!, caption: `🍷 ${e.drink}`, author: nick(e.playerId), at: e.at })),
+          ].sort((a, b) => a.at - b.at),
+        };
+        return { ack: { ok: true, data }, changed: false, direct: [] };
       }
       case 'transferHost': {
         const p = party.players[action.playerId];

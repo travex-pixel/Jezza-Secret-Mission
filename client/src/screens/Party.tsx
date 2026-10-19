@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import qrcode from 'qrcode-generator';
 import { Creature } from '../components/Creature';
 import { Button, FeedItem, Sheet, timeAgo } from '../components/ui';
 import { useStore, useMe } from '../store';
@@ -11,7 +12,7 @@ export default function Party() {
   const setTab = useStore((s) => s.setTab);
   const toast = useStore((s) => s.toast);
   const [view, setView] = useState<'roster' | 'feed'>('roster');
-  const [sheet, setSheet] = useState<'leave' | 'claim' | null>(null);
+  const [sheet, setSheet] = useState<'leave' | 'claim' | 'qr' | null>(null);
   const [pin, setPin] = useState('');
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -24,6 +25,7 @@ export default function Party() {
     } catch { try { await navigator.clipboard.writeText(link); toast('Join link copied', '📋', 'success'); } catch { toast(`Code: ${party.code}`, '🔑'); } }
   };
   const amHost = party.hostId === me?.id;
+  const qrSvg = useMemo(() => { const q = qrcode(0, 'M'); q.addData(link); q.make(); return q.createSvgTag({ cellSize: 6, margin: 2, scalable: true }); }, [link]);
   const doLeave = async () => { setBusy(true); try { await leaveParty(); sfx.select(); } catch (e) { toast((e as Error).message, '⚠️', 'warn'); setBusy(false); } };
   const doClaim = async () => {
     setBusy(true); setErr(null);
@@ -37,7 +39,7 @@ export default function Party() {
       <div className="topbar"><button className="display title-md" onClick={() => setTab('home')}>‹ {party.name}</button><span className="pill">{party.players.length} legends</span></div>
       <div className="panel pad row" style={{ gap: 12, marginBottom: 10 }}>
         <div><div className="eyebrow">Party code</div><div className="code-display gold-text">{party.code}</div></div>
-        <div className="grow"><Button size="sm" onClick={share} style={{ width: '100%' }}>Share join link</Button><div className="tiny faint center" style={{ marginTop: 4 }}>Mates open the link, pick a name, done.</div></div>
+        <div className="grow"><Button size="sm" onClick={share} style={{ width: '100%' }}>Share join link</Button><button className="tiny bold" style={{ display: 'block', margin: '6px auto 0', color: 'var(--rose)' }} onClick={() => setSheet('qr')}>Show QR code ▦</button></div>
       </div>
       <div className="tabs" style={{ marginBottom: 10 }}><button className={`tab ${view === 'roster' ? 'on' : ''}`} onClick={() => setView('roster')}>Who's here</button><button className={`tab ${view === 'feed' ? 'on' : ''}`} onClick={() => setView('feed')}>Live feed</button></div>
       <div className="screen-body scroll-y stack-6">
@@ -79,6 +81,17 @@ export default function Party() {
             <input className="input input-code" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="••••" inputMode="numeric" type="password" autoFocus onKeyDown={(e) => e.key === 'Enter' && doClaim()} />
             {err && <div className="field-error">{err}</div>}
             <div className="btn-row"><Button variant="secondary" size="sm" onClick={() => setSheet(null)}>Cancel</Button><Button size="sm" disabled={busy || pin.length < 4} onClick={doClaim}>Claim</Button></div>
+          </div>
+        </Sheet>
+      )}
+      {sheet === 'qr' && (
+        <Sheet center onClose={() => setSheet(null)}>
+          <div className="center stack-10">
+            <div className="eyebrow">Scan to join</div>
+            <div className="qr-box" aria-label={`QR code for ${link}`} dangerouslySetInnerHTML={{ __html: qrSvg }} />
+            <div className="display title-md gold-text">{party.code}</div>
+            <div className="tiny faint">Point a phone camera at it. Handy when Messenger won't send the link.</div>
+            <Button size="sm" onClick={() => setSheet(null)}>Done</Button>
           </div>
         </Sheet>
       )}

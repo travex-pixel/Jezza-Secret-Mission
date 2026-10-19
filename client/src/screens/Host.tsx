@@ -7,6 +7,7 @@ import { Button, Sheet, timeAgo } from '../components/ui';
 import { useStore, useIsHost } from '../store';
 import { request } from '../net';
 import { sfx } from '../audio';
+import { downloadKeepsake } from '../keepsake';
 
 const PHASES: { id: Phase; label: string; blurb: string }[] = [
   { id: 'lobby', label: 'Paused', blurb: 'Everything on hold. Use it for speeches or dinner.' },
@@ -36,6 +37,8 @@ export default function Host() {
     try { await request({ type: 'host', action }); sfx.select(); } catch (e) { toast((e as Error).message, '⚠️', 'warn'); sfx.error(); }
   };
   const approvals = hostView?.approvals ?? [];
+  const takedowns = hostView?.takedowns ?? [];
+  const nickOf = (id: string) => party.players.find((x) => x.id === id)?.nickname ?? '?';
   const players = [...party.players].sort((a, b) => a.nickname.localeCompare(b.nickname));
 
   return (
@@ -43,7 +46,7 @@ export default function Host() {
       <div className="topbar"><button className="display title-md" onClick={() => setTab('home')}>‹ Host controls</button><span className="pill pill-gold">👑 {party.code}</span></div>
       <div className="tabs" style={{ marginBottom: 10, fontSize: 11 }}>
         <button className={`tab ${section === 'event' ? 'on' : ''}`} style={{ fontSize: 11, letterSpacing: '.04em' }} onClick={() => setSection('event')}>Event</button>
-        <button className={`tab ${section === 'approvals' ? 'on' : ''}`} style={{ fontSize: 11, letterSpacing: '.04em' }} onClick={() => setSection('approvals')}>Queue{approvals.length ? ` · ${approvals.length}` : ''}</button>
+        <button className={`tab ${section === 'approvals' ? 'on' : ''}`} style={{ fontSize: 11, letterSpacing: '.04em' }} onClick={() => setSection('approvals')}>Queue{approvals.length + takedowns.length ? ` · ${approvals.length + takedowns.length}` : ''}</button>
         <button className={`tab ${section === 'players' ? 'on' : ''}`} style={{ fontSize: 11, letterSpacing: '.04em' }} onClick={() => setSection('players')}>Players</button>
         <button className={`tab ${section === 'awards' ? 'on' : ''}`} style={{ fontSize: 11, letterSpacing: '.04em' }} onClick={() => setSection('awards')}>Awards</button>
       </div>
@@ -75,13 +78,23 @@ export default function Host() {
             <div className="small dim">{party.hasHostPin ? 'Set. Anyone in the party can use it on Party → Claim host, so keep it to yourself.' : 'Not set. Set one so you can take back host from another phone if yours dies.'}</div>
             <div className="row" style={{ gap: 6 }}><input className="input" style={{ minHeight: 44, fontSize: 16 }} value={newPin} onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="4–6 digits" inputMode="numeric" type="password" /><Button size="sm" variant="secondary" disabled={newPin.length < 4} onClick={() => { host({ kind: 'setHostPin', pin: newPin }); setNewPin(''); toast('Host PIN saved', '🔐', 'success'); }}>{party.hasHostPin ? 'Change' : 'Set PIN'}</Button></div>
             <div className="divider" />
+            <div className="eyebrow">Keepsake</div>
+            <div className="row-between"><div className="small dim">Download every roast, toast, drink review, award and the final board as one page you can keep.</div><Button size="sm" variant="secondary" onClick={() => downloadKeepsake().catch((e) => toast((e as Error).message, '⚠️', 'warn'))}>Download</Button></div>
+            <div className="divider" />
             <div className="eyebrow">Photos</div>
             <div className="row-between"><div className="small dim">Mission photos sit on this game's server only, visible to this party. Wipe them when the weekend's done.</div><Button size="sm" variant="danger" onClick={() => setConfirmPurge(true)}>Delete all</Button></div>
           </>
         )}
         {section === 'approvals' && (
           <>
-            {approvals.length === 0 && <div className="panel pad center dim bold">Nothing waiting. The lads sort BS calls out themselves; you can step in here if you want.</div>}
+            {takedowns.map((t) => (
+              <div key={t.photoId} className="panel pad stack-6">
+                <div className="row-between"><span className="bold">🗑️ Take-down request</span><span className="tiny faint">{timeAgo(t.at)}</span></div>
+                <div className="small dim">{t.by.map(nickOf).join(' & ')} asked for {nickOf(t.ownerId)}&apos;s photo ({t.caption}) to come down.</div>
+                <img src={t.url} alt="Photo" style={{ width: '100%', borderRadius: 12, maxHeight: 220, objectFit: 'cover' }} />
+                <div className="btn-row"><Button size="sm" variant="secondary" onClick={() => host({ kind: 'resolveTakedown', photoId: t.photoId, remove: false })}>Keep it up</Button><Button size="sm" variant="danger" onClick={() => host({ kind: 'resolveTakedown', photoId: t.photoId, remove: true })}>Take it down</Button></div>
+              </div>))}
+            {approvals.length === 0 && takedowns.length === 0 && <div className="panel pad center dim bold">Nothing waiting. The lads sort BS calls out themselves; you can step in here if you want.</div>}
             {approvals.some((c) => c.review === 'vote') && <div className="tiny faint">Photos marked 🗳️ are being voted on by the lads. You can settle them early.</div>}
             {approvals.map((c) => { const m = MISSION_BY_ID[c.missionId]; const p = party.players.find((x) => x.id === c.playerId); return (
               <div key={c.id} className="panel pad stack-6">
