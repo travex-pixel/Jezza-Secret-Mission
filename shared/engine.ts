@@ -41,6 +41,8 @@ export interface PartyState {
   finalized: boolean;
   fridayPoints: Record<string, number> | null;
   seq: number;
+  hostPinHash?: string;
+  pinAttempts?: { playerId: string; at: number }[];
 }
 
 export interface EngineState {
@@ -66,6 +68,21 @@ export interface EngineOptions {
 }
 
 const HAND_SIZE = 3;
+const PIN_RE = /^\d{4,6}$/;
+const PIN_WINDOW_MS = 10 * 60_000;
+const PIN_MAX_PER_PLAYER = 5;   // wrong guesses per player per 10 min
+const PIN_MAX_PER_PARTY = 15;   // wrong guesses across the whole party per 10 min
+
+/** Salted, iterated FNV-1a. A 4-6 digit PIN can't be made truly secret; this just avoids storing it in plain text. */
+export function hashPin(code: string, pin: string): string {
+  let h = 2166136261 >>> 0;
+  const input = `jezza:${code}:${pin}`;
+  for (let r = 0; r < 2000; r++) {
+    for (let i = 0; i < input.length; i++) { h ^= input.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+    h ^= r; h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h.toString(36);
+}
 export const HONOUR_COOLDOWN_MS = 8 * 60_000;   // one "I did it" per player per 8 minutes
 export const FLAGS_TO_DISPUTE = 2;              // distinct mates calling BS before points freeze
 const FLAG_WINDOW_MS = 45 * 60_000;             // BS can be called within 45 min of a completion
@@ -138,6 +155,7 @@ export class Engine {
       pendingApprovals: Object.values(party.claims).filter((c) => (c.status === 'pending' && c.method !== 'witness') || c.status === 'disputed').length,
       awards: showAwards ? computeAwards(players, Object.values(party.battles), party.fridayPoints, party.awardOverrides) : null,
       finalized: party.finalized,
+      hasHostPin: !!party.hostPinHash,
       serverTime: now,
     };
   }
@@ -168,7 +186,8 @@ export class Engine {
     const res: HandleResult = { changed: false, direct: [] };
     try {
       switch (msg.type) {
-        case 'createParty': return this.createParty(playerId, msg.nickname, msg.partyName);
+        case 'createParty': return this.createParty(playerId, msg.nickname, msg.partyName, msg.hostPin);
+        case 'claimHost': return this.claimHost(playerId, msg.pin);
         case 'joinParty': return this.joinParty(playerId, msg.code, msg.nickname);
         case 'leaveParty': return this.leaveParty(playerId);
         case 'chooseCreature': return this.chooseCreature(playerId, msg.creature, msg.creatureName);
@@ -207,9 +226,11 @@ export class Engine {
     return 'P' + Math.floor(this.rng() * 1e6).toString(36).toUpperCase();
   }
 
-  private createParty(playerId: string, nickname: string, partyName?: string): HandleResult {
+  private createParty(playerId: string, nickname: string, partyName?: string, hostPin?: string): HandleResult {
     const v = validateNickname(nickname ?? '');
     if (!v.ok) return this.fail(v.error);
+    const pin = (hostPin ?? '').trim();
+    if (pin && !PIN_RE.test(pin)) return this.fail('Host PIN must be 4 to 6 digits.');
     if (this.partyOf(playerId)) this.leaveParty(playerId);
     const now = this.now();
     const code = this.newCode();
@@ -218,10 +239,39 @@ export class Engine {
       createdAt: now, players: {}, feed: [], claims: {}, revealedGroupMissions: [], battles: {}, awardOverrides: {}, finalized: false, fridayPoints: null, seq: 0,
     };
     party.players[playerId] = newPlayer(playerId, v.name, now, true);
+    if (pin) party.hostPinHash = hashPin(code, pin);
     this.state.parties[code] = party;
     this.state.playerParty[playerId] = code;
     this.feed(party, { kind: 'join', text: `${v.name} opened the cellar door. The party begins.`, playerId, emoji: '🍷' });
     return this.ok(party, { code });
+  }
+
+  private claimHost(playerId: string, pinRaw: string): HandleResult {
+    const party = this.partyOf(playerId); const p = party?.players[playerId];
+    if (!party || !p || p.removed) return this.fail('Join the party first, then claim host.');
+    if (party.hostId === playerId) return this.fail('You are already the host.');
+    if (!party.hostPinHash) return this.fail('This party has no host PIN. The current host can set one in Host → Event.');
+    const now = this.now();
+    party.pinAttempts = (party.pinAttempts ?? []).filter((a) => now - a.at < PIN_WINDOW_MS);
+    const mine = party.pinAttempts.filter((a) => a.playerId === playerId);
+    if (mine.length >= PIN_MAX_PER_PLAYER || party.pinAttempts.length >= PIN_MAX_PER_PARTY) {
+      const oldest = (mine.length >= PIN_MAX_PER_PLAYER ? mine : party.pinAttempts)[0].at;
+      return this.fail(`Too many wrong PINs. Try again in ${Math.max(1, Math.ceil((oldest + PIN_WINDOW_MS - now) / 60000))} min.`);
+    }
+    const pin = String(pinRaw ?? '').trim();
+    if (!PIN_RE.test(pin) || hashPin(party.code, pin) !== party.hostPinHash) {
+      party.pinAttempts.push({ playerId, at: now });
+      party.seq++;
+      return { ack: { ok: false, error: 'Wrong PIN.' }, changed: true, partyCode: party.code, direct: [{ to: party.hostId, msg: { type: 'toast', text: `${p.nickname} just tried the host PIN and got it wrong. 👀`, emoji: '🔐', tone: 'warn' } }] };
+    }
+    const old = party.players[party.hostId];
+    if (old) old.isHost = false;
+    p.isHost = true; party.hostId = playerId;
+    party.pinAttempts = party.pinAttempts.filter((a) => a.playerId !== playerId);
+    this.feed(party, { kind: 'host', text: `Host powers moved to ${p.nickname}'s phone (PIN verified).`, emoji: '🔑' });
+    const direct: Outbound[] = [{ to: playerId, msg: { type: 'toast', text: 'You are now the host.', emoji: '🔑', tone: 'success' } }];
+    if (old) direct.push({ to: old.id, msg: { type: 'toast', text: `${p.nickname} took over as host with the PIN.`, emoji: '🔑', tone: 'warn' } });
+    return this.ok(party, undefined, direct);
   }
 
   private joinParty(playerId: string, codeRaw: string, nickname: string): HandleResult {
@@ -793,6 +843,12 @@ export class Engine {
       case 'finalize': {
         party.finalized = !!action.finalized;
         if (party.finalized) { party.phase = 'ended'; party.missionsOpen = false; this.feed(party, { kind: 'phase', text: 'Results are FINAL. Legends have been crowned.', emoji: '👑' }); }
+        return this.ok(party);
+      }
+      case 'setHostPin': {
+        const pin = String(action.pin ?? '').trim();
+        if (!PIN_RE.test(pin)) return this.fail('Host PIN must be 4 to 6 digits.');
+        party.hostPinHash = hashPin(party.code, pin);
         return this.ok(party);
       }
       case 'purgePhotos': {

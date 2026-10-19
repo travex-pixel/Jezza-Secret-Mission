@@ -66,7 +66,15 @@ app.get('/api/party/:code/exists', (req, res) => res.json({ exists: !!engine.sta
 app.use('/photos', express.static(PHOTO_DIR, { maxAge: '7d', immutable: true, fallthrough: false }));
 if (fs.existsSync(CLIENT_DIR)) {
   app.use(express.static(CLIENT_DIR, { maxAge: '1h', index: false }));
-  app.get('*', (_req, res) => res.sendFile(path.join(CLIENT_DIR, 'index.html'), { headers: { 'Cache-Control': 'no-cache' } }));
+  // Link previews (WhatsApp, Messenger…) need absolute URLs. Fill in whatever address the visitor used,
+  // so previews work on the first deploy and on any domain. PUBLIC_URL overrides it if set.
+  const indexTemplate = fs.readFileSync(path.join(CLIENT_DIR, 'index.html'), 'utf8');
+  app.get('*', (req, res) => {
+    const proto = String(req.headers['x-forwarded-proto'] ?? '').split(',')[0].trim() === 'https' || req.secure ? 'https' : 'http';
+    const host = String(req.headers['x-forwarded-host'] ?? req.headers.host ?? '').split(',')[0].trim();
+    const origin = (process.env.PUBLIC_URL ?? '').replace(/\/$/, '') || (/^[a-z0-9.-]+(:\d{1,5})?$/i.test(host) ? `${proto}://${host}` : '');
+    res.set('Cache-Control', 'no-cache').type('html').send(indexTemplate.replaceAll('__PUBLIC_URL__', origin));
+  });
 } else {
   app.get('/', (_req, res) => res.type('text').send('Project Jezza server is running. Build the client (npm run build) or use the Vite dev server.'));
 }

@@ -166,6 +166,7 @@ export interface PartyPublic {
   pendingApprovals: number;
   awards: AwardResult[] | null;
   finalized: boolean;
+  hasHostPin: boolean;
   serverTime: number;
 }
 
@@ -184,7 +185,8 @@ export interface ClientHello {
 
 export type ClientMessage =
   | ClientHello
-  | { type: 'createParty'; reqId: string; nickname: string; partyName?: string }
+  | { type: 'createParty'; reqId: string; nickname: string; partyName?: string; hostPin?: string }
+  | { type: 'claimHost'; reqId: string; pin: string }
   | { type: 'joinParty'; reqId: string; code: string; nickname: string }
   | { type: 'leaveParty'; reqId: string }
   | { type: 'chooseCreature'; reqId: string; creature: CreatureId; creatureName?: string }
@@ -216,7 +218,8 @@ export type HostAction =
   | { kind: 'setAward'; awardId: string; playerId: string | null }
   | { kind: 'finalize'; finalized: boolean }
   | { kind: 'transferHost'; playerId: string }
-  | { kind: 'purgePhotos' };
+  | { kind: 'purgePhotos' }
+  | { kind: 'setHostPin'; pin: string };
 
 export type ServerMessage =
   | { type: 'welcome'; playerId: string; serverTime: number; inParty: boolean }

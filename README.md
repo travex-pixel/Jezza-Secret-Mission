@@ -27,6 +27,7 @@ More screenshots at every tested viewport live in [`docs/screenshots/`](docs/scr
 | Server-authoritative scoring, duplicate-claim protection, private mission hands | ✅ |
 | Turn-based creature battles (Attack / Counter / Special) with a power-tap timing bonus, resolved on the server, timeouts, surrender, rematch, practice mode | ✅ |
 | Host controls: phases, pause missions, approvals, group missions, rename/remove, reset, grant, awards, finalise | ✅ |
+| Host PIN to take back host from any phone; Leave party to ditch a test room | ✅ |
 | Friday → Saturday → Finale → Ended event structure with host recovery | ✅ |
 | 19 achievements, 10 data-driven weekend awards (+1 host pick), compact leaderboard, finale recap | ✅ |
 | Original synthesised audio with mute, haptics, reduced-motion support | ✅ |
@@ -161,6 +162,16 @@ client gains a few points at most.
 * The host has a **Delete all photos** button (Host → Event → Photos) that removes the files from disk and strips
   them from the feed. Do this at the end of the weekend. Points already awarded are kept.
 * In the GitHub Pages demo nothing leaves the phone: photos live in that browser tab's memory only.
+* **Keepsake copy.** On Cloud Run the photos live in the storage bucket `<project-id>-jezza-data`, folder `photos/`.
+  In Cloud Shell:
+  ```bash
+  cd ~/Jezza-Secret-Mission && git pull && npm install
+  mkdir -p ~/jezza-data && gcloud storage cp -r "gs://jezza-e9de9-jezza-data/*" ~/jezza-data/
+  npx tsx scripts/export-photos.ts ~/jezza-data ~/jezza-photos
+  cd ~ && zip -qr jezza-photos.zip jezza-photos
+  ```
+  then Cloud Shell's ⋮ menu → **Download** → `jezza-photos.zip`. Each photo is named
+  `001 Nickname - Mission.jpeg`, with a `captions.txt` listing times and notes. Do this *before* pressing Delete all.
 
 ### Security model (what the server enforces)
 

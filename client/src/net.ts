@@ -212,6 +212,12 @@ function connectDemo(): Transport {
   };
 }
 
+/** Leave the current party and go back to the join screen (e.g. to make a fresh room after testing). */
+export async function leaveParty() {
+  await request({ type: 'leaveParty' });
+  useStore.setState({ party: null, priv: null, hostView: null, flow: 'join', tab: 'home', pendingCode: null, focusBattleId: null });
+}
+
 export function connect() {
   if (transport) return transport;
   const params = new URLSearchParams(location.search);

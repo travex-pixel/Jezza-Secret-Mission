@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Creature } from '../components/Creature';
-import { Button, FeedItem, timeAgo } from '../components/ui';
+import { Button, FeedItem, Sheet, timeAgo } from '../components/ui';
 import { useStore, useMe } from '../store';
-import { isDemo } from '../net';
+import { isDemo, leaveParty, request } from '../net';
+import { sfx } from '../audio';
 
 export default function Party() {
   const party = useStore((s) => s.party);
@@ -10,6 +11,10 @@ export default function Party() {
   const setTab = useStore((s) => s.setTab);
   const toast = useStore((s) => s.toast);
   const [view, setView] = useState<'roster' | 'feed'>('roster');
+  const [sheet, setSheet] = useState<'leave' | 'claim' | null>(null);
+  const [pin, setPin] = useState('');
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   if (!party) return null;
   const link = `${location.origin}${location.pathname}?p=${party.code}${isDemo() ? '&demo=1' : ''}`;
   const share = async () => {
@@ -17,6 +22,14 @@ export default function Party() {
       if (navigator.share) await navigator.share({ title: 'Project Jezza', text: `Join the vineyard. Party code ${party.code}`, url: link });
       else { await navigator.clipboard.writeText(link); toast('Join link copied', '📋', 'success'); }
     } catch { try { await navigator.clipboard.writeText(link); toast('Join link copied', '📋', 'success'); } catch { toast(`Code: ${party.code}`, '🔑'); } }
+  };
+  const amHost = party.hostId === me?.id;
+  const doLeave = async () => { setBusy(true); try { await leaveParty(); sfx.select(); } catch (e) { toast((e as Error).message, '⚠️', 'warn'); setBusy(false); } };
+  const doClaim = async () => {
+    setBusy(true); setErr(null);
+    try { await request({ type: 'claimHost', pin }); sfx.reward(); setSheet(null); setPin(''); setTab('host'); }
+    catch (e) { setErr((e as Error).message); sfx.error(); }
+    finally { setBusy(false); }
   };
   const players = [...party.players].sort((a, b) => Number(b.isHost) - Number(a.isHost) || Number(b.online) - Number(a.online) || a.joinedAt - b.joinedAt);
   return (
@@ -38,7 +51,37 @@ export default function Party() {
         {view === 'feed' && <div className="tiny faint" style={{ padding: '0 4px' }}>Reckon someone's lying? 🚩 Call BS. Two calls freeze the points until the host rules.</div>}
         {view === 'feed' && [...party.feed].reverse().map((f) => <FeedItem key={f.id} f={f} />)}
         {view === 'feed' && party.feed.length === 0 && <div className="center dim pad">Nothing has happened. Yet.</div>}
+        {view === 'roster' && (
+          <div className="col" style={{ gap: 0, paddingTop: 6 }}>
+            {!amHost && party.hasHostPin && <Button variant="ghost" onClick={() => { setErr(null); setSheet('claim'); }}>🔑 Host lost their phone? Claim host</Button>}
+            <Button variant="ghost" onClick={() => setSheet('leave')}>🚪 Leave this party</Button>
+          </div>
+        )}
       </div>
+      {sheet === 'leave' && (
+        <Sheet center onClose={() => setSheet(null)}>
+          <div className="center stack-10">
+            <div className="eyebrow">Leave party {party.code}</div>
+            <div className="display title-md">Head home early?</div>
+            <div className="small dim">{amHost
+              ? `You're the host. The party stays as it is, but nobody can run it unless someone uses your host PIN${party.hasHostPin ? '' : ' (you haven\'t set one)'}. Perfect for ditching a test room.`
+              : 'Your creature and points stay in this party. Come back any time with the same code and nickname.'}</div>
+            <div className="btn-row"><Button variant="secondary" size="sm" onClick={() => setSheet(null)}>Stay</Button><Button variant="danger" size="sm" disabled={busy} onClick={doLeave}>Leave</Button></div>
+          </div>
+        </Sheet>
+      )}
+      {sheet === 'claim' && (
+        <Sheet center onClose={() => setSheet(null)}>
+          <div className="center stack-10">
+            <div className="eyebrow">Claim host</div>
+            <div className="display title-md">Enter the host PIN</div>
+            <div className="small dim">Wrong guesses are reported to the current host. Five strikes and you're locked out for 10 minutes.</div>
+            <input className="input input-code" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="••••" inputMode="numeric" type="password" autoFocus onKeyDown={(e) => e.key === 'Enter' && doClaim()} />
+            {err && <div className="field-error">{err}</div>}
+            <div className="btn-row"><Button variant="secondary" size="sm" onClick={() => setSheet(null)}>Cancel</Button><Button size="sm" disabled={busy || pin.length < 4} onClick={doClaim}>Claim</Button></div>
+          </div>
+        </Sheet>
+      )}
     </div>
   );
 }

@@ -37,7 +37,7 @@ async function main() {
 
   await mate.page.goto(`${BASE}/?p=${code}`, { waitUntil: 'networkidle' });
   await mate.page.getByRole('button', { name: /enter the vineyard/i }).click();
-  check((await mate.page.locator('.input-code').inputValue()) === code, 'join link prefills the party code');
+  check((await mate.page.getByText(`Joining party ${code}`).count()) === 1 && (await mate.page.locator('.input-code').count()) === 0, 'join link carries the party code (no code box to fill)');
   await mate.page.getByPlaceholder(/big dave/i).fill('Tommo');
   await mate.page.getByRole('button', { name: /join the legends/i }).click();
   await mate.page.waitForSelector('.pick-grid');

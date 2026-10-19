@@ -29,6 +29,7 @@ export default function Host() {
   const [reason, setReason] = useState('');
   const [confirmPhase, setConfirmPhase] = useState<Phase | null>(null);
   const [confirmPurge, setConfirmPurge] = useState(false);
+  const [newPin, setNewPin] = useState('');
   if (!party || !isHost) return <div className="screen with-nav"><div className="panel pad center">Host only.</div></div>;
 
   const host = async (action: HostAction) => {
@@ -59,6 +60,10 @@ export default function Host() {
             <div className="divider" />
             <div className="eyebrow">Group missions</div>
             {GROUP_MISSIONS.map((m) => { const on = party.revealedGroupMissions.includes(m.id); return <div key={m.id} className="list-row"><span className="grow"><div className="bold">{m.title} <span className="tiny faint">+{m.points}</span></div><div className="tiny dim">{m.instruction}</div></span>{on ? <span className="pill pill-xs pill-ok">live</span> : <Button size="xs" onClick={() => host({ kind: 'revealGroupMission', missionId: m.id })}>Reveal</Button>}</div>; })}
+            <div className="divider" />
+            <div className="eyebrow">Host PIN</div>
+            <div className="small dim">{party.hasHostPin ? 'Set. Anyone in the party can use it on Party → Claim host, so keep it to yourself.' : 'Not set. Set one so you can take back host from another phone if yours dies.'}</div>
+            <div className="row" style={{ gap: 6 }}><input className="input" style={{ minHeight: 44, fontSize: 16 }} value={newPin} onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="4–6 digits" inputMode="numeric" type="password" /><Button size="sm" variant="secondary" disabled={newPin.length < 4} onClick={() => { host({ kind: 'setHostPin', pin: newPin }); setNewPin(''); toast('Host PIN saved', '🔐', 'success'); }}>{party.hasHostPin ? 'Change' : 'Set PIN'}</Button></div>
             <div className="divider" />
             <div className="eyebrow">Photos</div>
             <div className="row-between"><div className="small dim">Mission photos sit on this game's server only, visible to this party. Wipe them when the weekend's done.</div><Button size="sm" variant="danger" onClick={() => setConfirmPurge(true)}>Delete all</Button></div>
@@ -103,7 +108,7 @@ export default function Host() {
         )}
       </div>
 
-      {confirmPurge && <Sheet center onClose={() => setConfirmPurge(false)}><div className="center stack-10"><div className="eyebrow">Delete photos</div><div className="display title-md">Wipe every party photo?</div><div className="small dim">Files are deleted from the server and removed from the feed. Points already awarded stay. This cannot be undone.</div><div className="btn-row"><Button variant="secondary" size="sm" onClick={() => setConfirmPurge(false)}>Keep them</Button><Button variant="danger" size="sm" onClick={() => { host({ kind: 'purgePhotos' }); setConfirmPurge(false); }}>Delete all</Button></div></div></Sheet>}
+      {confirmPurge && <Sheet center onClose={() => setConfirmPurge(false)}><div className="center stack-10"><div className="eyebrow">Delete photos</div><div className="display title-md">Wipe every party photo?</div><div className="small dim">Files are deleted from the server and removed from the feed. Points already awarded stay. This cannot be undone, so download your keepsake copy first (see README → Photos).</div><div className="btn-row"><Button variant="secondary" size="sm" onClick={() => setConfirmPurge(false)}>Keep them</Button><Button variant="danger" size="sm" onClick={() => { host({ kind: 'purgePhotos' }); setConfirmPurge(false); }}>Delete all</Button></div></div></Sheet>}
       {confirmPhase && <Sheet center onClose={() => setConfirmPhase(null)}><div className="center stack-10"><div className="eyebrow">Change phase</div><div className="display title-md">Move to {PHASES.find((p) => p.id === confirmPhase)?.label}?</div><div className="small dim">{PHASES.find((p) => p.id === confirmPhase)?.blurb} Everyone is notified.</div><div className="btn-row"><Button variant="secondary" size="sm" onClick={() => setConfirmPhase(null)}>Cancel</Button><Button size="sm" onClick={() => { host({ kind: 'setPhase', phase: confirmPhase }); setConfirmPhase(null); }}>Do it</Button></div></div></Sheet>}
 
       {target && (

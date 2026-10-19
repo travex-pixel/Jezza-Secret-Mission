@@ -216,4 +216,46 @@ describe('engine', () => {
     eng.handle(ids[1], { type: 'battleAction', reqId: 'a', battleId: id, round: 2, action: 'attack', tap: 'perfect' });
     expect(party().battles[id].a.tap).toBe('perfect'); // plausible timing → accepted
   });
+  it('host PIN: claim from another phone, wrong guesses are limited and reported', () => {
+    let t = 5_000_000;
+    const eng = new Engine({ now: () => t, rng: seededRng(9) });
+    const ids = ['host_phone_0001', 'new_phone_00002', 'cheeky_mate_003'];
+    ids.forEach((id) => eng.auth(id, 'secret-' + id));
+    expect(eng.handle(ids[0], { type: 'createParty', reqId: '1', nickname: 'Travis', hostPin: '12' }).ack?.ok).toBe(false); // too short
+    const code = (eng.handle(ids[0], { type: 'createParty', reqId: '1', nickname: 'Travis', hostPin: '4821' }).ack as any).data.code as string;
+    const party = eng.state.parties[code];
+    expect(party.hostPinHash).toBeTruthy();
+    expect(JSON.stringify(eng.publicView(party))).not.toContain('4821');
+    expect(eng.publicView(party).hasHostPin).toBe(true);
+    eng.handle(ids[1], { type: 'joinParty', reqId: 'j', code, nickname: 'Travis2' });
+    eng.handle(ids[2], { type: 'joinParty', reqId: 'j', code, nickname: 'Cheeky' });
+    // wrong guesses: reported to host, limited to 5 per player per 10 min
+    const wrong = eng.handle(ids[2], { type: 'claimHost', reqId: 'c', pin: '0000' });
+    expect(wrong.ack?.ok).toBe(false);
+    expect(wrong.direct.some((d) => d.to === ids[0] && d.msg.type === 'toast')).toBe(true);
+    for (let i = 0; i < 4; i++) eng.handle(ids[2], { type: 'claimHost', reqId: 'c', pin: '1111' });
+    const locked = eng.handle(ids[2], { type: 'claimHost', reqId: 'c', pin: '4821' });
+    expect((locked.ack as any).error).toMatch(/Too many wrong PINs/);
+    expect(party.hostId).toBe(ids[0]);
+    // the real host on a new phone gets in
+    expect(eng.handle(ids[1], { type: 'claimHost', reqId: 'c', pin: '4821' }).ack?.ok).toBe(true);
+    expect(party.hostId).toBe(ids[1]);
+    expect(party.players[ids[0]].isHost).toBe(false);
+    expect(eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'setPhase', phase: 'friday' } }).ack?.ok).toBe(false); // old phone lost host
+    // new host can change the PIN; lockout expires after 10 minutes
+    expect(eng.handle(ids[1], { type: 'host', reqId: 'h', action: { kind: 'setHostPin', pin: '777777' } }).ack?.ok).toBe(true);
+    t += 10 * 60_000 + 1;
+    expect(eng.handle(ids[2], { type: 'claimHost', reqId: 'c', pin: '4821' }).ack?.ok).toBe(false); // old PIN no longer works
+    expect(eng.handle(ids[2], { type: 'claimHost', reqId: 'c', pin: '777777' }).ack?.ok).toBe(true);
+  });
+  it('leaving a party lets the host start a fresh room', () => {
+    const eng = new Engine();
+    eng.auth('host_phone_0001', 'secret-host');
+    const first = (eng.handle('host_phone_0001', { type: 'createParty', reqId: '1', nickname: 'Travis' }).ack as any).data.code;
+    expect(eng.handle('host_phone_0001', { type: 'leaveParty', reqId: '2' }).ack?.ok).toBe(true);
+    expect(eng.partyOf('host_phone_0001')).toBeUndefined();
+    const second = (eng.handle('host_phone_0001', { type: 'createParty', reqId: '3', nickname: 'Travis' }).ack as any).data.code;
+    expect(second).not.toBe(first);
+    expect(eng.partyOf('host_phone_0001')?.code).toBe(second);
+  });
 });
