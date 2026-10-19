@@ -208,7 +208,13 @@ The app is **one Node process** that serves static files, `/api/*`, `/photos/*` 
 Node 22 with a persistent disk works. The build was verified locally; **it has not been deployed publicly from
 this environment** (no hosting credentials were available), so pick one of these:
 
-### Fly.io (recommended, Sydney region, ~free for one small machine + 1 GB volume)
+### Google Cloud Run (if you already have a Firebase / Google account)
+```bash
+PROJECT_ID=<your-firebase-project-id> ./scripts/deploy-cloudrun.sh
+```
+Needs the Blaze plan on the project (Cloud Run requires billing; a weekend costs a few dollars at most). Details in `docs/DEPLOY.md`.
+
+### Fly.io (Sydney region, ~free for one small machine + 1 GB volume)
 ```bash
 fly launch --copy-config --no-deploy      # uses fly.toml + Dockerfile
 fly volumes create jezza_data -s 1 -r syd

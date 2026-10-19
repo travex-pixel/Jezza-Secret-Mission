@@ -4,6 +4,9 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
+# Absolute public URL for link-preview tags (optional): docker build --build-arg VITE_PUBLIC_URL=https://...
+ARG VITE_PUBLIC_URL=
+ENV VITE_PUBLIC_URL=$VITE_PUBLIC_URL
 RUN npm run build
 
 FROM node:22-alpine
