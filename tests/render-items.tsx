@@ -1,4 +1,4 @@
-// Renders every creature wearing the EPIC and cheat-code items to test-results/items.html for a visual check.
+// Renders every creature wearing the EPIC and reward-code items to test-results/items.html for a visual check.
 import { renderToStaticMarkup } from 'react-dom/server';
 import fs from 'node:fs';
 import { Creature } from '../client/src/components/Creature';

@@ -93,20 +93,20 @@ async function main() {
   await page.getByRole('button', { name: /host controls/i }).click();
   await page.waitForSelector('.tabs');
 
-  // Cheat code: host makes one for The Mo, then types it in on the Me screen
+  // Reward code: host makes one for The Mo, then types it in on the Me screen
   await page.locator('select[aria-label="Accessory"]').selectOption('face_mo');
   await page.getByRole('button', { name: /make a code/i }).click();
   const codeRow = page.locator('.code-row', { hasText: 'The Mo' }).first();
   await codeRow.waitFor({ timeout: 4000 });
   const cheat = ((await codeRow.locator('.bold').first().textContent()) ?? '').trim();
-  check(/^JEZZA-[A-Z0-9]{4}$/.test(cheat), `host makes a cheat code (${cheat})`);
+  check(/^JEZZA-[A-Z0-9]{4}$/.test(cheat), `host makes a reward code (${cheat})`);
   await page.getByText(/‹ Host controls/).click();
   await page.locator('.bottom-nav').getByRole('button', { name: 'Me' }).click();
-  await page.getByLabel('Cheat code').fill(cheat.toLowerCase());
+  await page.getByLabel('Reward code').fill(cheat.toLowerCase());
   await page.getByRole('button', { name: /^unlock$/i }).click();
-  await page.locator('.reward', { hasText: 'Cheat code' }).waitFor({ timeout: 5000 });
+  await page.locator('.reward', { hasText: 'Reward code' }).waitFor({ timeout: 5000 });
   check(true, 'typing the code unlocks the accessory');
-  await page.screenshot({ path: path.join(OUT, 'cheat-code.png') });
+  await page.screenshot({ path: path.join(OUT, 'reward-code.png') });
   for (let i = 0; i < 4 && (await page.locator('.reward').count()); i++) { await page.locator('.reward').first().click(); await sleep(400); }
   await page.locator('.bottom-nav').getByRole('button', { name: 'Lobby' }).click();
   await page.getByRole('button', { name: /host controls/i }).click();

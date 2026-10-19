@@ -313,11 +313,11 @@ export interface PartyPublic {
 export interface HostView {
   approvals: Claim[]; // pending photo/host claims and disputed (BS-called) claims
   takedowns: { photoId: string; url: string; ownerId: string; caption: string; by: string[]; at: number }[];
-  codes: CheatCode[];
+  codes: RewardCode[];
 }
 
 /** Host-made code that unlocks one accessory for whoever types it in (host's eyes only). */
-export interface CheatCode { code: string; item: string; uses: number; redeemedBy: string[]; createdAt: number }
+export interface RewardCode { code: string; item: string; uses: number; redeemedBy: string[]; createdAt: number }
 
 /** Everything worth keeping from the weekend, for the host's keepsake download. */
 export interface Keepsake {

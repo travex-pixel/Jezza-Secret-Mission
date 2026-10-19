@@ -273,7 +273,7 @@ describe('self-running weekend', () => {
     expect(party().players[ids[3]].points - before).toBeGreaterThanOrEqual(60);
     expect(party().players[ids[3]].unlocked).toContain('cape_hivis');
   });
-  it('cheat codes: host makes one, it unlocks the accessory once, wrong guesses are limited', () => {
+  it('reward codes: host makes one, it unlocks the accessory once, wrong guesses are limited', () => {
     const { eng, ids, party } = setup();
     expect(eng.handle(ids[2], { type: 'host', reqId: 'h', action: { kind: 'makeCode', item: 'face_mo' } }).ack?.ok).toBe(false); // host only
     expect(eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'makeCode', item: 'not_a_thing' } }).ack?.ok).toBe(false);

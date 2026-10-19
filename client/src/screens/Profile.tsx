@@ -100,7 +100,7 @@ export default function Profile() {
               <button className={`chip ${!me.equipped[slot] ? 'on' : ''}`} onClick={() => equip({ [slot]: '' })}><span className="ico">∅</span><span>None</span></button>
               {COSMETICS.filter((c) => c.slot === slot).map((c) => { const owned = me.unlocked.includes(c.id); const src = Object.entries(LEVEL_UNLOCKS).find(([, u]) => u.cosmetics.includes(c.id))?.[0]; const ach = ACHIEVEMENTS.find((a) => a.cosmetic === c.id); return (
                 <button key={c.id} className={`chip ${me.equipped[slot] === c.id ? 'on' : ''} ${owned ? '' : 'locked'}`} onClick={() => owned ? equip({ [slot]: c.id }) : toast(`${c.name}: ${src ? `reach level ${src}` : ach ? `earn "${ach.name}"` : c.description}`, '🔒')} title={c.description}>
-                  <span className="ico">{owned ? SLOTS.find((s) => s.slot === slot)?.ico : '🔒'}</span><span>{c.name}</span>{!owned && <span className="tiny faint">{src ? `Lv ${src}` : ach ? 'Badge' : /^EPIC/.test(c.description) ? 'EPIC' : /Cheat code/.test(c.description) ? 'Code' : ''}</span>}
+                  <span className="ico">{owned ? SLOTS.find((s) => s.slot === slot)?.ico : '🔒'}</span><span>{c.name}</span>{!owned && <span className="tiny faint">{src ? `Lv ${src}` : ach ? 'Badge' : /^EPIC/.test(c.description) ? 'EPIC' : /Reward code/.test(c.description) ? 'Code' : ''}</span>}
                 </button>); })}
             </div>
           )}
@@ -115,9 +115,9 @@ export default function Profile() {
             </div>
           )}
           <div className="panel pad stack-6" style={{ marginTop: 10 }}>
-            <div className="small bold">🎁 Got a cheat code?</div>
+            <div className="small bold">🎁 Got a reward code?</div>
             <div className="row" style={{ gap: 6 }}>
-              <input className="input" style={{ minHeight: 44, fontSize: 16, textTransform: 'uppercase', letterSpacing: '.06em' }} value={code} onChange={(e) => setCode(e.target.value.slice(0, 16))} placeholder="JEZZA-XXXX" autoCapitalize="characters" autoComplete="off" aria-label="Cheat code" onKeyDown={(e) => e.key === 'Enter' && redeem()} />
+              <input className="input" style={{ minHeight: 44, fontSize: 16, textTransform: 'uppercase', letterSpacing: '.06em' }} value={code} onChange={(e) => setCode(e.target.value.slice(0, 16))} placeholder="JEZZA-XXXX" autoCapitalize="characters" autoComplete="off" aria-label="Reward code" onKeyDown={(e) => e.key === 'Enter' && redeem()} />
               <Button size="sm" disabled={code.replace(/[^a-z0-9]/gi, '').length < 4} onClick={redeem}>Unlock</Button>
             </div>
           </div>

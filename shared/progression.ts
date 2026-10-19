@@ -71,9 +71,9 @@ export const COSMETICS: Cosmetic[] = [
   { id: 'aura_epic', slot: 'aura', name: 'Epic Helper Aura', description: 'EPIC: put your hand up when it counted.' },
   { id: 'cape_hivis', slot: 'cape', name: 'Hi-Vis Vest', description: 'EPIC LEGEND: designated driver. Got everyone home safe.' },
   { id: 'hat_esky', slot: 'hat', name: 'Esky Hat', description: 'EPIC: Chief Hydration Officer. Kept the esky cold.' },
-  { id: 'face_mo', slot: 'face', name: 'The Mo', description: 'Cheat code only. Distinguished. Possibly a disguise.' },
-  { id: 'hat_viking', slot: 'hat', name: 'Viking Helmet', description: 'Cheat code only. For raiding the snack table.' },
-  { id: 'aura_rainbow', slot: 'aura', name: 'Rainbow Aura', description: 'Cheat code only. Fabulous, frankly.' },
+  { id: 'face_mo', slot: 'face', name: 'The Mo', description: 'Reward code only. Distinguished. Possibly a disguise.' },
+  { id: 'hat_viking', slot: 'hat', name: 'Viking Helmet', description: 'Reward code only. For raiding the snack table.' },
+  { id: 'aura_rainbow', slot: 'aura', name: 'Rainbow Aura', description: 'Reward code only. Fabulous, frankly.' },
   { id: 'pose_heroic', slot: 'pose', name: 'Heroic Pose', description: 'Chest out, chin up, wind machine implied.' },
   { id: 'pose_lounge', slot: 'pose', name: 'Lounge Pose', description: 'Reclined. Unbothered. Possibly asleep.' },
 ];

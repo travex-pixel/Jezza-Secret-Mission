@@ -107,11 +107,11 @@ export default function Host() {
               <Button size="sm" disabled={epicTitle.trim().length < 3} onClick={() => { host({ kind: 'postEpic', title: epicTitle, instruction: epicWhat, min: epicMax, max: epicMax, tier: epicTier }); setEpicTitle(''); setEpicWhat(''); }}>🟣 Post EPIC job</Button>
             </div>
             <div className="divider" />
-            <div className="eyebrow">🎁 Cheat codes</div>
+            <div className="eyebrow">🎁 Reward codes</div>
             <div className="tiny faint">Make a code for an accessory and give it to whoever you reckon deserves it. They type it in on their Me screen. Only you can see these.</div>
             <div className="panel pad stack-6">
               <select className="input" style={{ minHeight: 44, fontSize: 16 }} value={codeItem} onChange={(e) => setCodeItem(e.target.value)} aria-label="Accessory">
-                {COSMETICS.map((c) => <option key={c.id} value={c.id}>{/Cheat code only/.test(c.description) ? '⭐ ' : ''}{c.name}</option>)}
+                {COSMETICS.map((c) => <option key={c.id} value={c.id}>{/Reward code only/.test(c.description) ? '⭐ ' : ''}{c.name}</option>)}
               </select>
               <div className="tiny faint">{COSMETIC_BY_ID[codeItem]?.description}</div>
               <div className="row-between"><span className="small">Can be used by</span><span className="row" style={{ gap: 6 }}>{[1, 3, 15].map((n) => <button key={n} className={`pill ${codeUses === n ? 'pill-gold' : ''}`} onClick={() => setCodeUses(n)}>{n === 1 ? '1 lad' : n === 15 ? 'everyone' : `${n} lads`}</button>)}</span></div>

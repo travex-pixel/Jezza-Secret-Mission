@@ -4,7 +4,7 @@
 import type {
   Battle, BattleAction, Claim, TapQuality, ClientMessage, CreatureId, Equipped, FeedEvent, HostAction, HostView,
   MissionAssignment, PartyPublic, Phase, PlayerPrivate, PlayerPublic, ServerMessage, WitnessRequest,
-  Raid, Reaction, WallPost, CellarEntry, GalleryPhoto, PhotoMode, AwayEvent, Keepsake, Epic, CheatCode,
+  Raid, Reaction, WallPost, CellarEntry, GalleryPhoto, PhotoMode, AwayEvent, Keepsake, Epic, RewardCode,
 } from './types';
 import { EPIC_CUSTOM_ITEM, EPIC_MAX_CREW, EPIC_PRESET_BY_ID, EPIC_TIERS, isEpicTier } from './epics';
 import { CREATURES, CREATURE_IDS, FORMS, GROOM_CREATURE, starterTrio } from './creatures';
@@ -33,7 +33,7 @@ export interface PlayerState extends PlayerPublic {
   away: AwayEvent[];       // auto-battle results waiting for the player to look
   lastAutoAt: number;      // when this avatar last auto-battled
   recentAuto: string[];    // last few auto-battle opponents (avoid repeats)
-  codeTries: number[];     // recent wrong cheat-code guesses (rate limit)
+  codeTries: number[];     // recent wrong reward-code guesses (rate limit)
   creatureBefore?: CreatureId; // the groom's creature before it became the Golden Stag (given back if the host moves the title)
 }
 
@@ -65,7 +65,7 @@ export interface PartyState {
   photoMode: PhotoMode;
   nextAutoAt: number | null;
   epics: Epic[];
-  codes: CheatCode[];
+  codes: RewardCode[];
 }
 
 export interface EngineState {
@@ -131,7 +131,7 @@ const AUTO_NEAR_RATING = 60;
 export const AUTO_REWARDS = { win: { points: 0, xp: 15 }, lose: { points: 0, xp: 8 } }; // XP + rating only, never weekend points
 const UPSET_GAP = 40;                           // losing to someone rated this much lower counts as a choke
 const AWAY_LIMIT = 20;
-const CODE_WINDOW_MS = 10 * 60_000;            // wrong cheat-code guesses: 6 per 10 minutes
+const CODE_WINDOW_MS = 10 * 60_000;            // wrong reward-code guesses: 6 per 10 minutes
 const CODE_MAX_TRIES = 6;
 const CELLAR_REWARDED_PER_PHASE = 3;
 
@@ -1101,7 +1101,7 @@ export class Engine {
     return this.ok(party, undefined, direct);
   }
 
-  // ---------- cheat codes ----------
+  // ---------- reward codes ----------
   private redeemCode(playerId: string, raw: string): HandleResult {
     const party = this.partyOf(playerId); const p = party?.players[playerId];
     if (!party || !p || p.removed || !p.creature) return this.fail('Adopt a creature first.');
@@ -1117,8 +1117,8 @@ export class Engine {
     if (p.unlocked.includes(c.item)) return this.fail(`You already have the ${cos?.name ?? 'item'}. Save it for a mate.`);
     c.redeemedBy.push(playerId);
     p.unlocked.push(c.item);
-    this.feed(party, { kind: 'unlock', text: `🎁 ${p.nickname} cracked a cheat code and unlocked the ${cos?.name ?? 'mystery item'}`, playerId: p.id, emoji: '🎁' });
-    return this.ok(party, { item: c.item }, [{ to: playerId, msg: { type: 'reward', points: 0, xp: 0, unlocked: [c.item], title: 'Cheat code unlocked!', bonus: '🎁 Straight from the host' } }]);
+    this.feed(party, { kind: 'unlock', text: `🎁 ${p.nickname} redeemed a reward code and unlocked the ${cos?.name ?? 'mystery item'}`, playerId: p.id, emoji: '🎁' });
+    return this.ok(party, { item: c.item }, [{ to: playerId, msg: { type: 'reward', points: 0, xp: 0, unlocked: [c.item], title: 'Reward code unlocked!', bonus: '🎁 Straight from the host' } }]);
   }
 
   // ---------- auto-battles ----------

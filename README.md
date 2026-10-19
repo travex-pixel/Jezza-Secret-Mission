@@ -37,7 +37,7 @@ More screenshots at every tested viewport live in [`docs/screenshots/`](docs/scr
 | Party camera roll; delete your own photos any time, ask the host to take down anyone else's | ✅ |
 | Host keepsake download (every roast, toast, review, award and the final board) and a scan-to-join QR code | ✅ |
 | **🟣 EPIC jobs**: the host posts real jobs (dinner, brekkie, food runs, designated driver, Chief Hydration Officers, clean-up…); first in fill the crew; everyone on it gets points, XP and a themed item. Bigger jobs pay more | ✅ |
-| **🎁 Cheat codes**: the host makes a code for any accessory (plus three code-only items) and gives it to whoever deserves it | ✅ |
+| **🎁 Reward codes**: the host makes a code for any accessory (plus three code-only items) and gives it to whoever deserves it | ✅ |
 | 14 data-driven awards (The Jezza Legend, The Weekend Menace, Best Hype Man, Biggest Choke…) + live "Award race" tab; animated finale ceremony with podium and weekend recap | ✅ |
 | Host PIN, leave/new room, join-by-link, link previews, persistence, keepsake photo export | ✅ |
 
@@ -170,9 +170,9 @@ it's done gives your spot back; nobody is rewarded twice.
 Items: Chef's Toque (cooking), Delivery Cap (runs), BBQ Apron, Hi-Vis Vest (designated driver), Esky Hat (drinks
 officer), DJ Headphones (setup), Squeaky Clean and Epic Helper auras. Most EPIC jobs → the **Captain Helpful** award.
 
-### Cheat codes
+### Reward codes
 
-Host → Event → Cheat codes: pick any accessory (⭐ marks the code-only ones: The Mo, Viking Helmet, Rainbow Aura),
+Host → Event → Reward codes: pick any accessory (⭐ marks the code-only ones: The Mo, Viking Helmet, Rainbow Aura),
 choose who can use it (1 lad, 3, or everyone) and tap *Make a code*. Tell someone the code (e.g. `JEZZA-K7Q2`);
 they type it on their Me screen to unlock the item. Only the host can see codes. Six wrong guesses lock a player
 out for ten minutes.
