@@ -66,7 +66,7 @@ export default function Join() {
             ? <Button variant="ghost" onClick={() => { setMode('host'); setErr(null); }}>I'm the host, create a party</Button>
             : <Button variant="ghost" onClick={() => { setMode('join'); setErr(null); }}>I have a code instead</Button>}
         </div>
-        {isDemo() && <div className="center faint tiny">Demo mode: any code works and your mates are bots.</div>}
+        {isDemo() && <div className="center faint tiny" style={{ maxWidth: '34ch', margin: '0 auto' }}>Demo mode: your mates are bots. Any code joins Jezza's room; "I'm the host" gives you the host controls.</div>}
       </div>
     </div>
   );

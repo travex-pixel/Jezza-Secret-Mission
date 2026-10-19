@@ -5,7 +5,7 @@
 import type { ClientMessage, ClientRequest, ServerMessage } from '@shared/types';
 import { Engine, type Outbound } from '@shared/engine';
 import { CREATURE_IDS } from '@shared/creatures';
-import { STARTER_MISSION } from '@shared/missions';
+import { MISSION_BY_ID, STARTER_MISSION } from '@shared/missions';
 import { useStore } from './store';
 
 type Pending = { resolve: (v: any) => void; reject: (e: Error) => void; timer: number };
@@ -106,39 +106,49 @@ function connectDemo(): Transport {
   const engine = new Engine({ codeLength: 4 });
   const { identity } = useStore.getState();
   const hostId = 'demo_host_0000000001';
+  const mateIds: string[] = [];
+  const seeded = new Set<string>();
+
+  /** Join the simulated mates into a party and give them believable progress. */
+  const seedBots = (code: string, includeJezzaAsHost: boolean) => {
+    if (seeded.has(code)) return;
+    seeded.add(code);
+    const party = engine.state.parties[code];
+    DEMO_MATES.forEach((m, i) => {
+      const isHostBot = i === 0 && includeJezzaAsHost;
+      const id = i === 0 ? hostId : `demo_mate_${String(i).padStart(12, '0')}`;
+      engine.auth(id, 'demo-secret-mate');
+      if (!isHostBot) engine.handle(id, { type: 'joinParty', reqId: 'x', code, nickname: m.nick });
+      if (!mateIds.includes(id)) mateIds.push(id);
+      engine.handle(id, { type: 'chooseCreature', reqId: 'x', creature: m.creature, creatureName: m.name });
+      const p = party.players[id];
+      if (!p) return;
+      p.xp = m.xp; p.points = m.pts; p.wins = m.w; p.losses = m.l; p.missionsCompleted = Math.floor(m.pts / 15);
+      p.level = Math.max(1, Math.min(10, 1 + Math.floor(m.xp / 60)));
+      p.online = i % 4 !== 3;
+      p.categoryCounts = { toast: i % 3, jezza: i % 2, social: i % 4 };
+    });
+    party.feed.push(
+      { id: 'd1', at: Date.now() - 540000, kind: 'mission', text: 'Big Dave completed "The Sommelier Fraud" (+20 pts)', emoji: '✅' },
+      { id: 'd2', at: Date.now() - 420000, kind: 'battle', text: 'Keg (Big Dave) knocked out Bruce (Tommo)', emoji: '🏆' },
+      { id: 'd3', at: Date.now() - 300000, kind: 'achievement', text: 'Shorty unlocked "Toastmaster General"', emoji: '🏅' },
+      { id: 'd4', at: Date.now() - 120000, kind: 'mission', text: 'Nath completed a SECRET mission (+20 pts)', emoji: '🕵️' },
+    );
+  };
+
+  // The default demo room: Jezza (a bot) hosts, Friday is already live.
   engine.auth(hostId, 'demo-secret-host');
   const created = engine.handle(hostId, { type: 'createParty', reqId: 'x', nickname: DEMO_MATES[0].nick, partyName: "Jezza's Bucks Weekend" });
   const code = (created.ack as any).data.code as string;
-  const party = engine.state.parties[code];
-  const mateIds: string[] = [hostId];
-  DEMO_MATES.forEach((m, i) => {
-    const id = i === 0 ? hostId : `demo_mate_${String(i).padStart(12, '0')}`;
-    if (i > 0) { engine.auth(id, 'demo-secret-mate'); engine.handle(id, { type: 'joinParty', reqId: 'x', code, nickname: m.nick }); mateIds.push(id); }
-    engine.handle(id, { type: 'chooseCreature', reqId: 'x', creature: m.creature, creatureName: m.name });
-    const p = party.players[id];
-    p.xp = m.xp; p.points = m.pts; p.wins = m.w; p.losses = m.l; p.missionsCompleted = Math.floor(m.pts / 15);
-    p.level = Math.max(1, Math.min(10, 1 + Math.floor(m.xp / 60)));
-    p.online = i % 4 !== 3;
-    p.categoryCounts = { toast: i % 3, jezza: i % 2, social: i % 4 };
-  });
+  seedBots(code, true);
   engine.handle(hostId, { type: 'host', reqId: 'x', action: { kind: 'setPhase', phase: 'friday' } });
   engine.handle(hostId, { type: 'host', reqId: 'x', action: { kind: 'revealGroupMission', missionId: 'm051' } });
-  // fake some feed colour
-  party.feed.push(
-    { id: 'd1', at: Date.now() - 540000, kind: 'mission', text: 'Big Dave completed "The Sommelier Fraud" (+20 pts)', emoji: '✅' },
-    { id: 'd2', at: Date.now() - 420000, kind: 'battle', text: 'Keg (Big Dave) knocked out Bruce (Tommo)', emoji: '🏆' },
-    { id: 'd3', at: Date.now() - 300000, kind: 'achievement', text: 'Shorty unlocked "Toastmaster General"', emoji: '🏅' },
-    { id: 'd4', at: Date.now() - 120000, kind: 'mission', text: 'Nath completed a SECRET mission (+20 pts)', emoji: '🕵️' },
-  );
   engine.auth(identity.playerId, identity.secret);
   useStore.getState().setConn('demo');
   useStore.setState({ pendingCode: code });
 
   const deliver = (outs: Outbound[]) => {
-    for (const o of outs) {
-      if (o.to === identity.playerId || o.to === 'party') dispatch(o.msg);
-      else if (o.msg.type === 'toast' && o.msg.text.includes('challenges you')) { /* bots handle below */ }
-    }
+    for (const o of outs) if (o.to === identity.playerId || o.to === 'party') dispatch(o.msg);
   };
   const push = () => {
     const p = engine.partyOf(identity.playerId);
@@ -147,25 +157,35 @@ function connectDemo(): Transport {
     const priv = engine.privateView(p, identity.playerId);
     dispatch({ type: 'private', priv, hostView: p.hostId === identity.playerId ? engine.hostView(p) : undefined });
   };
-  // bots: accept challenges, pick actions, confirm witness requests after a moment
+  // Bots: accept challenges, pick actions, confirm witness requests; the bot host approves claims.
   const botTick = () => {
-    const p = engine.state.parties[code];
     let changed = false;
-    for (const b of Object.values(p.battles)) {
-      if (b.status === 'challenge' && mateIds.includes(b.opponentId) && Date.now() - b.createdAt > 1200) { engine.handle(b.opponentId, { type: 'respondChallenge', reqId: 'x', battleId: b.id, accept: true }); changed = true; }
-      if (b.status === 'active') {
-        for (const side of [b.a, b.b]) {
-          if (mateIds.includes(side.playerId) && !side.action && Date.now() - (b.roundDeadline ?? 0) > -20000) {
-            const act = side.specialCooldown === 0 && Math.random() < 0.4 ? 'special' : Math.random() < 0.7 ? 'attack' : 'defend';
-            const r = engine.handle(side.playerId, { type: 'battleAction', reqId: 'x', battleId: b.id, round: b.round, action: act });
-            deliver(r.direct); changed = true;
+    for (const p of Object.values(engine.state.parties)) {
+      for (const b of Object.values(p.battles)) {
+        if (b.status === 'challenge' && mateIds.includes(b.opponentId) && Date.now() - b.createdAt > 1200) { engine.handle(b.opponentId, { type: 'respondChallenge', reqId: 'x', battleId: b.id, accept: true }); changed = true; }
+        if (b.status === 'active') {
+          for (const side of [b.a, b.b]) {
+            if (mateIds.includes(side.playerId) && !side.action) {
+              const act = side.specialCooldown === 0 && Math.random() < 0.4 ? 'special' : Math.random() < 0.7 ? 'attack' : 'defend';
+              const r = engine.handle(side.playerId, { type: 'battleAction', reqId: 'x', battleId: b.id, round: b.round, action: act });
+              deliver(r.direct); changed = true;
+            }
           }
         }
       }
-    }
-    for (const c of Object.values(p.claims)) {
-      if (c.status === 'pending' && c.method === 'witness' && c.witnessId && mateIds.includes(c.witnessId) && Date.now() - c.createdAt > 2500) { const r = engine.handle(c.witnessId, { type: 'confirmWitness', reqId: 'x', claimId: c.id, approve: true }); deliver(r.direct); changed = true; }
-      if (c.status === 'pending' && c.method !== 'witness' && p.hostId === hostId && Date.now() - c.createdAt > 4000) { const r = engine.handle(hostId, { type: 'host', reqId: 'x', action: { kind: 'resolveClaim', claimId: c.id, approve: true } }); deliver(r.direct); changed = true; }
+      for (const c of Object.values(p.claims)) {
+        if (c.status === 'pending' && c.method === 'witness' && c.witnessId && mateIds.includes(c.witnessId) && Date.now() - c.createdAt > 2500) { const r = engine.handle(c.witnessId, { type: 'confirmWitness', reqId: 'x', claimId: c.id, approve: true }); deliver(r.direct); changed = true; }
+        if (c.status === 'pending' && c.method !== 'witness' && p.hostId === hostId && Date.now() - c.createdAt > 4000) { const r = engine.handle(hostId, { type: 'host', reqId: 'x', action: { kind: 'resolveClaim', claimId: c.id, approve: true } }); deliver(r.direct); changed = true; }
+      }
+      // Occasionally a bot completes a mission so the feed feels alive.
+      if (p.phase === 'friday' || p.phase === 'saturday') {
+        if (Math.random() < 0.012) {
+          const bot = mateIds[Math.floor(Math.random() * mateIds.length)];
+          const bp = p.players[bot];
+          const h = bp?.hand.find((x) => x.status === 'active' && MISSION_BY_ID[x.missionId]?.method === 'self');
+          if (bp && h) { const r = engine.handle(bot, { type: 'claimMission', reqId: 'x', missionId: h.missionId, claimId: `bot_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}` }); deliver(r.direct.filter((d) => d.to === 'party')); changed = true; }
+        }
+      }
     }
     const t = engine.tick(); deliver(t.direct);
     if (changed || t.changed.length) push();
@@ -177,13 +197,14 @@ function connectDemo(): Transport {
     kind: 'demo',
     send(msg) {
       if (msg.type === 'hello' || msg.type === 'ping') return;
-      // Demo rooms: any code joins the demo party
+      // Demo rooms: any join code lands in the demo party; hosting a party fills it with bots.
       const m = msg.type === 'joinParty' ? { ...msg, code } : msg;
       const res = engine.handle(identity.playerId, m as ClientMessage);
+      if (m.type === 'createParty' && res.ack?.ok) seedBots((res.ack.data as any).code, false);
       setTimeout(() => {
+        push();
         if ('reqId' in m && res.ack) dispatch(res.ack.ok ? { type: 'ack', reqId: m.reqId, ok: true, data: res.ack.data } : { type: 'ack', reqId: m.reqId, ok: false, error: res.ack.error });
         deliver(res.direct);
-        push();
       }, 60 + Math.random() * 120);
     },
   };
@@ -192,7 +213,8 @@ function connectDemo(): Transport {
 export function connect() {
   if (transport) return transport;
   const params = new URLSearchParams(location.search);
-  const forceDemo = params.get('demo') === '1';
+  // Demo when asked for explicitly, when built as a static site (GitHub Pages), or when hosted on *.github.io.
+  const forceDemo = params.get('demo') === '1' || import.meta.env.VITE_STATIC_DEMO === '1' || /\.github\.io$/i.test(location.hostname);
   transport = forceDemo ? connectDemo() : connectLive();
   return transport;
 }

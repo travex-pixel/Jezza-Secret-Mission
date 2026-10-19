@@ -33,6 +33,18 @@ Deliberately **not** built (per the brief): Wine Snob Championship, Mr & Mrs Hot
 
 ---
 
+## Try it right now (no install)
+
+**https://travex-pixel.github.io/Jezza-Secret-Mission/** runs the browser-only **demo**: the full game engine
+runs on your phone with 14 simulated mates. Tap *I'm the host* to get the host controls, or join with any code
+to drop into Jezza's room on Friday night. It is published automatically by `.github/workflows/pages.yml`.
+
+> First-time setup (once, in GitHub): **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+> Until that is switched on, the Pages URL shows a 404.
+
+The demo is for playing around. **Real multiplayer** (your actual mates on their actual phones, shared scores,
+photo approvals, live battles) needs the Node server: see *Quick start* below or *Deployment*.
+
 ## Quick start (local)
 
 Requires Node 22+.
@@ -141,6 +153,7 @@ this event; if you ever need multi-instance scale, the engine is already pure an
 | `npm run test:multiplayer` | 15 real WebSocket clients against a running server (`WS_URL`, default `ws://localhost:8787/ws`) |
 | `npm run test:viewports` | Playwright walkthrough at 4 phone viewports → `test-results/screenshots/` (curated copies live in `docs/screenshots/`), fails on overflow/scroll/console errors |
 | `npx tsx tests/e2e.live.ts` | Two separate browser sessions playing together against a built server (`BASE_URL`) |
+| `npx tsx tests/e2e.static.ts` | Serves the GitHub Pages demo build under its base path and plays it headless (no server) |
 | `npx tsx tests/e2e.host.ts` | Host UI against a built server: phases, group reveal, photo approval → feed, witness confirmation, finale awards |
 | `npx tsx tests/persistence.sim.ts` | Boots a server, creates a party, restarts it, verifies the party is restored |
 | `npx tsx scripts/balance.ts` | Prints simulated win rates for every creature |
