@@ -80,7 +80,7 @@ function Arena({ battle, meId, names, onAction, onSurrender, onRematch, onExit, 
           {anim.pops.filter((p) => p.side === 'me').map((p) => <span key={p.id} className={`dmg-pop ${p.heal ? 'heal' : ''}`} style={{ top: '30%', left: '40%' }}>{p.text}</span>)}
           <span className="pill pill-xs status">{locked ? '🔒 locked in' : finished ? '' : 'your move'}</span>
         </div>
-        {tapping && <div className="pt-wrap"><PowerTap label={tapping === 'special' ? CREATURES[mine.creature].special.name : 'Attack'} onDone={(q) => commit(tapping, q)} /></div>}
+        {tapping && <PowerTap label={tapping === 'special' ? CREATURES[mine.creature].special.name : 'Attack'} onDone={(q) => commit(tapping, q)} />}
         <div className="hpcard me-card"><div className="row-between tiny bold"><span className="ellipsis">{myInfo?.name}</span><span className="faint">Lv{myInfo?.level}</span></div><HPBar hp={shownHp.me} max={mine.maxHp} /><div className="tiny faint">You · {shownHp.me}/{mine.maxHp}</div></div>
       </div>
       <div className="arena-log">

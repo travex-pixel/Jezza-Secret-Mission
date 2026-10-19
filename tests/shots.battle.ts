@@ -16,8 +16,13 @@ await p.getByRole('button', { name: /challenge a mate/i }).click(); await p.loca
 await p.waitForSelector('.actions', { timeout: 8000 });
 await p.locator('.action-btn.attack').click(); await p.waitForTimeout(450);
 await p.screenshot({ path: 'test-results/screenshots/powertap.png' });
-await p.locator('.powertap').click(); await p.waitForTimeout(300);
+// tap OVER the bottom nav: must stop the marker and must NOT switch tabs
+await p.mouse.click(195, 800); await p.waitForTimeout(300);
+const txt = await p.locator('.powertap').textContent();
+console.log(/CRIT|Solid|Whiff/.test(txt ?? '') ? '✔ tap over the bottom nav registered' : '✘ tap over nav did not register: ' + txt);
 await p.screenshot({ path: 'test-results/screenshots/powertap-result.png' });
+await p.waitForTimeout(700);
+console.log((await p.locator('.actions').count()) === 1 ? '✔ still in the arena (nav tap swallowed)' : '✘ tab changed');
 await p.waitForTimeout(3500);
 await p.screenshot({ path: 'test-results/screenshots/round-after.png' });
 await p.locator('.action-btn.counter').click(); await p.waitForTimeout(1300);
