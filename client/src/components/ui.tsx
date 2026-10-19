@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { useStore, type Tab } from '../store';
+import { findBattle, useStore, type Tab } from '../store';
 import { Creature } from './Creature';
 import { FORMS } from '@shared/creatures';
 import { REWARD_QUIPS } from '@shared/missions';
@@ -195,17 +195,28 @@ export function FeedItem({ f, compact }: { f: FeedEvent; compact?: boolean }) {
   const back = () => run(() => request({ type: 'backClaim', claimId: f.claimId! }), 'You backed it.', '🤝');
   const react = (emoji: Reaction) => run(() => request({ type: 'react', eventId: f.id, emoji }));
   const reactions: Reaction[] = groomId === me ? ['😂', '🔥', '❤️'] : ['😂', '🔥'];
+  const pendingVote = useStore((s) => (f.kind === 'vote' ? s.party?.pendingPhotos?.find((x) => x.claimId === f.claimId) : undefined));
+  const replayable = useStore((s) => (f.battleId ? findBattle(s, f.battleId) : undefined));
+  const setReplay = useStore((s) => s.setReplay);
+  const vote = (up: boolean) => run(() => request({ type: 'votePhoto', claimId: f.claimId!, up }), up ? 'Voted it in 👍' : 'Voted it down 👎', up ? '👍' : '👎');
   return (
-    <div className="feed-item">
+    <div className={`feed-item ${pendingVote ? 'vote-item' : ''}`}>
       <span className="emoji">{f.emoji ?? '•'}</span>
       <span className="grow" style={{ minWidth: 0 }}>
         <span className={compact ? 'ellipsis' : ''} style={{ display: 'block' }}>{f.text}</span>
-        {!compact && f.photoUrl && <img src={f.photoUrl} alt="Challenge photo" loading="lazy" />}
+        {(!compact || pendingVote) && f.photoUrl && <img src={f.photoUrl} alt="Challenge photo" loading="lazy" className={compact ? 'vote-thumb' : ''} />}
         <span className="row" style={{ gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
           <time style={{ display: 'inline' }}>{timeAgo(f.at)}</time>
           {isMission && !compact && reactions.map((r) => { const n = f.reactions?.[r]?.length ?? 0; const on = !!f.reactions?.[r]?.includes(me); return (
             <button key={r} className={`react-btn ${on ? 'on' : ''}`} disabled={busy || mine || on} onClick={() => react(r)} aria-label={`React ${r}`}>{r}{n ? ` ${n}` : ''}</button>); })}
           {isMission && compact && !!(f.reactions?.['😂']?.length || f.reactions?.['🔥']?.length || f.reactions?.['❤️']?.length) && <span className="tiny faint">{(['😂', '🔥', '❤️'] as Reaction[]).map((r) => f.reactions?.[r]?.length ? `${r}${f.reactions[r]!.length}` : '').join(' ')}</span>}
+          {pendingVote && (mine
+            ? <span className="tiny faint">🗳️ The lads are voting · 👍 {pendingVote.up.length} 👎 {pendingVote.down.length}</span>
+            : <>
+              <button className={`react-btn ${pendingVote.up.includes(me) ? 'on' : ''}`} disabled={busy} onClick={() => vote(true)} aria-label="Vote it in">👍 {pendingVote.up.length || ''}</button>
+              <button className={`react-btn ${pendingVote.down.includes(me) ? 'on' : ''}`} disabled={busy} onClick={() => vote(false)} aria-label="Vote it down">👎 {pendingVote.down.length || ''}</button>
+            </>)}
+          {replayable && <button className="react-btn" onClick={() => setReplay(replayable)} aria-label="Watch replay">▶ Replay</button>}
           {f.disputed && <span className="pill pill-xs pill-ember">⚖️ disputed</span>}
           {f.disputed && !mine && !flagged && !compact && <button className="react-btn" disabled={busy} onClick={back}>🤝 Legit</button>}
           {!f.disputed && !!f.flags && <span className="tiny faint">🚩 {f.flags}</span>}

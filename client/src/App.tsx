@@ -19,6 +19,8 @@ import Cellar from './screens/Cellar';
 import Gallery from './screens/Gallery';
 import { BottomNav, RewardOverlay, Toasts } from './components/ui';
 import IncomingChallenge from './components/IncomingChallenge';
+import AwaySummary, { useAwayAutoOpen } from './components/AwaySummary';
+import ReplayOverlay from './battle/Replay';
 
 export default function App() {
   const flow = useStore((s) => s.flow);
@@ -26,6 +28,7 @@ export default function App() {
   const party = useStore((s) => s.party);
   const me = useMe();
   useEffect(() => { connect(); }, []);
+  useAwayAutoOpen();
   // Guard: if we lose party membership mid-game, bounce to join.
   useEffect(() => { if (flow === 'main' && party && !me) useStore.getState().setFlow('join'); }, [flow, party, me]);
 
@@ -56,6 +59,8 @@ export default function App() {
       {screen}
       {showNav && <BottomNav />}
       {showNav && <IncomingChallenge />}
+      {showNav && <AwaySummary />}
+      {showNav && <ReplayOverlay />}
       <Toasts />
       <RewardOverlay />
     </div>

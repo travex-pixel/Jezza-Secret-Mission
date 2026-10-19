@@ -23,6 +23,8 @@ interface State {
   focusBattleId: string | null;
   kicked: string | null;
   pendingCode: string | null;
+  replay: Battle | null;   // battle being replayed in the overlay
+  awayOpen: boolean;       // "while you were away" sheet
   // actions
   setConn: (c: ConnStatus) => void;
   setFlow: (f: Flow) => void;
@@ -33,6 +35,8 @@ interface State {
   nextReward: () => void;
   setFocusBattle: (id: string | null) => void;
   clearKicked: () => void;
+  setReplay: (b: Battle | null) => void;
+  setAwayOpen: (open: boolean) => void;
 }
 
 let toastSeq = 1;
@@ -50,6 +54,8 @@ export const useStore = create<State>((set, get) => ({
   rewardQueue: [],
   focusBattleId: null,
   kicked: null,
+  replay: null,
+  awayOpen: false,
   pendingCode: new URLSearchParams(location.search).get('p')?.toUpperCase() ?? null,
 
   setConn: (conn) => set({ conn }),
@@ -89,7 +95,15 @@ export const useStore = create<State>((set, get) => ({
   nextReward: () => { const [next, ...rest] = get().rewardQueue; set({ reward: next ?? null, rewardQueue: rest }); },
   setFocusBattle: (focusBattleId) => set({ focusBattleId }),
   clearKicked: () => set({ kicked: null }),
+  setReplay: (replay) => set({ replay }),
+  setAwayOpen: (awayOpen) => set({ awayOpen }),
 }));
+
+/** Find a battle for replay: recent public ones first, then the player's own away log. */
+export function findBattle(s: Pick<State, 'party' | 'priv'>, id: string | undefined): Battle | undefined {
+  if (!id) return undefined;
+  return s.party?.battles.find((b) => b.id === id) ?? s.priv?.awayBattles?.find((b) => b.id === id);
+}
 
 // ---------- selectors ----------
 export const useMe = (): PlayerPublic | undefined => useStore((s) => s.party?.players.find((p) => p.id === s.identity.playerId));

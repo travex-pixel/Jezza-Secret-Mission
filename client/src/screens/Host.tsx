@@ -54,11 +54,19 @@ export default function Host() {
             <div className="stack-6">
               {PHASES.map((p) => <button key={p.id} className={`list-row ${party.phase === p.id ? 'me' : ''}`} style={{ width: '100%', textAlign: 'left' }} onClick={() => party.phase !== p.id && setConfirmPhase(p.id)}><span style={{ fontSize: 18 }}>{party.phase === p.id ? '📍' : '○'}</span><span className="grow"><div className="bold">{p.label}</div><div className="tiny faint">{p.blurb}</div></span>{party.phase === p.id && <span className="pill pill-xs pill-gold">current</span>}</button>)}
             </div>
-            <div className="tiny faint">The game runs itself: Friday starts straight away, Saturday at 5am, group challenges drop every 40 minutes, the lads settle BS calls. You only need this panel for the finale.</div>
+            <div className="tiny faint">The game runs itself: Friday starts straight away, Saturday at 5am, group challenges drop every 40 minutes, avatars auto-battle, the lads settle BS calls. Everything here is optional. Step in whenever you like.</div>
             <div className="divider" />
             <div className="row-between"><div><div className="bold">Boss raid</div><div className="tiny faint">{party.raid?.status === 'active' ? 'One is on right now.' : 'Turns up on its own once the lads have done enough challenges. Or summon one now.'}</div></div><Button size="sm" variant="secondary" disabled={party.raid?.status === 'active'} onClick={() => host({ kind: 'summonRaid' })}>Summon</Button></div>
             <div className="divider" />
             <div className="row-between"><div><div className="bold">Missions {party.missionsOpen ? 'open' : 'paused'}</div><div className="tiny faint">Pause during dinner, speeches, emergencies.</div></div><Button size="sm" variant={party.missionsOpen ? 'secondary' : 'primary'} onClick={() => host({ kind: 'setMissionsOpen', open: !party.missionsOpen })}>{party.missionsOpen ? 'Pause' : 'Open'}</Button></div>
+            <div className="divider" />
+            <div className="eyebrow">Photo checks</div>
+            <div className="stack-6" role="radiogroup" aria-label="Photo checks">
+              {([['vote', '🗳️ The lads vote', 'Photos post with 👍/👎. Two thumbs up and they count; two down and they\'re binned. Unsettled after 20 min? Counts.'], ['host', '👑 I approve them', 'Photos come to your Queue first. Anything you don\'t get to is approved after 45 min.'], ['instant', '⚡ Instant', 'Photos count straight away. The lads can still call BS.']] as const).map(([id, label, blurb]) => (
+                <button key={id} role="radio" aria-checked={party.photoMode === id} className={`list-row ${party.photoMode === id ? 'me' : ''}`} style={{ width: '100%', textAlign: 'left' }} onClick={() => party.photoMode !== id && host({ kind: 'setPhotoMode', mode: id })}>
+                  <span className="grow"><div className="bold">{label}</div><div className="tiny faint">{blurb}</div></span>{party.photoMode === id && <span className="pill pill-xs pill-gold">on</span>}
+                </button>))}
+            </div>
             <div className="divider" />
             <div className="eyebrow">Group missions</div>
             {GROUP_MISSIONS.map((m) => { const on = party.revealedGroupMissions.includes(m.id); return <div key={m.id} className="list-row"><span className="grow"><div className="bold">{m.title} <span className="tiny faint">+{m.points}</span></div><div className="tiny dim">{m.instruction}</div></span>{on ? <span className="pill pill-xs pill-ok">live</span> : <Button size="xs" onClick={() => host({ kind: 'revealGroupMission', missionId: m.id })}>Reveal</Button>}</div>; })}
@@ -74,9 +82,11 @@ export default function Host() {
         {section === 'approvals' && (
           <>
             {approvals.length === 0 && <div className="panel pad center dim bold">Nothing waiting. The lads sort BS calls out themselves; you can step in here if you want.</div>}
+            {approvals.some((c) => c.review === 'vote') && <div className="tiny faint">Photos marked 🗳️ are being voted on by the lads. You can settle them early.</div>}
             {approvals.map((c) => { const m = MISSION_BY_ID[c.missionId]; const p = party.players.find((x) => x.id === c.playerId); return (
               <div key={c.id} className="panel pad stack-6">
                 <div className="row-between"><span className="bold">{p?.nickname ?? '?'} · {m?.title}</span><span className="tiny faint">{timeAgo(c.createdAt)}</span></div>
+                {c.review === 'vote' && c.status === 'pending' && <div className="pill pill-xs" style={{ alignSelf: 'flex-start' }}>🗳️ lads voting · 👍 {c.votesUp?.length ?? 0} 👎 {c.votesDown?.length ?? 0}</div>}
                 {c.status === 'disputed' && <div className="pill pill-ember" style={{ alignSelf: 'flex-start' }}>🚩 BS called by {(c.flags ?? []).map((id) => party.players.find((x) => x.id === id)?.nickname ?? '?').join(' & ')} · points frozen</div>}
                 <div className="small dim">{m?.instruction}</div>
                 {c.photoUrl && <img src={c.photoUrl} alt="Proof" style={{ width: '100%', borderRadius: 12, maxHeight: 260, objectFit: 'cover' }} />}

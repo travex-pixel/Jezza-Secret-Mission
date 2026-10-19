@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Battle, BattleAction, BattleRoundLog, PlayerPublic, TapQuality } from '@shared/types';
+import type { Battle, BattleAction, PlayerPublic, TapQuality } from '@shared/types';
 import { CREATURES } from '@shared/creatures';
 import { makeCreatureState, resolveRound, ROUND_SECONDS } from '@shared/battle';
 import { rankFor, sortLeaderboard } from '@shared/progression';
-import { Creature, type CreatureState } from '../components/Creature';
-import { Button, HPBar, Sheet, useCountdown } from '../components/ui';
+import { Creature } from '../components/Creature';
+import { Button, Sheet, useCountdown } from '../components/ui';
+import BattleStage from '../battle/BattleStage';
 import PowerTap from '../components/PowerTap';
 import { useStore, useMe, useMyBattle, playerById } from '../store';
 import { request } from '../net';
 import { sfx } from '../audio';
-import { buzz } from '../haptics';
 
 // ---------- Arena (shared by live + practice) ----------
 interface ArenaProps {
@@ -26,70 +26,40 @@ interface ArenaProps {
 function Arena({ battle, meId, names, onAction, onSurrender, onRematch, onExit, practice }: ArenaProps) {
   const mine = battle.a.playerId === meId ? battle.a : battle.b;
   const foe = battle.a.playerId === meId ? battle.b : battle.a;
-  const myLog = (l: BattleRoundLog) => (battle.a.playerId === meId ? l.a : l.b);
-  const foeLog = (l: BattleRoundLog) => (battle.a.playerId === meId ? l.b : l.a);
-  const [anim, setAnim] = useState<{ me: CreatureState; foe: CreatureState; k: number; pops: { id: number; side: 'me' | 'foe'; text: string; heal?: boolean }[] }>({ me: 'idle', foe: 'idle', k: 0, pops: [] });
-  const [shownHp, setShownHp] = useState({ me: mine.hp, foe: foe.hp });
-  const seen = useRef(battle.log.length);
   const [busy, setBusy] = useState(false);
+  const [shownRounds, setShownRounds] = useState(battle.log.length);
+  const [skip, setSkip] = useState(0);
+  const [resultReady, setResultReady] = useState(battle.status === 'finished');
   const left = useCountdown(battle.status === 'active' ? battle.roundDeadline : undefined);
   const [confirmSurrender, setConfirmSurrender] = useState(false);
-
-  // Animate newly resolved rounds
-  useEffect(() => {
-    if (battle.log.length <= seen.current) { if (battle.log.length < seen.current) seen.current = battle.log.length; return; }
-    const log = battle.log[battle.log.length - 1]; seen.current = battle.log.length;
-    const m = myLog(log), f = foeLog(log);
-    const pops: typeof anim.pops = [];
-    let id = Date.now();
-    const seq: (() => void)[] = [];
-    const myState = (act: BattleAction): CreatureState => act === 'counter' ? 'guard' : 'attack';
-    seq.push(() => { setAnim((a) => ({ ...a, me: myState(m.action), k: a.k + 1 })); if (m.action === 'special') sfx.special(); else if (m.action === 'attack') sfx.hit(); else sfx.guard(); });
-    seq.push(() => { if (m.dmgDealt - (m.reflected ?? 0) > 0) { pops.push({ id: id++, side: 'foe', text: `${m.tap === 'perfect' ? 'CRIT ' : ''}-${m.dmgDealt - (m.reflected ?? 0)}` }); setAnim((a) => ({ ...a, foe: 'hit', pops: [...pops], k: a.k + 1 })); } if (m.heal) { pops.push({ id: id++, side: 'me', text: `+${m.heal}`, heal: true }); setAnim((a) => ({ ...a, pops: [...pops] })); } });
-    seq.push(() => { setAnim((a) => ({ ...a, foe: myState(f.action), me: m.action === 'counter' ? 'guard' : 'idle', k: a.k + 1 })); if (f.action === 'special') sfx.special(); else if (f.action === 'attack') sfx.hit(); else sfx.guard(); });
-    seq.push(() => { if (f.dmgDealt - (f.reflected ?? 0) > 0) { pops.push({ id: id++, side: 'me', text: `${f.tap === 'perfect' ? 'CRIT ' : ''}-${f.dmgDealt - (f.reflected ?? 0)}` }); buzz(30); setAnim((a) => ({ ...a, me: 'hit', pops: [...pops], k: a.k + 1 })); } if (f.heal) { pops.push({ id: id++, side: 'foe', text: `+${f.heal}`, heal: true }); setAnim((a) => ({ ...a, pops: [...pops] })); } });
-    // reflections land last, with their own flash
-    seq.push(() => { let any = false; if (m.reflected) { pops.push({ id: id++, side: 'foe', text: `↩ -${m.reflected}` }); any = true; setAnim((a) => ({ ...a, foe: 'hit', me: 'guard', pops: [...pops], k: a.k + 1 })); } if (f.reflected) { pops.push({ id: id++, side: 'me', text: `↩ -${f.reflected}` }); any = true; setAnim((a) => ({ ...a, me: 'hit', foe: 'guard', pops: [...pops], k: a.k + 1 })); } if (any) sfx.hit(); setShownHp({ me: mine.hp, foe: foe.hp }); });
-    seq.push(() => { setAnim((a) => ({ ...a, me: battle.status === 'finished' ? (battle.winnerId === meId ? 'victory' : 'defeat') : 'idle', foe: battle.status === 'finished' ? (battle.winnerId === meId ? 'defeat' : 'victory') : 'idle', pops: [], k: a.k + 1 })); if (battle.status === 'finished') { if (battle.winnerId === meId) { sfx.victory(); buzz([40, 60, 120]); } else sfx.defeat(); } });
-    const timers = seq.map((fn, i) => setTimeout(fn, i * 420));
-    return () => timers.forEach(clearTimeout);
-  }, [battle.log.length, battle.status]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (battle.log.length === 0) setShownHp({ me: mine.hp, foe: foe.hp }); }, [battle.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  // Safety net: whatever happens to the animation, the bars always settle on the server's numbers.
-  useEffect(() => { const t = setTimeout(() => setShownHp({ me: mine.hp, foe: foe.hp }), 3000); return () => clearTimeout(t); }, [mine.hp, foe.hp]);
 
   const [tapping, setTapping] = useState<BattleAction | null>(null);
   const commit = async (a: BattleAction, tap?: TapQuality) => { setTapping(null); setBusy(true); try { await onAction(a, tap); } finally { setBusy(false); } };
   const act = (a: BattleAction) => { if (busy || tapping || mine.action || mine.locked) return; sfx.tap(); if (a === 'counter') void commit(a); else setTapping(a); };
   const myInfo = names[mine.playerId]; const foeInfo = names[foe.playerId];
-  const lastLog = battle.log[battle.log.length - 1];
-  const finished = battle.status === 'finished';
-  const won = finished && battle.winnerId === meId;
+  const lastLog = shownRounds > 0 ? battle.log[Math.min(shownRounds, battle.log.length) - 1] : undefined;
+  // The result card waits for the animation, so the KO isn't spoiled by text.
+  const finished = battle.status === 'finished' && resultReady;
+  const won = battle.winnerId === meId;
   const locked = !!mine.action || !!mine.locked;
 
   return (
     <div className="screen-body" style={{ gap: 8 }}>
-      <div className="arena">
-        <div className="hpcard foe-card"><div className="row-between tiny bold"><span className="ellipsis">{foeInfo?.name}</span><span className="faint">Lv{foeInfo?.level}</span></div><HPBar hp={shownHp.foe} max={foe.maxHp} /><div className="tiny faint">{foeInfo?.nick} · {shownHp.foe}/{foe.maxHp}</div></div>
-        <div className="round-badge"><div className="eyebrow">Round {Math.min(battle.round, 7)}</div>{!finished && <div className={`countdown ${left <= 5 ? 'urgent' : ''}`}>{left || '–'}</div>}</div>
-        <div className="arena-floor foe-floor" /><div className="arena-floor me-floor" />
-        <div className="fighter foe">
-          <Creature creature={foe.creature} level={foeInfo?.level} colorway={foeInfo?.colorway ?? 0} equipped={foeInfo?.equipped} state={anim.foe} animKey={`f${anim.k}`} flip />
-          {anim.pops.filter((p) => p.side === 'foe').map((p) => <span key={p.id} className={`dmg-pop ${p.heal ? 'heal' : ''}`} style={{ top: '30%', left: '40%' }}>{p.text}</span>)}
-          <span className="pill pill-xs status">{foe.locked || foe.action ? '🔒 ready' : finished ? '' : '🤔 choosing'}</span>
-        </div>
-        <div className="fighter me">
-          <Creature creature={mine.creature} level={myInfo?.level} colorway={myInfo?.colorway ?? 0} equipped={myInfo?.equipped} state={anim.me} animKey={`m${anim.k}`} />
-          {anim.pops.filter((p) => p.side === 'me').map((p) => <span key={p.id} className={`dmg-pop ${p.heal ? 'heal' : ''}`} style={{ top: '30%', left: '40%' }}>{p.text}</span>)}
-          <span className="pill pill-xs status">{locked ? '🔒 locked in' : finished ? '' : 'your move'}</span>
-        </div>
-        {tapping && <PowerTap label={tapping === 'special' ? CREATURES[mine.creature].special.name : 'Attack'} onDone={(q) => commit(tapping, q)} />}
-        <div className="hpcard me-card"><div className="row-between tiny bold"><span className="ellipsis">{myInfo?.name}</span><span className="faint">Lv{myInfo?.level}</span></div><HPBar hp={shownHp.me} max={mine.maxHp} /><div className="tiny faint">You · {shownHp.me}/{mine.maxHp}</div></div>
-      </div>
+      <BattleStage
+        battle={battle} info={names} nearId={meId} mode="live" skip={skip} nearLabel="You"
+        onRound={setShownRounds} onDone={() => setResultReady(true)}
+        top={battle.status === 'active' && <div className={`countdown ${left <= 5 ? 'urgent' : ''}`}>{left || '–'}</div>}
+        status={(who) => battle.status !== 'active' ? null : who === 'far'
+          ? <span className="pill pill-xs status">{foe.locked || foe.action ? '🔒 ready' : '🤔 choosing'}</span>
+          : <span className="pill pill-xs status">{locked ? '🔒 locked in' : 'your move'}</span>}
+        overlay={tapping && <PowerTap label={tapping === 'special' ? CREATURES[mine.creature].special.name : 'Attack'} onDone={(q) => commit(tapping, q)} />}
+      />
       <div className="arena-log">
         {lastLog ? lastLog.lines.slice(-2).map((l, i) => <div key={`${lastLog.round}-${i}`} className="log-line ellipsis">{l}</div>) : <div className="log-line">{practice ? 'Practice bout. Nothing at stake but pride.' : battle.scored ? 'Winner +15 · loser +5. Tap the gold zone for a crit.' : 'Friendly bout: you two have battled enough for points.'}</div>}
       </div>
-      {finished ? (
+      {battle.status === 'finished' && !finished ? (
+        <div className="row-between"><span className="tiny faint">Watching the fight play out…</span><button className="tiny bold" style={{ color: 'var(--rose)' }} onClick={() => setSkip((x) => x + 1)}>Skip ⏭</button></div>
+      ) : finished ? (
         <div className="panel panel-gold pad center stack-6 fade-up">
           <div className="display title-lg gold-text">{won ? 'VICTORY' : 'DEFEATED'}</div>
           <div className="small bold dim">{won ? `${myInfo?.name} stands tall. ${foeInfo?.nick} will be hearing about this.` : `${foeInfo?.name} got the better of you. Rematch?`}</div>
@@ -149,6 +119,7 @@ export default function BattleScreen() {
   const party = useStore((s) => s.party);
   const myBattle = useMyBattle();
   const toast = useStore((s) => s.toast);
+  const setReplay = useStore((s) => s.setReplay);
   const [picking, setPicking] = useState(false);
   const [lastOpponent, setLastOpponent] = useState<string | null>(null);
   const [showPractice, setShowPractice] = useState(false);
@@ -162,11 +133,11 @@ export default function BattleScreen() {
   const respond = async (accept: boolean) => { if (!myBattle) return; try { await request({ type: 'respondChallenge', battleId: myBattle.id, accept }); } catch (e) { toast((e as Error).message, '⚠️', 'warn'); } };
 
   // finished battle of mine most recent (not yet dismissed) shows the result
-  const recentMine = party.battles.find((b) => b.status === 'finished' && (b.a.playerId === me.id || b.b.playerId === me.id) && b.finishedAt && Date.now() - b.finishedAt < 3 * 60_000 && b.id !== dismissed);
+  const recentMine = party.battles.find((b) => b.status === 'finished' && !b.auto && (b.a.playerId === me.id || b.b.playerId === me.id) && b.finishedAt && Date.now() - b.finishedAt < 3 * 60_000 && b.id !== dismissed);
 
   if (practice.battle) {
     const n = { ...names, bot: { nick: 'Sparring bot', name: `Sparring ${CREATURES[practice.battle.b.creature].name}`, level: practice.battle.b.maxHp > 0 ? me.level : 1, colorway: 1, equipped: { colorway: 1 } } };
-    return <div className="screen with-nav"><div className="topbar"><h2 className="display title-md">Practice bout</h2><span className="pill">no rewards</span></div><Arena battle={practice.battle} meId={me.id} names={n} onAction={practice.act} onExit={practice.stop} onRematch={practice.rematch} practice /></div>;
+    return <div className="screen with-nav"><div className="topbar"><h2 className="display title-md">Practice bout</h2><span className="pill">no rewards</span></div><Arena key={practice.battle.id + practice.battle.createdAt} battle={practice.battle} meId={me.id} names={n} onAction={practice.act} onExit={practice.stop} onRematch={practice.rematch} practice /></div>;
   }
 
   if (myBattle?.status === 'active' || recentMine) {
@@ -175,7 +146,7 @@ export default function BattleScreen() {
     return (
       <div className="screen with-nav">
         <div className="topbar"><h2 className="display title-md">Battle arena</h2><span className="pill pill-ember">⚔️ vs {names[foeId]?.nick ?? '?'}</span></div>
-        <Arena battle={b} meId={me.id} names={names} onAction={(a, tap) => request({ type: 'battleAction', battleId: b.id, round: b.round, action: a, tap }).then(() => undefined).catch((e) => toast((e as Error).message, '⚠️', 'warn'))} onSurrender={() => request({ type: 'surrender', battleId: b.id }).catch(() => undefined)} onExit={() => setDismissed(b.id)} onRematch={() => { setDismissed(b.id); challenge(foeId); }} />
+        <Arena key={b.id} battle={b} meId={me.id} names={names} onAction={(a, tap) => request({ type: 'battleAction', battleId: b.id, round: b.round, action: a, tap }).then(() => undefined).catch((e) => toast((e as Error).message, '⚠️', 'warn'))} onSurrender={() => request({ type: 'surrender', battleId: b.id }).catch(() => undefined)} onExit={() => setDismissed(b.id)} onRematch={() => { setDismissed(b.id); challenge(foeId); }} />
       </div>
     );
   }
@@ -183,7 +154,7 @@ export default function BattleScreen() {
   const mates = party.players.filter((p) => p.id !== me.id && p.creature).sort((a, b) => Number(b.online) - Number(a.online) || b.points - a.points);
   const leader = sortLeaderboard(party.players.filter((p) => p.creature))[0];
   const bountyId = leader && leader.points > 0 ? leader.id : null;
-  const recent = party.battles.filter((b) => b.status === 'finished').slice(0, 6);
+  const recent = party.battles.filter((b) => b.status === 'finished').slice(0, 8);
   const outgoing = myBattle?.status === 'challenge' && myBattle.challengerId === me.id ? myBattle : null;
 
   return (
@@ -203,10 +174,15 @@ export default function BattleScreen() {
             <Button variant="secondary" onClick={() => setShowPractice(true)}>Practice vs a sparring bot</Button>
           </>
         )}
-        <div className="eyebrow">Recent bouts</div>
+        <button className="list-row" style={{ width: '100%', textAlign: 'left' }} onClick={() => request({ type: 'setAutoBattles', on: !me.autoBattles }).catch((e) => toast((e as Error).message, '⚠️', 'warn'))}>
+          <span style={{ fontSize: 18 }}>🤖</span>
+          <span className="grow"><div className="small bold">Auto-battles</div><div className="tiny faint">{me.autoBattles ? `${me.creatureName} fights a mate's avatar about every 45 min, even with your phone away. XP + rating only.` : 'Off: your creature only fights when you do.'}</div></span>
+          <span className={`switch ${me.autoBattles ? 'on' : ''}`} role="switch" aria-checked={me.autoBattles} aria-label="Auto-battles" />
+        </button>
+        <div className="row-between"><span className="eyebrow">Recent bouts</span><span className="tiny faint">tap to replay</span></div>
         <div className="scroll-y stack-6 grow" style={{ minHeight: 0 }}>
           {recent.length === 0 && <div className="feed-item"><span className="emoji">🦗</span><span className="grow dim">No battles yet. Be the first to start something.</span></div>}
-          {recent.map((b) => { const w = playerById(party, b.winnerId); const l = playerById(party, b.loserId); return <div key={b.id} className="list-row"><span style={{ fontSize: 18 }}>🏆</span><span className="grow small"><b>{w?.nickname ?? '?'}</b> beat <b>{l?.nickname ?? '?'}</b> <span className="faint">({b.reason === 'ko' ? 'KO' : b.reason === 'rounds' ? 'on points' : b.reason})</span></span>{!b.scored && <span className="pill pill-xs">friendly</span>}</div>; })}
+          {recent.map((b) => { const w = playerById(party, b.winnerId); const l = playerById(party, b.loserId); return <button key={b.id} className="list-row" style={{ width: '100%', textAlign: 'left' }} onClick={() => setReplay(b)} aria-label="Watch replay"><span style={{ fontSize: 18 }}>{b.auto ? '🤖' : '🏆'}</span><span className="grow small"><b>{w?.nickname ?? '?'}</b> beat <b>{l?.nickname ?? '?'}</b> <span className="faint">({b.reason === 'ko' ? 'KO' : b.reason === 'rounds' ? 'on points' : b.reason})</span></span>{b.auto ? <span className="pill pill-xs">auto</span> : !b.scored && <span className="pill pill-xs">friendly</span>}<span className="pill pill-gold pill-xs">▶</span></button>; })}
         </div>
       </div>
       {picking && (

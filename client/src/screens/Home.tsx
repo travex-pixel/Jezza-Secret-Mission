@@ -27,13 +27,16 @@ export default function Home() {
   const raid = party?.raid?.status === 'active' && party.raid.endsAt > Date.now() ? party.raid : null;
   const raidLeft = useCountdown(raid?.endsAt);
   const incoming = party?.battles.find((b) => b.status === 'challenge' && b.opponentId === me?.id);
-  const feedCount = useFeedCount(!!raid || !!incoming);
+  const awayN = priv?.away?.length ?? 0;
+  const setAwayOpen = useStore((s) => s.setAwayOpen);
+  const voteEv = party?.feed.slice().reverse().find((f) => f.kind === 'vote' && f.playerId !== me?.id && party.pendingPhotos?.some((x) => x.claimId === f.claimId && !x.up.includes(me?.id ?? '') && !x.down.includes(me?.id ?? '')));
+  const feedCount = useFeedCount(!!raid || !!incoming || !!voteEv || awayN > 0);
   if (!party || !me?.creature) return null;
   const board = sortLeaderboard(party.players);
   const rank = board.findIndex((p) => p.id === me.id) + 1;
   const next = priv?.hand.find((h) => h.status === 'active') ?? priv?.hand.find((h) => h.status === 'pending');
   const nextMission = next ? MISSION_BY_ID[next.missionId] : undefined;
-  const feed = [...party.feed].reverse().filter((f) => f.kind !== 'achievement' && f.kind !== 'levelup').slice(0, feedCount);
+  const feed = [...party.feed].reverse().filter((f) => f.kind !== 'achievement' && f.kind !== 'levelup' && f.id !== voteEv?.id).slice(0, feedCount);
   // Evolution tease
   const evoAt = nextEvolveLevel(me.level);
   const lockedTilSaturday = evoAt === 8 && me.level >= FRIDAY_MAX_LEVEL && (party.phase === 'friday' || party.phase === 'lobby');
@@ -71,6 +74,9 @@ export default function Home() {
           </button>
         )}
         {!raid && incoming && <button className="panel panel-gold pad row" style={{ width: '100%', textAlign: 'left', padding: '10px 12px' }} onClick={() => setTab('battle')}><span style={{ fontSize: 22 }}>⚔️</span><span className="grow bold">{party.players.find((p) => p.id === incoming.challengerId)?.nickname} wants a piece of you</span><span className="pill pill-ember">Answer</span></button>}
+
+        {!raid && !incoming && awayN > 0 && <button className="panel pad row" style={{ width: '100%', textAlign: 'left', padding: '10px 12px', gap: 10 }} onClick={() => setAwayOpen(true)}><span style={{ fontSize: 22 }}>🤖</span><span className="grow bold">{me.creatureName} auto-battled {awayN} time{awayN === 1 ? '' : 's'} while you were away</span><span className="pill pill-gold pill-xs">See</span></button>}
+        {voteEv && <FeedItem f={voteEv} compact />}
 
         {party.phase === 'lobby' ? (
           <div className="panel pad-lg center stack-10 grow" style={{ justifyContent: 'center', display: 'flex', flexDirection: 'column' }}>

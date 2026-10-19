@@ -28,6 +28,7 @@ function saveSoon() {
 }
 function saveNow() {
   saveTimer = null;
+  if (superseded) return; // a newer copy of the server owns the save file now
   if (saving) { dirty = true; return; }
   saving = true; dirty = false;
   const tmp = STATE_FILE + '.tmp';
@@ -53,6 +54,16 @@ function deletePhotos(urls: string[]) {
     fs.unlink(path.join(PHOTO_DIR, name), (err) => { if (err && err.code !== 'ENOENT') console.error('[photo] delete failed', err); });
   }
 }
+
+// ---------- one live copy at a time ----------
+// During a redeploy Cloud Run briefly runs the old and new copies side by side, each with its own memory,
+// so players connected to the old copy can't see players who joined on the new one. The newest copy
+// claims the data folder; an older copy that notices stops saving and drops its connections, and the
+// phones reconnect (to the new copy) by themselves a second later.
+const BOOT_ID = `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+const LEADER_FILE = path.join(DATA_DIR, 'leader.json');
+let superseded = false;
+try { fs.writeFileSync(LEADER_FILE, JSON.stringify({ bootId: BOOT_ID, at: Date.now() })); } catch (e) { console.error('[leader] could not write', e); }
 
 const engine = new Engine({ storePhoto, deletePhotos }, loadState());
 // Everyone starts offline after a restart; connections mark them online again.
@@ -119,7 +130,20 @@ function sendCurrentViews(c: Conn) {
 }
 
 const RATE_WINDOW_MS = 10_000, RATE_MAX = 60;
+setInterval(() => {
+  if (superseded) return;
+  try {
+    const cur = JSON.parse(fs.readFileSync(LEADER_FILE, 'utf8')) as { bootId?: string };
+    if (cur.bootId && cur.bootId !== BOOT_ID) {
+      superseded = true;
+      console.log(`[leader] a newer server copy took over; moving ${conns.size} connection(s) across`);
+      for (const c of conns) { try { c.ws.close(4001, 'Server updated'); } catch { /* */ } }
+    }
+  } catch { /* file missing mid-write: check again next time */ }
+}, 5000);
+
 wss.on('connection', (ws, req) => {
+  if (superseded) { ws.close(4001, 'Server updated'); return; }
   const c: Conn = { ws, playerId: null, alive: true };
   conns.add(c);
   let hits: number[] = [];

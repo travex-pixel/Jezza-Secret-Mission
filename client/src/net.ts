@@ -165,6 +165,7 @@ function connectDemo(): Transport {
   const code = (created.ack as any).data.code as string;
   seedBots(code, true);
   engine.handle(hostId, { type: 'host', reqId: 'x', action: { kind: 'revealGroupMission', missionId: 'g01' } });
+  engine.state.parties[code].nextAutoAt = Date.now() + 90_000; // demo: first auto-battle in ~90s rather than 10 min
   engine.auth(identity.playerId, identity.secret);
   useStore.getState().setConn('demo');
   useStore.setState({ pendingCode: code });
@@ -201,6 +202,11 @@ function connectDemo(): Transport {
       }
       for (const c of Object.values(p.claims)) {
         if (c.status === 'pending' && c.method === 'witness' && c.witnessId && mateIds.includes(c.witnessId) && Date.now() - c.createdAt > 2500) { const r = engine.handle(c.witnessId, { type: 'confirmWitness', reqId: 'x', claimId: c.id, approve: true }); deliver(r.direct); changed = true; }
+        // photo votes: a few bots have a look and (mostly) thumbs it up
+        if (c.status === 'pending' && c.review === 'vote' && Date.now() - c.createdAt > 3500 && chance(0.25)) {
+          const voter = mateIds.find((id) => id !== c.playerId && p.players[id] && !(c.votesUp ?? []).includes(id) && !(c.votesDown ?? []).includes(id));
+          if (voter) { const r = engine.handle(voter, { type: 'votePhoto', reqId: 'x', claimId: c.id, up: chance(0.9) }); deliver(r.direct); changed = true; }
+        }
       }
       const online = mateIds.filter((id) => p.players[id]?.online);
       // raid: a few bots swing each tick
@@ -223,6 +229,14 @@ function connectDemo(): Transport {
   // Demo-only hooks so the visual QA can show timing-dependent moments on demand.
   (window as any).__demo = {
     summonRaid: () => { const p = engine.partyOf(identity.playerId); if (!p) return; const r = engine.handle(p.hostId, { type: 'host', reqId: 'x', action: { kind: 'summonRaid' } }); deliver(r.direct); push(); },
+    /** Run a real auto-battle involving you right now (same matchmaker + engine as the server). */
+    autoBattle: () => {
+      const p = engine.partyOf(identity.playerId); if (!p) return;
+      const now = Date.now();
+      for (const pl of Object.values(p.players)) (pl as any).lastAutoAt = pl.id === identity.playerId ? 0 : now;
+      p.nextAutoAt = now - 1;
+      const t = engine.tick(); deliver(t.direct); push();
+    },
     giveXp: (xp: number) => { const p = engine.partyOf(identity.playerId); const me = p?.players[identity.playerId]; if (!p || !me) return; const out: Outbound[] = []; const r = (engine as any).grant(p, me, 0, xp, out); dispatch({ type: 'reward', points: 0, xp, ...r, title: 'Demo boost' }); push(); },
   };
 
