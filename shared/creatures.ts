@@ -36,7 +36,7 @@ export const CREATURES: Record<CreatureId, CreatureDef> = {
     species: 'Vineyard Dragon',
     tagline: 'Tiny. Proud. Flammable.',
     personality: 'Hoards corks, breathes fire at tapas, and thinks it is enormous.',
-    stats: { hp: 96, atk: 14, def: 6, spd: 9 },
+    stats: { hp: 94, atk: 14, def: 6, spd: 9 },
     special: { name: 'Ember Breath', blurb: 'Huge fire damage', tradeoff: 'Singes you a little too' },
     colorways: [
       { id: 'merlot', name: 'Merlot Ember', body: '#8E2B45', belly: '#E5AD48', accent: '#F07842', eye: '#F6EBDD', glow: '#F07842' },
@@ -52,7 +52,7 @@ export const CREATURES: Record<CreatureId, CreatureDef> = {
     species: 'Wombat Warrior',
     tagline: 'Stocky. Fearless. Tactical.',
     personality: 'Built like a brick, plans like a general, naps like a legend.',
-    stats: { hp: 96, atk: 11, def: 10, spd: 5 },
+    stats: { hp: 93, atk: 11, def: 10, spd: 5 },
     special: { name: 'Bunker Down', blurb: 'Heal + half damage taken', tradeoff: 'Deals no damage this round' },
     colorways: [
       { id: 'bark', name: 'Barrel Bark', body: '#7A5A44', belly: '#D8B992', accent: '#E5AD48', eye: '#242127', glow: '#E5AD48' },
@@ -68,7 +68,7 @@ export const CREATURES: Record<CreatureId, CreatureDef> = {
     species: 'Possum Trickster',
     tagline: 'Sneaky. Chaotic. Unrepentant.',
     personality: 'Has stolen at least one of your chips already. Will deny everything.',
-    stats: { hp: 95, atk: 13, def: 6, spd: 12 },
+    stats: { hp: 98, atk: 13, def: 6, spd: 12 },
     special: { name: 'Mischief', blurb: 'Coin flip: double or nothing', tradeoff: 'Either 2.2x damage or a whiff' },
     colorways: [
       { id: 'dusk', name: 'Dusk Grey', body: '#6E6670', belly: '#F6EBDD', accent: '#F07842', eye: '#242127', glow: '#E5AD48' },
@@ -100,7 +100,7 @@ export const CREATURES: Record<CreatureId, CreatureDef> = {
     species: 'Cellar Goblin',
     tagline: 'Gremlin. Barrel-born. Suspicious.',
     personality: 'Lives in barrel 7. Charges rent. Motives unclear, cork collection enormous.',
-    stats: { hp: 100, atk: 13, def: 7, spd: 8 },
+    stats: { hp: 95, atk: 13, def: 7, spd: 8 },
     special: { name: 'Cork Pop', blurb: 'Big ricochet shot', tradeoff: 'Bounces back if they counter' },
     colorways: [
       { id: 'moss', name: 'Cellar Moss', body: '#5E7A4A', belly: '#D8C49A', accent: '#76243A', eye: '#E5AD48', glow: '#E5AD48' },
@@ -116,7 +116,7 @@ export const CREATURES: Record<CreatureId, CreatureDef> = {
     species: 'Grapevine Sprite',
     tagline: 'Magical. Elegant. Menace.',
     personality: 'Glows softly, speaks in riddles, absolutely started that argument.',
-    stats: { hp: 92, atk: 12, def: 5, spd: 13 },
+    stats: { hp: 101, atk: 12, def: 5, spd: 13 },
     special: { name: 'Vine Lash', blurb: 'Two quick strikes', tradeoff: 'Each hit is weaker' },
     colorways: [
       { id: 'shiraz', name: 'Shiraz Bloom', body: '#76243A', belly: '#F6EBDD', accent: '#7FB069', eye: '#E5AD48', glow: '#E5AD48' },
@@ -132,7 +132,7 @@ export const CREATURES: Record<CreatureId, CreatureDef> = {
     species: 'Barrel Beast',
     tagline: 'Chunky. Durable. Ridiculous.',
     personality: 'Is a barrel. Has legs. Nobody has explained this and nobody will.',
-    stats: { hp: 116, atk: 10, def: 11, spd: 3 },
+    stats: { hp: 108, atk: 10, def: 11, spd: 3 },
     special: { name: 'Barrel Roll', blurb: 'Crushing roll attack', tradeoff: 'You bump your head' },
     colorways: [
       { id: 'oak', name: 'French Oak', body: '#9C6B3F', belly: '#C99A62', accent: '#57514F', eye: '#E5AD48', glow: '#E5AD48' },
@@ -148,7 +148,7 @@ export const CREATURES: Record<CreatureId, CreatureDef> = {
     species: 'Hunter Fox',
     tagline: 'Quick. Stylish. Cunning.',
     personality: 'Dressed better than you, drinks faster than you, somehow never pays.',
-    stats: { hp: 92, atk: 13, def: 6, spd: 12 },
+    stats: { hp: 96, atk: 13, def: 6, spd: 12 },
     special: { name: 'Ambush', blurb: 'Huge if they attack', tradeoff: 'Weak if they don\'t' },
     colorways: [
       { id: 'ember', name: 'Ember Fur', body: '#D9622E', belly: '#F6EBDD', accent: '#242127', eye: '#E5AD48', glow: '#F07842' },

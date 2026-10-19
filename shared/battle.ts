@@ -138,6 +138,7 @@ export function resolveRound(battle: Battle, rng: Rng, names: Record<string, str
   if (b.tap === 'perfect' && rb.dealt > 0) rb.lines[0] = `CRIT! ${rb.lines[0]}`;
 
   // Apply simultaneously
+  const aBefore = a.hp, bBefore = b.hp;
   a.hp = Math.max(0, Math.min(a.maxHp, a.hp - rb.dealt - ra.selfDmg - bReflect + ra.heal));
   b.hp = Math.max(0, Math.min(b.maxHp, b.hp - ra.dealt - rb.selfDmg - aReflect + rb.heal));
 
@@ -159,10 +160,13 @@ export function resolveRound(battle: Battle, rng: Rng, names: Record<string, str
 
   if (a.hp <= 0 || b.hp <= 0) {
     if (a.hp <= 0 && b.hp <= 0) {
-      // double KO: higher HP% before KO is impossible; use speed as tiebreak
-      const aWins = spdOf(a) >= spdOf(b);
-      finish(battle, aWins ? a.playerId : b.playerId, aWins ? b.playerId : a.playerId, 'ko', now);
-      log.lines.push('Double knockout! Speed decides it.');
+      // Both would drop in the same round: whoever was ahead going into it hangs on with 1 HP (speed breaks a tie).
+      const aPct = aBefore / a.maxHp, bPct = bBefore / b.maxHp;
+      const aWins = aPct > bPct || (aPct === bPct && spdOf(a) >= spdOf(b));
+      const [w, l, wl, ll, wBefore] = aWins ? [a, b, log.a, log.b, aBefore] : [b, a, log.b, log.a, bBefore];
+      hangOn(w, wl, ll, wBefore);
+      finish(battle, w.playerId, l.playerId, 'ko', now);
+      log.lines.push(`${name(w, names)} hangs on with 1 HP! ${name(l, names)} is down!`);
     } else {
       const winner = a.hp > 0 ? a : b;
       const loser = a.hp > 0 ? b : a;
@@ -180,6 +184,18 @@ export function resolveRound(battle: Battle, rng: Rng, names: Record<string, str
   }
   return log;
 }
+
+/** Winner of a would-be double KO survives on 1 HP; the round log is trimmed to match so replays agree. */
+function hangOn(w: BattleCreatureState, wl: BattleRoundLog[Side_], ll: BattleRoundLog[Side_], before: number) {
+  const taken = Math.max(0, before + wl.heal - 1);
+  let excess = wl.dmgTaken - taken;
+  wl.dmgTaken = taken;
+  const raw = ll.dmgDealt - (ll.reflected ?? 0);
+  const cut = Math.min(excess, raw); ll.dmgDealt -= cut; excess -= cut;
+  if (excess > 0 && ll.reflected) { const c2 = Math.min(excess, ll.reflected); ll.reflected -= c2; ll.dmgDealt -= c2; if (!ll.reflected) ll.reflected = undefined; }
+  w.hp = 1;
+}
+type Side_ = 'a' | 'b';
 
 export function finish(battle: Battle, winnerId: string, loserId: string, reason: Battle['reason'], now: number) {
   battle.status = 'finished';

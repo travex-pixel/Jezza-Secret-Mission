@@ -30,6 +30,26 @@ describe('battle engine', () => {
       expect(bt.winnerId).not.toBe(bt.loserId);
     }
   });
+  it('never ends with both on 0 HP: the winner of a would-be double KO hangs on, and the log replays to the same HP', () => {
+    let hungOn = 0;
+    for (let seed = 1; seed <= 3000; seed++) {
+      const rng = seededRng(seed);
+      const a = CREATURE_IDS[seed % CREATURE_IDS.length], b = CREATURE_IDS[(seed * 7 + 3) % CREATURE_IDS.length];
+      const bt = mk(a, b);
+      const hp = { a: bt.a.hp, b: bt.b.hp };
+      while (bt.status === 'active') {
+        bt.a.action = rng() < 0.6 ? 'attack' : rng() < 0.5 ? 'counter' : 'special';
+        bt.b.action = rng() < 0.6 ? 'attack' : rng() < 0.5 ? 'counter' : 'special';
+        const log = resolveRound(bt, rng, {}, 0);
+        for (const s of ['a', 'b'] as const) hp[s] = Math.max(0, Math.min(bt[s].maxHp, hp[s] - log[s].dmgTaken + log[s].heal));
+        if (log.lines.some((l) => l.includes('hangs on'))) hungOn++;
+      }
+      const winner = bt.winnerId === 'A' ? bt.a : bt.b;
+      expect(winner.hp).toBeGreaterThan(0);
+      expect(hp).toEqual({ a: bt.a.hp, b: bt.b.hp });
+    }
+    expect(hungOn).toBeGreaterThan(0);
+  });
   it('is roughly balanced: no creature wins more than 72% of all-attack mirror-free duels', () => {
     const wins: Record<string, number> = {}; const games: Record<string, number> = {};
     let seed = 1;

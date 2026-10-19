@@ -223,7 +223,9 @@ single charge-up power tap. Then the whole fight plays itself and both phones sh
   applies to every hit that fight (boss raid hits use the same bar). No tap in 5 s counts as a whiff, so nobody can
   stall. The server clamps the value and ignores a tap that arrives before the marker could reach the middle.
 * Every round is still resolved by the same engine (Attack / Counter / Special, the creature specials, reflect
-  damage); the plan only decides which move the creature picks each round. Rewards, bounty, streaks, ratings and
+  damage); the plan only decides which move the creature picks each round. Both creatures hit at the same time, so
+  if both would drop in the same round, whoever had more health (as a %) going into that round **hangs on with
+  1 HP** and wins (speed breaks an exact tie). A fight never ends with both on 0. Rewards, bounty, streaks, ratings and
   the 3-scored-bouts-per-opponent rule are unchanged. The result pop-up and achievements wait until the fight has
   played out on screen, so nothing spoils it.
 * **Practice** against a sparring bot works the same way, on your phone only, with no rewards.
