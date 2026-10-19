@@ -48,6 +48,17 @@ gcloud run deploy "$SERVICE" \
   --timeout 3600 --session-affinity --execution-environment gen2 \
   --quiet
 
+# Shut down every older version. Otherwise phones still connected to an old copy keep playing in a
+# separate game (old copies keep their own list of players) until they happen to reconnect.
+LATEST=$(gcloud run services describe "$SERVICE" --region "$REGION" --format='value(status.latestReadyRevisionName)')
+gcloud run services update-traffic "$SERVICE" --region "$REGION" --to-latest --quiet >/dev/null
+for REV in $(gcloud run revisions list --service "$SERVICE" --region "$REGION" --format='value(metadata.name)'); do
+  if [ "$REV" != "$LATEST" ]; then
+    echo "▶ retiring old version $REV"
+    gcloud run revisions delete "$REV" --region "$REGION" --quiet >/dev/null 2>&1 || echo "  (couldn't retire $REV, it will shut down on its own)"
+  fi
+done
+
 URL=$(gcloud run services describe "$SERVICE" --region "$REGION" --format='value(status.url)')
 echo
 echo "✅ Live at: $URL"

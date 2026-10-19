@@ -53,6 +53,7 @@ export const MISSIONS: Mission[] = [
   m({ id: 'l09', title: 'One-Line Roast', instruction: 'Roast Jezza in one sentence. Funny, not brutal. If he doesn\'t laugh, it doesn\'t count.', category: 'laugh', difficulty: 2, method: 'witness', loud: true }),
   m({ id: 'l10', title: 'Staring Contest', instruction: 'Twenty-second staring contest with Jezza. First to crack loses. Claim it either way.', category: 'laugh', difficulty: 1, method: 'witness' }),
   m({ id: 'l11', title: 'Slow Clap', instruction: 'Start a slow clap for something dead boring and get three lads to join in.', category: 'laugh', difficulty: 2, method: 'self', loud: true }),
+  m({ id: 'l12', title: 'Copy His Face', instruction: 'Copy Jezza\'s exact expression, deadpan, for as long as it takes him to crack.', category: 'laugh', difficulty: 1, method: 'witness' }),
 
   // ---------- DANCE ----------
   m({ id: 'd01', title: 'Ripper Dance', instruction: 'Give Jezza your most cooked 15-second dance. No warm-up. Full commitment.', category: 'dance', difficulty: 1, method: 'witness', loud: true }),
@@ -64,6 +65,8 @@ export const MISSIONS: Mission[] = [
   m({ id: 'd07', title: 'Victory Dance', instruction: 'Do a massive victory dance for something completely boring, like finding your phone.', category: 'dance', difficulty: 1, method: 'witness', loud: true }),
   m({ id: 'd08', title: 'Sorry, Through Dance', instruction: 'Dance an apology to Jezza for something tiny. No words allowed.', category: 'dance', difficulty: 2, method: 'witness', loud: true }),
   m({ id: 'd09', title: 'Jezza Picks the Song', instruction: 'Jezza picks any song. You\'ve got 15 seconds to dance to it like your life depends on it.', category: 'dance', difficulty: 2, method: 'witness', loud: true }),
+  m({ id: 'd10', title: 'Dance Judge', instruction: 'Get two mates to dance for Jezza, then score them out of ten like a brutal reality TV judge.', category: 'dance', difficulty: 2, method: 'witness', loud: true }),
+  m({ id: 'd11', title: 'Backup Crew', instruction: 'Get two mates to be Jezza\'s backup dancers for a full chorus. Total commitment, zero rehearsal.', category: 'dance', difficulty: 2, method: 'witness', loud: true }),
 
   // ---------- SING ----------
   m({ id: 's01', title: 'Song Dedication', instruction: 'Sing a chorus straight to Jezza like you wrote it for him. Eye contact the whole time.', category: 'sing', difficulty: 1, method: 'witness', loud: true }),
@@ -73,6 +76,7 @@ export const MISSIONS: Mission[] = [
   m({ id: 's05', title: 'Jezza Chant', instruction: 'Make up a chant about Jezza and get at least one mate to join in.', category: 'sing', difficulty: 2, method: 'witness', loud: true }),
   m({ id: 's06', title: 'Grand Final Anthem', instruction: 'Sing one line of any song like it\'s the anthem before the grand final. Hand on heart.', category: 'sing', difficulty: 1, method: 'witness', loud: true }),
   m({ id: 's07', title: 'Duet', instruction: 'Sing a chorus with a mate. The worse the harmonies, the better.', category: 'sing', difficulty: 1, method: 'witness', loud: true }),
+  m({ id: 's08', title: 'Power Ballad', instruction: 'Sing Jezza one chorus with way too much emotion. Eyes shut, fist clenched, one tear optional.', category: 'sing', difficulty: 1, method: 'witness', loud: true }),
 
   // ---------- COOKED PHOTOS ----------
   m({ id: 'p01', title: 'Most Cooked Selfie', instruction: 'Take the most ridiculous selfie you can with Jezza. You both have to be happy with it.', category: 'photo', difficulty: 1, method: 'photo' }),
@@ -92,6 +96,7 @@ export const MISSIONS: Mission[] = [
   m({ id: 'p15', title: 'Bodyguards', instruction: 'Two mates pose as dead-serious bodyguards either side of Jezza.', category: 'photo', difficulty: 1, method: 'photo' }),
   m({ id: 'p16', title: 'Cursed Family Portrait', instruction: 'Fake family portrait. Everyone pulls a different cursed expression.', category: 'photo', difficulty: 2, method: 'photo' }),
   m({ id: 'p17', title: 'Wombat Squad', instruction: 'Everyone gets low in a comfy squat for a group photo. Lower is better, as long as nobody\'s knees complain.', category: 'photo', difficulty: 1, method: 'photo' }),
+  m({ id: 'p18', title: 'Grand Final Winners', instruction: 'Group photo of everyone celebrating like you just won the grand final. Jezza holds the imaginary cup.', category: 'photo', difficulty: 2, method: 'photo' }),
 
   // ---------- GET JEZZA IN ----------
   m({ id: 'j01', title: 'Jezza Joins In', instruction: 'Get Jezza into your most ridiculous group pose.', category: 'jezza', difficulty: 1, method: 'photo' }),
@@ -115,6 +120,8 @@ export const MISSIONS: Mission[] = [
   m({ id: 'c06', title: 'Signature Cheers', instruction: 'Invent your own cheers move and get a mate to do it with you.', category: 'cheers', difficulty: 1, method: 'witness' }),
   m({ id: 'c07', title: 'Cheers Round', instruction: 'Clink with five different lads in the next ten minutes. Clink, nod, move on.', category: 'cheers', difficulty: 1, method: 'self' }),
   m({ id: 'c08', title: 'Absent Mates', instruction: 'Raise a glass to a mate who couldn\'t make it and send them the photo.', category: 'cheers', difficulty: 1, method: 'photo' }),
+  m({ id: 'c09', title: 'Synchronised Cheers', instruction: 'Get four lads to pull the exact same cheers pose in one photo. Any drink counts.', category: 'cheers', difficulty: 2, method: 'photo' }),
+  m({ id: 'c10', title: 'Historic Toast', instruction: 'Toast Jezza like it\'s a moment in history: "On this day, a legend..." Under 20 seconds.', category: 'cheers', difficulty: 2, method: 'witness', loud: true }),
 
   // ---------- SNEAKY (only you can see these) ----------
   m({ id: 'x01', secret: true, title: 'Plant a Word', instruction: 'Get Jezza to say "ripper" without him knowing it\'s a mission.', category: 'sneaky', difficulty: 2, method: 'self' }),

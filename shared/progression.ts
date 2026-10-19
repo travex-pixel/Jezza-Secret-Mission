@@ -172,7 +172,7 @@ export function computeAwards(players: PlayerPublic[], _battles: Battle[], overr
       case 'dance': r = pick((p) => cat(p, 'dance'), (_p, s) => `${s} dances`); break;
       case 'photo': r = pick((p) => p.fires, (_p, s) => `${s} 🔥`); break;
       case 'jezzafav': r = pick((p) => p.groomLoves, (_p, s) => `${s} ❤️ from Jezza`); break;
-      case 'hypeman': r = pick((p) => p.witnessed * 2 + (p.reactionsGiven ?? 0), (p) => `${p.witnessed} confirmations, ${p.reactionsGiven ?? 0} reactions`); break;
+      case 'hypeman': r = pick((p) => p.witnessed * 2 + (p.reactionsGiven ?? 0), (p) => `${p.witnessed} confirmation${p.witnessed === 1 ? '' : 's'}, ${p.reactionsGiven ?? 0} reaction${(p.reactionsGiven ?? 0) === 1 ? '' : 's'}`); break;
       case 'roast': r = pick((p) => p.wallVotes, (_p, s) => `${s} laughs on the Wall`); break;
       case 'choke': r = pick((p) => p.upsetLosses ?? 0, (_p, s) => `${s} upset loss${s === 1 ? '' : 'es'}`); break;
       case 'champion': r = pick((p) => (p.wins + p.losses ? p.rating : 0), (p) => `${p.wins}W ${p.losses}L · ${rankFor(p.rating).name}`); break;

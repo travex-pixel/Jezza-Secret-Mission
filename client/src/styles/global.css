@@ -320,6 +320,24 @@ img, svg { display: block; max-width: 100%; }
 .dizzy span:nth-child(2) { animation-delay: -.47s; } .dizzy span:nth-child(3) { animation-delay: -.93s; }
 @keyframes dizzy { 0% { transform: translate(-40px, 0) scale(.8); } 25% { transform: translate(0, -10px) scale(1); } 50% { transform: translate(40px, 0) scale(.8); } 75% { transform: translate(0, 10px) scale(.6); opacity: .6; } 100% { transform: translate(-40px, 0) scale(.8); } }
 .feed-item img.vote-thumb { max-height: 96px; width: auto; max-width: 100%; }
+/* ===== Finale ceremony ===== */
+.award-reveal { animation: award-in 700ms cubic-bezier(.2,1.2,.4,1) both; }
+@keyframes award-in { 0% { transform: perspective(600px) rotateX(70deg) scale(.9); opacity: 0; } 60% { opacity: 1; } 100% { transform: none; opacity: 1; } }
+.menace-card { border-color: rgba(240,120,66,.5); background: linear-gradient(180deg, rgba(240,120,66,.12), rgba(21,18,26,.6)); }
+.legend-hero { position: relative; overflow: hidden; animation: award-in 900ms cubic-bezier(.2,1.2,.4,1) both; }
+.podium { display: grid; grid-template-columns: 1fr 1.2fr 1fr; align-items: end; gap: 6px; width: 100%; }
+.podium-step { position: relative; display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.podium-step .creature { width: 80%; }
+.podium-step.step-1 .creature { width: 100%; }
+.podium-block { width: 100%; border-radius: 10px 10px 4px 4px; background: linear-gradient(180deg, rgba(229,173,72,.35), rgba(87,24,39,.6)); border: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; padding: 4px 2px; font-size: 11px; font-weight: 800; min-width: 0; max-width: 100%; }
+.podium-block b { font-family: var(--font-display); font-size: 20px; color: var(--gold); }
+.podium-block span { max-width: 100%; }
+.step-1 .podium-block { min-height: 64px; } .step-2 .podium-block { min-height: 46px; } .step-3 .podium-block { min-height: 34px; }
+.crown { font-size: 30px; line-height: 1; animation: crown-drop 900ms cubic-bezier(.3,1.5,.5,1) 300ms both; }
+@keyframes crown-drop { from { transform: translateY(-60px) rotate(-20deg); opacity: 0; } to { transform: none; opacity: 1; } }
+.confetti { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.confetti i { position: absolute; top: -12px; width: 7px; height: 11px; border-radius: 2px; animation: confetti-fall linear infinite; }
+@keyframes confetti-fall { from { transform: translateY(0) rotate(0); opacity: 1; } to { transform: translateY(520px) rotate(720deg); opacity: .2; } }
 .replay-bar { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
 .replay-sheet { display: flex; flex-direction: column; gap: 8px; height: min(560px, 78vh); }
 .replay-sheet .arena { flex: 1; min-height: 260px; }

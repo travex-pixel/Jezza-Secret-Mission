@@ -67,11 +67,15 @@ async function main() {
   await page.locator('.list-row', { hasText: 'The Big Cheers' }).getByText('live').waitFor({ timeout: 4000 });
   check(true, 'group challenge revealed from the host panel');
 
-  // Mate snaps the group photo: points land instantly, no approval queue
+  // Mate snaps the group photo: it goes up for the lads' vote; the host votes from the Lobby card, a mate seconds it
   const dataUrl = await page.evaluate(() => { const c = document.createElement('canvas'); c.width = 320; c.height = 200; const g = c.getContext('2d')!; g.fillStyle = '#76243A'; g.fillRect(0, 0, 320, 200); g.fillStyle = '#E5AD48'; g.font = 'bold 40px sans-serif'; g.fillText('CHEERS JEZZA', 20, 110); return c.toDataURL('image/jpeg', 0.8); });
   const r = await m1.req({ type: 'claimMission', missionId: 'g01', claimId: 'host_e2e_photo_01', photo: dataUrl, note: 'Barrel 7 crew' });
-  check(r.ok && r.data.status === 'approved', 'photo challenge pays out instantly (self-service)');
+  check(r.ok && r.data.status === 'pending', 'photo goes up for a vote (default photo check)');
   await page.getByText(/‹ Host controls/).click();
+  await page.getByRole('button', { name: 'Vote it in' }).first().click({ timeout: 5000 });
+  await page.screenshot({ path: path.join(OUT, 'photo-vote.png') });
+  const v2 = await m2.req({ type: 'votePhoto', claimId: 'host_e2e_photo_01', up: true });
+  check(v2.ok && v2.data.status === 'approved', 'two 👍 votes count the photo');
   await page.locator('.quick-btn', { hasText: 'Photos' }).click();
   const img = page.locator('.gallery-grid img').first();
   await img.waitFor({ timeout: 5000 });
@@ -138,7 +142,11 @@ async function main() {
   await sleep(300);
   await page.locator('.bottom-nav').getByRole('button', { name: 'Ranks' }).click();
   await page.waitForSelector('text=The Finale');
-  for (let i = 0; i < 15 && (await page.getByRole('button', { name: /reveal/i }).count()); i++) { await page.getByRole('button', { name: /reveal/i }).click(); await sleep(200); }
+  const next = () => page.getByRole('button', { name: /open with|reveal|crown/i });
+  check(/Weekend Menace/.test((await next().textContent()) ?? ''), 'ceremony opens with The Weekend Menace');
+  for (let i = 0; i < 16 && (await next().count()); i++) { if (i === 13) check(/JEZZA LEGEND/.test((await next().textContent()) ?? ''), 'and closes by crowning The Jezza Legend'); await next().click(); await sleep(200); }
+  await page.locator('.legend-hero').waitFor({ timeout: 3000 });
+  await page.screenshot({ path: path.join(OUT, 'finale-legend.png') });
   check((await page.getByText(/To Jezza. To the legends./).count()) === 1, 'all 14 awards revealed on the finale screen');
   check((await page.locator('.panel', { hasText: 'Most Unhinged' }).getByText('Robbo').count()) === 1, 'host-picked award shows the chosen player');
   await page.screenshot({ path: path.join(OUT, 'finale.png') });

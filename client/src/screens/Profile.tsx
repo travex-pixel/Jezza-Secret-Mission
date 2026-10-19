@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { CREATURES, FORMS } from '@shared/creatures';
-import { ACHIEVEMENTS, COSMETICS, colorwaysUnlocked, LEVEL_UNLOCKS, COSMETIC_BY_ID, LEVEL_XP, nextEvolveLevel, stageForLevel, FRIDAY_MAX_LEVEL, rankFor } from '@shared/progression';
+import { ACHIEVEMENTS, COSMETICS, colorwaysUnlocked, LEVEL_UNLOCKS, COSMETIC_BY_ID, LEVEL_XP, nextEvolveLevel, stageForLevel, FRIDAY_MAX_LEVEL, rankFor, rivalries } from '@shared/progression';
 import type { CosmeticSlot } from '@shared/types';
 import { Creature, type CreatureState } from '../components/Creature';
 import { Button, XPBar } from '../components/ui';
@@ -21,7 +21,10 @@ export default function Profile() {
   const [name, setName] = useState('');
   const [anim, setAnim] = useState<{ s: CreatureState; k: number }>({ s: 'idle', k: 0 });
   const [muted, setMutedState] = useState(isMuted());
+  const players = useStore((s) => s.party?.players);
   if (!me?.creature) return null;
+  const riv = rivalries(me);
+  const nickOf = (id: string) => players?.find((p) => p.id === id)?.nickname ?? '?';
   const def = CREATURES[me.creature];
   const cwMax = colorwaysUnlocked(me.level);
 
@@ -61,6 +64,7 @@ export default function Profile() {
               <div className="stat"><b>{me.wins}–{me.losses}</b><span>W–L</span></div>
               <div className="stat"><b>{me.unlocked.length}</b><span>items</span></div>
             </div>
+            {(riv.nemesis || riv.bunny) && <div className="tiny bold ellipsis">{riv.nemesis && <>😈 Nemesis: {nickOf(riv.nemesis.id)} ({riv.nemesis.w}–{riv.nemesis.l}) </>}{riv.bunny && <>🐰 Bunny: {nickOf(riv.bunny.id)} ({riv.bunny.w}–{riv.bunny.l})</>}</div>}
             {nextUnlockLevel && <div className="tiny faint">Next unlock at level {nextUnlockLevel}</div>}
             {evoAt && (
               <div className="row" style={{ gap: 8, padding: '6px 8px', borderRadius: 12, background: 'rgba(0,0,0,.25)', border: '1px solid var(--line)' }}>

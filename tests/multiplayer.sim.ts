@@ -121,8 +121,13 @@ async function main() {
     const tiny = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
     const before = host.party!.players.find((p) => p.id === photoC.id)!.points;
     const res = await photoC.req<{ status: string }>({ type: 'claimMission', missionId: mid, claimId: `p_${run}_2`, photo: tiny });
-    check(res.status === 'approved', 'photo challenge pays out instantly (no host approval)');
-    check(await until(() => host.party!.players.find((p) => p.id === photoC.id)!.points > before), 'everyone sees the points land');
+    check(res.status === 'pending', 'photo goes to the lads\' vote (default photo check)');
+    check(await until(() => clients.every((c) => c.party?.pendingPhotos?.some((x) => x.claimId === `p_${run}_2`))), 'everyone sees the photo up for a vote');
+    const voters = mates.filter((m) => m !== photoC).slice(0, 2);
+    await voters[0].req({ type: 'votePhoto', claimId: `p_${run}_2`, up: true });
+    await photoC.req({ type: 'votePhoto', claimId: `p_${run}_2`, up: true }).then(() => check(false, 'you cannot vote on your own photo'), () => check(true, 'you cannot vote on your own photo'));
+    await voters[1].req({ type: 'votePhoto', claimId: `p_${run}_2`, up: true });
+    check(await until(() => host.party!.players.find((p) => p.id === photoC.id)!.points > before), 'two 👍 and everyone sees the points land');
     check(await until(() => host.party!.gallery.some((g) => g.id === `p_${run}_2` && g.url.startsWith('/photos/'))), 'photo lands in the party gallery as a stored file');
     // Call BS → frozen → the lads back it → restored, all without the host
     const others = mates.filter((m) => m !== photoC);

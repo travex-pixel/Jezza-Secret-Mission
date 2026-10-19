@@ -4,12 +4,13 @@ import { FORMS } from '@shared/creatures';
 import { Creature } from '../components/Creature';
 import { useStore, useMe } from '../store';
 import Finale from './Finale';
+import BattleBoard from './BattleBoard';
 
 export default function Ranks() {
   const party = useStore((s) => s.party);
   const me = useMe();
   const setTab = useStore((s) => s.setTab);
-  const [view, setView] = useState<'board' | 'awards'>('board');
+  const [view, setView] = useState<'board' | 'battles' | 'awards'>('board');
   if (!party) return null;
   if (party.phase === 'finale' || party.phase === 'ended') return <Finale />;
   const board = sortLeaderboard(party.players).filter((p) => p.creature);
@@ -21,7 +22,7 @@ export default function Ranks() {
   return (
     <div className="screen with-nav">
       <div className="topbar"><h2 className="display title-md">Leaderboard</h2><span className="pill pill-gold">{party.phase === 'saturday' ? 'Saturday' : 'Friday'}</span></div>
-      <div className="tabs" style={{ marginBottom: 8 }}><button className={`tab ${view === 'board' ? 'on' : ''}`} onClick={() => setView('board')}>Points</button><button className={`tab ${view === 'awards' ? 'on' : ''}`} onClick={() => setView('awards')}>Award race</button></div>
+      <div className="tabs" style={{ marginBottom: 8 }}><button className={`tab ${view === 'board' ? 'on' : ''}`} onClick={() => setView('board')}>Points</button><button className={`tab ${view === 'battles' ? 'on' : ''}`} onClick={() => setView('battles')}>Battles</button><button className={`tab ${view === 'awards' ? 'on' : ''}`} onClick={() => setView('awards')}>Award race</button></div>
       {view === 'board' ? (
         <div className="screen-body" style={{ gap: 8 }}>
           {board.length === 0 && <div className="panel pad center dim">Nobody's on the board yet.</div>}
@@ -49,7 +50,7 @@ export default function Ranks() {
             {rest.length === 0 && board.length > 0 && <div className="center tiny faint pad">Everyone's on the podium. Suspicious.</div>}
           </div>
         </div>
-      ) : (
+      ) : view === 'battles' ? <BattleBoard meId={me?.id} /> : (
         <div className="screen-body scroll-y stack-6">
           <div className="tiny faint">Who's leading each award right now. All from real play: reactions, votes, challenges and battles. Final results at the finale.</div>
           {party.awards.filter((a) => a.id !== 'unhinged').map((a) => (

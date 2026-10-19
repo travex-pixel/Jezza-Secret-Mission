@@ -1,10 +1,10 @@
 # Project Jezza: Challenge List
 
-85 missions. Points go to the weekend leaderboard, XP levels up your creature.
+92 missions. Points go to the weekend leaderboard, XP levels up your creature.
 
 How they're checked: **Honour system** = tap "I did it" (one every 8 minutes) · **Snap it** = take the photo, points land straight away · **A mate confirms** = a mate who was there taps yes on their phone. Mates can 🚩 Call BS on anything. Nobody ever has to drink: any drink counts, water included.
 
-## 😂 Make Jezza Laugh (11)
+## 😂 Make Jezza Laugh (12)
 
 | # | Mission | Instruction | Difficulty | Pts / XP | How | When |
 |---|---|---|---|---|---|---|
@@ -19,8 +19,9 @@ How they're checked: **Honour system** = tap "I did it" (one every 8 minutes) ·
 | l09 | **One-Line Roast** | Roast Jezza in one sentence. Funny, not brutal. If he doesn't laugh, it doesn't count. | Spicy | 20 / 35 | A mate confirms | Fri + Sat · performing |
 | l10 | **Staring Contest** | Twenty-second staring contest with Jezza. First to crack loses. Claim it either way. | Easy | 10 / 20 | A mate confirms | Fri + Sat |
 | l11 | **Slow Clap** | Start a slow clap for something dead boring and get three lads to join in. | Spicy | 20 / 35 | Honour system | Fri + Sat · performing |
+| l12 | **Copy His Face** | Copy Jezza's exact expression, deadpan, for as long as it takes him to crack. | Easy | 10 / 20 | A mate confirms | Fri + Sat |
 
-## 🕺 Dance (9)
+## 🕺 Dance (11)
 
 | # | Mission | Instruction | Difficulty | Pts / XP | How | When |
 |---|---|---|---|---|---|---|
@@ -33,8 +34,10 @@ How they're checked: **Honour system** = tap "I did it" (one every 8 minutes) ·
 | d07 | **Victory Dance** | Do a massive victory dance for something completely boring, like finding your phone. | Easy | 10 / 20 | A mate confirms | Fri + Sat · performing |
 | d08 | **Sorry, Through Dance** | Dance an apology to Jezza for something tiny. No words allowed. | Spicy | 20 / 35 | A mate confirms | Fri + Sat · performing |
 | d09 | **Jezza Picks the Song** | Jezza picks any song. You've got 15 seconds to dance to it like your life depends on it. | Spicy | 20 / 35 | A mate confirms | Fri + Sat · performing |
+| d10 | **Dance Judge** | Get two mates to dance for Jezza, then score them out of ten like a brutal reality TV judge. | Spicy | 20 / 35 | A mate confirms | Fri + Sat · performing |
+| d11 | **Backup Crew** | Get two mates to be Jezza's backup dancers for a full chorus. Total commitment, zero rehearsal. | Spicy | 20 / 35 | A mate confirms | Fri + Sat · performing |
 
-## 🎤 Sing (7)
+## 🎤 Sing (8)
 
 | # | Mission | Instruction | Difficulty | Pts / XP | How | When |
 |---|---|---|---|---|---|---|
@@ -45,8 +48,9 @@ How they're checked: **Honour system** = tap "I did it" (one every 8 minutes) ·
 | s05 | **Jezza Chant** | Make up a chant about Jezza and get at least one mate to join in. | Spicy | 20 / 35 | A mate confirms | Fri + Sat · performing |
 | s06 | **Grand Final Anthem** | Sing one line of any song like it's the anthem before the grand final. Hand on heart. | Easy | 10 / 20 | A mate confirms | Fri + Sat · performing |
 | s07 | **Duet** | Sing a chorus with a mate. The worse the harmonies, the better. | Easy | 10 / 20 | A mate confirms | Fri + Sat · performing |
+| s08 | **Power Ballad** | Sing Jezza one chorus with way too much emotion. Eyes shut, fist clenched, one tear optional. | Easy | 10 / 20 | A mate confirms | Fri + Sat · performing |
 
-## 📸 Cooked Photos (17)
+## 📸 Cooked Photos (18)
 
 | # | Mission | Instruction | Difficulty | Pts / XP | How | When |
 |---|---|---|---|---|---|---|
@@ -67,6 +71,7 @@ How they're checked: **Honour system** = tap "I did it" (one every 8 minutes) ·
 | p15 | **Bodyguards** | Two mates pose as dead-serious bodyguards either side of Jezza. | Easy | 10 / 20 | Snap it | Fri + Sat |
 | p16 | **Cursed Family Portrait** | Fake family portrait. Everyone pulls a different cursed expression. | Spicy | 20 / 35 | Snap it | Fri + Sat |
 | p17 | **Wombat Squad** | Everyone gets low in a comfy squat for a group photo. Lower is better, as long as nobody's knees complain. | Easy | 10 / 20 | Snap it | Fri + Sat |
+| p18 | **Grand Final Winners** | Group photo of everyone celebrating like you just won the grand final. Jezza holds the imaginary cup. | Spicy | 20 / 35 | Snap it | Fri + Sat |
 
 ## 🤵 Get Jezza In (12)
 
@@ -85,7 +90,7 @@ How they're checked: **Honour system** = tap "I did it" (one every 8 minutes) ·
 | j10 | **Groom's Choice** | Offer Jezza three options: joke, song or dance. Do whichever one he picks. | Spicy | 20 / 35 | A mate confirms | Fri + Sat · performing |
 | j11 | **Marriage Advice** | Ask Jezza for his best marriage advice so far. Nod like it's the wisest thing you've ever heard. | Easy | 10 / 20 | Honour system | Fri + Sat |
 
-## 🍻 Cheers (8)
+## 🍻 Cheers (10)
 
 | # | Mission | Instruction | Difficulty | Pts / XP | How | When |
 |---|---|---|---|---|---|---|
@@ -97,6 +102,8 @@ How they're checked: **Honour system** = tap "I did it" (one every 8 minutes) ·
 | c06 | **Signature Cheers** | Invent your own cheers move and get a mate to do it with you. | Easy | 10 / 20 | A mate confirms | Fri + Sat |
 | c07 | **Cheers Round** | Clink with five different lads in the next ten minutes. Clink, nod, move on. | Easy | 10 / 20 | Honour system | Fri + Sat |
 | c08 | **Absent Mates** | Raise a glass to a mate who couldn't make it and send them the photo. | Easy | 10 / 20 | Snap it | Fri + Sat |
+| c09 | **Synchronised Cheers** | Get four lads to pull the exact same cheers pose in one photo. Any drink counts. | Spicy | 20 / 35 | Snap it | Fri + Sat |
+| c10 | **Historic Toast** | Toast Jezza like it's a moment in history: "On this day, a legend..." Under 20 seconds. | Spicy | 20 / 35 | A mate confirms | Fri + Sat · performing |
 
 ## 🕵️ Sneaky (5)
 

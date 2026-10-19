@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { sortLeaderboard } from '@shared/progression';
 import { Creature } from '../components/Creature';
 import { Button } from '../components/ui';
@@ -11,15 +11,25 @@ export default function Finale() {
   const [revealed, setRevealed] = useState(0);
   const [view, setView] = useState<'awards' | 'board' | 'roasts'>('awards');
   const awards = party?.awards ?? [];
-  useEffect(() => { if (revealed > 0) sfx.reward(); }, [revealed]);
+  const heroRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (revealed === 0) return; const t = setTimeout(() => sfx.reward(), 700); return () => clearTimeout(t); }, [revealed]);
   if (!party) return null;
   const board = sortLeaderboard(party.players).filter((p) => p.creature);
   const totalMissions = party.players.reduce((a, p) => a + p.missionsCompleted, 0);
   const totalBattles = party.players.reduce((a, p) => a + p.wins, 0);
-  const shown = awards.slice(0, revealed);
-  const next = awards[revealed];
+  // Ceremony order: the Menace opens proceedings, the Legend closes them.
+  const ordered = [awards.find((a) => a.id === 'menace'), ...awards.filter((a) => a.id !== 'menace' && a.id !== 'legend'), awards.find((a) => a.id === 'legend')].filter((a): a is NonNullable<typeof a> => !!a);
+  const shown = ordered.slice(0, revealed);
+  const next = ordered[revealed];
   const legend = awards.find((a) => a.id === 'legend');
   const legendPlayer = party.players.find((p) => p.id === legend?.playerId);
+  const allDone = !next && revealed > 0;
+  const nick = (id?: string | null) => party.players.find((p) => p.id === id)?.nickname ?? 'Nobody';
+  const topRival = (() => { let best: { a: string; b: string; n: number; w: number; l: number } | null = null; for (const p of party.players) for (const [id, r] of Object.entries(p.h2h ?? {})) if (r.w >= r.l && (!best || r.w + r.l > best.n)) best = { a: p.id, b: id, n: r.w + r.l, w: r.w, l: r.l }; return best; })();
+  const recap = [
+    { n: board.length, label: 'legends' }, { n: totalMissions, label: 'challenges' }, { n: totalBattles, label: 'battles' },
+    { n: party.gallery.length, label: 'photos' }, { n: party.wall.length, label: 'roasts & toasts' }, { n: party.raidsDone.length, label: 'boss raids' },
+  ];
 
   return (
     <div className="screen with-nav">
@@ -28,20 +38,50 @@ export default function Finale() {
       <div className="screen-body scroll-y stack-10">
         {view === 'awards' && (
           <>
-            {revealed === 0 && legendPlayer?.creature && (
+            {revealed === 0 && (
               <div className="panel panel-gold pad-lg center stack-6 fade-up">
-                <div className="eyebrow">The weekend in numbers</div>
-                <div className="seg" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}><div className="stat"><b>{board.length}</b><span>legends</span></div><div className="stat"><b>{totalMissions}</b><span>missions</span></div><div className="stat"><b>{totalBattles}</b><span>battles</span></div></div>
-                <div className="small dim bold">{awards.length} awards. One tap at a time. Make it dramatic.</div>
+                <div className="eyebrow">The ceremony</div>
+                <div className="display title-md">{ordered.length} awards. One tap at a time.</div>
+                <div className="small dim bold">The Weekend Menace goes first. The Jezza Legend goes last. Read them out loud. Make it dramatic.</div>
               </div>
             )}
-            {shown.map((a, i) => { const p = party.players.find((x) => x.id === a.playerId); return (
-              <div key={a.id} className={`panel pad row ${i === shown.length - 1 ? 'fade-up' : ''} ${a.id === 'legend' ? 'panel-gold' : ''}`} style={{ gap: 12 }}>
-                <span className="avatar lg">{p?.creature ? <Creature creature={p.creature} level={p.level} colorway={p.equipped.colorway} equipped={p.equipped} state={i === shown.length - 1 ? 'victory' : 'idle'} /> : <span style={{ fontSize: 22 }}>🫥</span>}</span>
-                <span className="grow" style={{ minWidth: 0 }}><div className="eyebrow">{a.name}</div><div className="display title-md ellipsis">{p?.nickname ?? 'Nobody'}</div><div className="tiny dim">{a.reason}</div></span>
+            {allDone && legendPlayer?.creature && (
+              <div className="panel panel-gold pad-lg center stack-6 legend-hero" ref={(el) => { if (el && heroRef.current !== el) { heroRef.current = el; el.scrollIntoView({ behavior: 'smooth', block: 'start' }); } }}>
+                <Confetti />
+                <div className="eyebrow">The Jezza Legend</div>
+                <div className="podium">
+                  {[board[1], board[0], board[2]].map((p, i) => p?.creature ? (
+                    <div key={p.id} className={`podium-step step-${i === 1 ? 1 : i === 0 ? 2 : 3}`}>
+                      {i === 1 && <div className="crown">👑</div>}
+                      <Creature creature={p.creature} level={p.level} colorway={p.equipped.colorway} equipped={p.equipped} state={i === 1 ? 'victory' : 'happy'} />
+                      <div className="podium-block"><b>{i === 1 ? 1 : i === 0 ? 2 : 3}</b><span className="ellipsis">{p.nickname}</span></div>
+                    </div>) : <div key={i} className="podium-step" />)}
+                </div>
+                <div className="display title-lg gold-text">{legendPlayer.nickname}</div>
+                <div className="small dim bold">{legend?.reason}</div>
+                <div className="tiny faint">Suggested prize: a cheap trophy or a sash to wear for the rest of the night. If the lads chipped into a pool ($50–$100), it&apos;s theirs.</div>
+              </div>
+            )}
+            {[...shown].reverse().map((a, ri) => { const i = shown.length - 1 - ri; const p = party.players.find((x) => x.id === a.playerId); const menace = a.id === 'menace'; const isLegend = a.id === 'legend'; if (isLegend && allDone && legendPlayer?.creature) return null; return (
+              <div key={a.id} className={`panel pad row award-card ${i === shown.length - 1 ? 'award-reveal' : ''} ${isLegend ? 'panel-gold' : ''} ${menace ? 'menace-card' : ''}`} style={{ gap: 12 }}>
+                <span className="avatar lg">{p?.creature ? <Creature creature={p.creature} level={p.level} colorway={p.equipped.colorway} equipped={p.equipped} state={menace ? 'defeat' : i === shown.length - 1 ? 'victory' : 'idle'} /> : <span style={{ fontSize: 22 }}>🫥</span>}</span>
+                <span className="grow" style={{ minWidth: 0 }}>
+                  <div className="eyebrow">{a.name}</div>
+                  <div className="display title-md ellipsis">{p?.nickname ?? 'Nobody'}</div>
+                  <div className="tiny dim">{a.reason}</div>
+                  {menace && p && <div className="tiny faint" style={{ marginTop: 4 }}>Optional forfeit: a 20-second speech or dance for Jezza. Saying &quot;nah&quot; is completely fine.</div>}
+                </span>
               </div>); })}
-            {next ? <Button onClick={() => setRevealed((r) => r + 1)}>{revealed === 0 ? 'Reveal the first award' : `Reveal: ${next.name}`}</Button>
-              : <div className="center stack-6 fade-up"><div style={{ fontSize: 36 }}>🥂</div><div className="display title-md gold-text">To Jezza. To the legends.</div><div className="small dim bold">Thanks for playing. Drink some water.</div>{me && <div className="pill pill-gold">You finished #{board.findIndex((p) => p.id === me.id) + 1} with {me.points} pts</div>}</div>}
+            {next ? <Button onClick={() => { sfx.sting(); setRevealed((r) => r + 1); }}>{revealed === 0 ? `Open with: ${next.name}` : next.id === 'legend' ? '👑 Crown THE JEZZA LEGEND' : `Reveal: ${next.name}`}</Button>
+              : (
+                <div className="center stack-6 fade-up">
+                  <div className="panel pad stack-6">
+                    <div className="eyebrow">The weekend in numbers</div>
+                    <div className="seg" style={{ gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>{recap.map((r) => <div key={r.label} className="stat"><b>{r.n}</b><span>{r.label}</span></div>)}</div>
+                    {topRival && <div className="tiny bold">⚔️ Rivalry of the weekend: {nick(topRival.a)} vs {nick(topRival.b)} ({topRival.w}–{topRival.l})</div>}
+                  </div>
+                  <div style={{ fontSize: 36 }}>🥂</div><div className="display title-md gold-text">To Jezza. To the legends.</div><div className="small dim bold">Thanks for playing. Drink some water.</div>{me && <div className="pill pill-gold">You finished #{board.findIndex((p) => p.id === me.id) + 1} with {me.points} pts</div>}
+                </div>)}
           </>
         )}
         {view === 'roasts' && (() => {
@@ -64,4 +104,9 @@ export default function Finale() {
       </div>
     </div>
   );
+}
+
+function Confetti() {
+  const colours = ['#E5AD48', '#F6EBDD', '#76243A', '#a8e58f', '#f07842'];
+  return <div className="confetti" aria-hidden>{Array.from({ length: 28 }, (_, i) => <i key={i} style={{ left: `${(i * 37) % 100}%`, background: colours[i % 5], animationDelay: `${(i % 7) * 0.18}s`, animationDuration: `${2.4 + (i % 5) * 0.35}s` }} />)}</div>;
 }
