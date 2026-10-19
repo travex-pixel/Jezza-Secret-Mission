@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { GROUP_MISSIONS, MISSION_BY_ID } from '@shared/missions';
+import { GROUP_MISSIONS, MISSION_BY_ID, rookieLeft } from '@shared/missions';
 import { MissionCard } from '../components/MissionCard';
 import { EpicCard } from '../components/EpicCard';
 import { Button, useCountdown } from '../components/ui';
@@ -29,16 +29,13 @@ export default function Missions() {
     try { await request({ type: 'confirmWitness', claimId, approve }); sfx.select(); } catch { sfx.error(); }
   };
 
+  const rookie = rookieLeft(me?.missionsCompleted ?? 99);
   return (
     <div className="screen with-nav">
       <div className="topbar">
         <h2 className="display title-md">Challenges</h2>
         <span className="pill">{priv?.rerollsLeft ?? 0}/3 swaps{refill > 0 ? ` · +1 in ${Math.ceil(refill / 60)}m` : ''}</span>
       </div>
-      <button className="row-between panel pad" style={{ width: '100%', textAlign: 'left', marginBottom: 8, padding: '8px 12px' }} onClick={toggleLowKey}>
-        <span><div className="bold small">😎 Low-key mode</div><div className="tiny faint">No dancing, singing or performing. Still plenty to do.</div></span>
-        <span className={`switch ${me?.lowKey ? 'on' : ''}`} aria-label="Low-key mode" />
-      </button>
       <div className="tabs" style={{ marginBottom: 10 }}>
         <button className={`tab ${tab === 'mine' ? 'on' : ''}`} onClick={() => setTab('mine')}>Mine ({hand.length})</button>
         <button className={`tab ${tab === 'group' ? 'on' : ''}`} onClick={() => setTab('group')}>Group ({revealed.length})</button>
@@ -55,10 +52,16 @@ export default function Missions() {
         ))}
         {tab === 'mine' && (
           <>
-            {openEpics.map((e) => <EpicCard key={e.id} epic={e} />)}
+            {rookie > 0 && !!hand.length && <div className="panel panel-gold pad small center"><b>🚀 Rookie boost:</b> next {rookie} {rookie === 1 ? 'challenge gives' : 'challenges give'} double XP and count{rookie === 1 ? 's' : ''} straight away.</div>}
             {!eventLive && !hand.length && <div className="panel pad center dim bold">The game's paused. Stretch. Hydrate. Judge your mates.</div>}
             {!party?.missionsOpen && eventLive && <div className="panel pad center small bold" style={{ borderColor: 'rgba(240,120,66,.5)' }}>⏸️ Challenges are paused for a bit.</div>}
             {hand.map((h) => { const m = MISSION_BY_ID[h.missionId]; return m ? <MissionCard key={h.missionId} mission={m} assignment={h} showReroll /> : null; })}
+            {!!openEpics.length && <div className="eyebrow" style={{ marginTop: 4 }}>🟣 EPIC jobs: real chores, big points</div>}
+            {openEpics.map((e) => <EpicCard key={e.id} epic={e} />)}
+            <button className="row-between panel pad" style={{ width: '100%', textAlign: 'left', padding: '8px 12px' }} onClick={toggleLowKey}>
+              <span><div className="bold small">😎 Low-key mode</div><div className="tiny faint">No dancing, singing or performing. Still plenty to do.</div></span>
+              <span className={`switch ${me?.lowKey ? 'on' : ''}`} aria-label="Low-key mode" />
+            </button>
           </>
         )}
         {tab === 'group' && (

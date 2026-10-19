@@ -14,6 +14,7 @@ export interface Mission {
   loud?: boolean;   // performing (dance / sing / jokes). Low-key players never get these.
   secret?: boolean; // only the holder sees the title; the feed says "a sneaky one"
   starter?: boolean;
+  selfie?: boolean;  // opens the front camera
 }
 
 export const CATEGORY_META: Record<MissionCategory, { label: string; emoji: string; hue: string }> = {
@@ -39,7 +40,26 @@ const m = (x: M): Mission => ({ ...REWARD[x.difficulty], scope: 'private', phase
 
 export const MISSIONS: Mission[] = [
   // ---------- FIRST ONE ----------
-  m({ id: 'm001', starter: true, title: 'The Legend Begins', instruction: 'Get Jezza to say "absolutely cooked" without asking him to say it.', category: 'jezza', difficulty: 1, method: 'self' }),
+  // A selfie: doable anywhere, right now, and it counts straight away. Its XP is exactly Level 2.
+  m({ id: 'm001', starter: true, selfie: true, title: 'Say Cheese', instruction: 'Snap a selfie so the lads know you\'re in. Pull your best face.', category: 'photo', difficulty: 1, method: 'photo', xp: 50 }),
+
+  // ---------- EASY ONES: quick photos and small wins, doable solo or with one mate ----------
+  m({ id: 'e01', title: 'Best View', instruction: 'Snap the best view you can find this weekend. No thumbs in the photo.', category: 'photo', difficulty: 1, method: 'photo' }),
+  m({ id: 'e02', title: 'Better Face', instruction: 'Selfie with a mate. They have to pull a worse face than you.', category: 'photo', difficulty: 1, method: 'photo' }),
+  m({ id: 'e03', title: 'Snack Report', instruction: 'Photo of the most questionable snack in the house.', category: 'photo', difficulty: 1, method: 'photo' }),
+  m({ id: 'e04', title: 'Candid Jezza', instruction: 'Catch Jezza mid-laugh. No posing allowed.', category: 'jezza', difficulty: 1, method: 'photo' }),
+  m({ id: 'e05', title: 'Clink', instruction: 'Close-up of at least three glasses clinking.', category: 'cheers', difficulty: 1, method: 'photo' }),
+  m({ id: 'e06', title: 'Chef\'s Kiss', instruction: 'Photo of the best-looking plate of food this weekend.', category: 'photo', difficulty: 1, method: 'photo' }),
+  m({ id: 'e07', title: 'Mirror Mirror', instruction: 'Mirror selfie with as many lads in it as you can fit.', category: 'photo', difficulty: 1, method: 'photo' }),
+  m({ id: 'e08', title: 'Photobomb', instruction: 'Sneak into the background of someone else\'s photo. Get a pic of the result.', category: 'sneaky', difficulty: 1, method: 'photo' }),
+  m({ id: 'e09', title: 'Shoe Pile', instruction: 'Photo of the pile of shoes at the door. Bonus if one is a thong.', category: 'photo', difficulty: 1, method: 'photo' }),
+  m({ id: 'e10', title: 'Creature Cosplay', instruction: 'Recreate your creature\'s pose. Get a mate to snap it.', category: 'photo', difficulty: 1, method: 'photo' }),
+  m({ id: 'e11', title: 'Model Material', instruction: 'Snap a mate looking like a model in good light. Make them look unreal.', category: 'chill', difficulty: 1, method: 'photo' }),
+  m({ id: 'e12', title: 'Hype Man', instruction: 'Give a mate a proper compliment out loud. Mean it.', category: 'chill', difficulty: 1, method: 'self' }),
+  m({ id: 'e13', title: 'High Five Streak', instruction: 'High five five different lads in a row.', category: 'chill', difficulty: 1, method: 'self' }),
+  m({ id: 'e14', title: 'Water Break', instruction: 'Smash a full glass of water. Legends hydrate.', category: 'chill', difficulty: 1, method: 'self' }),
+  m({ id: 'e15', title: 'Absolutely Cooked', instruction: 'Get Jezza to say "absolutely cooked" without asking him to say it.', category: 'jezza', difficulty: 1, method: 'self' }),
+  m({ id: 'e16', title: 'New Nickname', instruction: 'Give Jezza a new nickname and get another lad to use it.', category: 'jezza', difficulty: 1, method: 'witness' }),
 
   // ---------- MAKE JEZZA LAUGH ----------
   m({ id: 'l01', title: 'Crack Him Up', instruction: 'You\'ve got 30 seconds to make Jezza laugh. Joke, face, impression, whatever. Go.', category: 'laugh', difficulty: 1, method: 'witness', loud: true }),
@@ -155,15 +175,19 @@ export const MISSION_BY_ID: Record<string, Mission> = Object.fromEntries(MISSION
 export const STARTER_MISSION = MISSIONS.find((x) => x.starter)!;
 export const GROUP_MISSIONS = MISSIONS.filter((x) => x.scope === 'group');
 
+/** Rookie boost: your first few challenges are easy, give double XP, count straight away and skip the honour cooldown. */
+export const ROOKIE_UNTIL = 4; // while you've finished fewer than this many (the selfie counts as one)
+export const rookieLeft = (missionsCompleted: number) => Math.max(0, Math.min(3, ROOKIE_UNTIL - missionsCompleted));
+
 export function missionAvailableInPhase(mission: Mission, phase: 'friday' | 'saturday'): boolean {
   return mission.phase === 'any' || mission.phase === phase;
 }
 
 export const METHOD_META: Record<CompletionMethod, { label: string; cta: string; hint: string }> = {
-  self:    { label: 'Just tap it (honour system)', cta: 'I DID IT', hint: 'Tap when it\'s done. The lads will know if you\'re lying.' },
+  self:    { label: 'Honour system', cta: 'I DID IT', hint: 'Tap when it\'s done. The lads will know if you\'re lying.' },
   photo:   { label: 'Needs a photo', cta: 'SNAP IT', hint: 'Take a photo or pick one from your library. The lads vote it in (or the host checks it, if they\'ve set that).' },
-  witness: { label: 'A mate who saw it confirms', cta: 'I DID IT', hint: 'Pick a mate who was there. They tap yes on their phone.' },
-  host:    { label: 'The host checks it', cta: 'I DID IT', hint: 'The host decides.' },
+  witness: { label: 'A mate confirms', cta: 'I DID IT', hint: 'Pick a mate who was there. They tap yes on their phone.' },
+  host:    { label: 'Host checks it', cta: 'I DID IT', hint: 'The host decides.' },
 };
 
 export const REWARD_QUIPS = [

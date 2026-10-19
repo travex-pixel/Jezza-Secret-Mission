@@ -3,9 +3,10 @@
 // identity spoofing, and server-resolved battles. Exits non-zero on any failure.
 import WebSocket from 'ws';
 import type { ClientMessage, ServerMessage, PartyPublic, PlayerPrivate } from '../shared/types';
-import { STARTER_MISSION, MISSIONS } from '../shared/missions';
+import { STARTER_MISSION, MISSIONS, rookieLeft } from '../shared/missions';
+const SELFIE = 'data:image/jpeg;base64,c2VsZmll'; // the first challenge is a selfie
 const WIT_IDS = MISSIONS.filter((m) => m.method === 'witness').map((m) => m.id);
-const PHOTO_IDS = MISSIONS.filter((m) => m.method === 'photo' && m.scope === 'private').map((m) => m.id);
+const PHOTO_IDS = MISSIONS.filter((m) => m.method === 'photo' && m.scope === 'private' && !m.starter).map((m) => m.id);
 const SELF_IDS = MISSIONS.filter((m) => m.method === 'self' && !m.starter && m.scope === 'private').map((m) => m.id);
 
 const URL = process.env.WS_URL ?? 'ws://localhost:8787/ws';
@@ -87,14 +88,14 @@ async function main() {
   console.log('\n[duplicate + concurrent claims]');
   const m0 = mates[0];
   const claimId = `dup_${run}_a`;
-  const results = await Promise.allSettled([0, 1, 2].map(() => m0.req({ type: 'claimMission', missionId: STARTER_MISSION.id, claimId })));
+  const results = await Promise.allSettled([0, 1, 2].map(() => m0.req({ type: 'claimMission', missionId: STARTER_MISSION.id, photo: SELFIE, claimId })));
   check(results.every((r) => r.status === 'fulfilled'), 'same claim id sent 3x concurrently: all acked idempotently');
   await sleep(200);
   const me0 = () => host.party!.players.find((p) => p.id === m0.id)!;
   check(me0().points === STARTER_MISSION.points + 5, `points awarded exactly once (${me0().points} = ${STARTER_MISSION.points} + 5 new-category bonus)`);
-  await m0.req({ type: 'claimMission', missionId: STARTER_MISSION.id, claimId: `dup_${run}_b` }).then(() => check(false, 'fresh claim on completed mission rejected'), () => check(true, 'fresh claim on completed mission rejected'));
+  await m0.req({ type: 'claimMission', missionId: STARTER_MISSION.id, photo: SELFIE, claimId: `dup_${run}_b` }).then(() => check(false, 'fresh claim on completed mission rejected'), () => check(true, 'fresh claim on completed mission rejected'));
   // everyone claims their starter simultaneously
-  await Promise.all(mates.slice(1).map((m) => m.req({ type: 'claimMission', missionId: STARTER_MISSION.id, claimId: `st_${run}_${m.id}` })));
+  await Promise.all(mates.slice(1).map((m) => m.req({ type: 'claimMission', missionId: STARTER_MISSION.id, photo: SELFIE, claimId: `st_${run}_${m.id}` })));
   check(await until(() => host.party!.players.filter((p) => p.id !== host.id).every((p) => p.points >= STARTER_MISSION.points)), `14 simultaneous claims all landed`);
   const notMine = MISSIONS.find((m) => m.scope === 'private' && !m.starter && !m0.priv!.hand.some((h) => h.missionId === m.id))!.id;
   await m0.req({ type: 'claimMission', missionId: notMine, claimId: `nm_${run}` }).then(() => check(false, 'mission not in hand rejected'), () => check(true, 'mission not in hand rejected'));
@@ -119,8 +120,21 @@ async function main() {
     const mid = photoC.priv!.hand.find((h) => PHOTO_IDS.includes(h.missionId))!.missionId;
     await photoC.req({ type: 'claimMission', missionId: mid, claimId: `p_${run}` }).then(() => check(false, 'photo challenge without a photo rejected'), () => check(true, 'photo challenge without a photo rejected'));
     const tiny = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+    // A rookie's first photos count straight away (no vote). Use the boost up, then the next one goes to the vote.
+    const done = () => host.party!.players.find((p) => p.id === photoC.id)!.missionsCompleted;
+    let rookieShots = 0;
+    for (let i = 0; i < 6 && rookieLeft(done()) > 0; i++) {
+      const pid = photoC.priv!.hand.find((h) => h.status === 'active' && PHOTO_IDS.includes(h.missionId))?.missionId;
+      if (!pid) break;
+      const n = done();
+      const r = await photoC.req<{ status: string }>({ type: 'claimMission', missionId: pid, claimId: `pr_${run}_${i}`, photo: tiny });
+      if (r.status === 'approved') rookieShots++;
+      await until(() => done() > n && !photoC.priv!.hand.some((h) => h.missionId === pid));
+    }
+    check(rookieShots > 0, `a rookie's photos count straight away (${rookieShots}), no waiting on votes`);
+    const mid2 = photoC.priv!.hand.find((h) => h.status === 'active' && PHOTO_IDS.includes(h.missionId))!.missionId;
     const before = host.party!.players.find((p) => p.id === photoC.id)!.points;
-    const res = await photoC.req<{ status: string }>({ type: 'claimMission', missionId: mid, claimId: `p_${run}_2`, photo: tiny });
+    const res = await photoC.req<{ status: string }>({ type: 'claimMission', missionId: mid2, claimId: `p_${run}_2`, photo: tiny });
     check(res.status === 'pending', 'photo goes to the lads\' vote (default photo check)');
     check(await until(() => clients.every((c) => c.party?.pendingPhotos?.some((x) => x.claimId === `p_${run}_2`))), 'everyone sees the photo up for a vote');
     const voters = mates.filter((m) => m !== photoC).slice(0, 2);

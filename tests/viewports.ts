@@ -5,11 +5,12 @@
 import { chromium, type Page } from 'playwright-core';
 import fs from 'node:fs';
 import path from 'node:path';
+import { SELFIE_FILE } from './fixtures';
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:5173';
 const OUT = process.env.SHOT_DIR ?? path.resolve('test-results/screenshots');
 const VIEWPORTS = [[320, 568], [360, 640], [390, 844], [412, 915]] as const;
-const CORE_NO_SCROLL = new Set(['01-opening', '03-choose', '04-reveal', '05-first-mission', '07-lobby', '09-battle-arena', '14-raid', '14b-raid-lobby']);
+const CORE_NO_SCROLL = new Set(['01-opening', '03-choose', '04-reveal', '05-first-mission', '06b-tutorial-done', '07-lobby', '09-battle-arena', '14-raid', '14b-raid-lobby']);
 
 const findChrome = () => {
   const roots = [process.env.CHROME_PATH, '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', '/opt/pw-browsers/chromium/chrome-linux/chrome'];
@@ -62,12 +63,15 @@ async function run() {
     await page.waitForTimeout(2200);
     await shot(page, vp, '04-reveal');
     await page.getByRole('button', { name: /first challenge/i }).click();
-    await page.waitForSelector('.mission-card');
+    await page.locator('input[data-selfie]').waitFor({ state: 'attached' });
     await shot(page, vp, '05-first-mission');
-    await page.getByRole('button', { name: /i did it/i }).click();
+    await page.locator('input[data-selfie]').setInputFiles(SELFIE_FILE);
     await page.waitForSelector('.reward');
     await shot(page, vp, '06-reward');
     await page.locator('.reward').click();
+    await page.getByRole('button', { name: /let's go/i }).waitFor();
+    await shot(page, vp, '06b-tutorial-done');
+    await page.getByRole('button', { name: /let's go/i }).click();
     await page.waitForSelector('.bottom-nav');
     await shot(page, vp, '07-lobby');
     await page.locator('.bottom-nav').getByRole('button', { name: 'Challenges' }).click();

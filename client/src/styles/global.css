@@ -431,6 +431,9 @@ img, svg { display: block; max-width: 100%; }
 .tab { flex: 1; min-height: 38px; border-radius: 10px; font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--text-dim); }
 .tab.tab-ico { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; min-width: 40px; padding: 3px 0; letter-spacing: 0; font-size: 15px; }
 .tab.tab-ico small { font-size: 8.5px; font-weight: 800; letter-spacing: .02em; }
+.tut-dots { display: flex; justify-content: center; gap: 6px; margin-bottom: 6px; }
+.tut-dots span { width: 7px; height: 7px; border-radius: 50%; background: var(--line); }
+.tut-dots span.on { width: 20px; border-radius: 4px; background: var(--gold-2); }
 .tab.on { background: var(--panel-2); color: var(--gold-2); box-shadow: inset 0 1px 0 rgba(255,255,255,.08); }
 
 /* ===== Misc ===== */

@@ -83,7 +83,7 @@ export function MissionCard({ mission, assignment, compact, onDone, showReroll, 
     switch (mission.method) {
       case 'self': return coolingDown && coolLeft > 0 ? <Button size="sm" variant="secondary" disabled title="One honour-system claim every 8 minutes">⏳ {Math.floor(coolLeft / 60)}:{String(coolLeft % 60).padStart(2, '0')}</Button> : <Button size="sm" onClick={() => submit()} disabled={busy}>{busy ? '…' : `✅ ${method.cta}`}</Button>;
       case 'photo': return (<>
-        <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ''; }} />
+        <input ref={fileRef} type="file" accept="image/*" capture={mission.selfie ? 'user' : 'environment'} className="hidden" onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ''; }} />
         <input ref={libRef} type="file" accept="image/*" className="hidden" data-library onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ''; }} />
         {!busy && <Button size="sm" variant="secondary" onClick={() => libRef.current?.click()} aria-label="Pick from your photos">🖼️</Button>}
         <Button size="sm" onClick={() => fileRef.current?.click()} disabled={busy}>{busy ? 'Uploading…' : `📸 ${method.cta}`}</Button>

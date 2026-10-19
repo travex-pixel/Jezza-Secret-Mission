@@ -8,7 +8,7 @@ import type {
 } from './types';
 import { EPIC_CUSTOM_ITEM, EPIC_MAX_CREW, EPIC_PRESET_BY_ID, EPIC_TIERS, isEpicTier } from './epics';
 import { CREATURES, CREATURE_IDS, FORMS, GROOM_CREATURE, starterTrio } from './creatures';
-import { MISSIONS, MISSION_BY_ID, STARTER_MISSION, GROUP_MISSIONS, missionAvailableInPhase, type Mission } from './missions';
+import { MISSIONS, MISSION_BY_ID, STARTER_MISSION, GROUP_MISSIONS, missionAvailableInPhase, rookieLeft, type Mission } from './missions';
 import {
   ACHIEVEMENTS, COSMETIC_BY_ID, colorwaysUnlocked, computeAwards, cosmeticsForLevel, levelForXp, titleForLevel,
   xpCapFor, stageForLevel, eloUpdate, START_RATING, sortLeaderboard,
@@ -548,6 +548,9 @@ export class Engine {
       const inHandCats = new Set(p.hand.map((h) => MISSION_BY_ID[h.missionId]?.category));
       const varied = pool.filter((m) => !inHandCats.has(m.category));
       let src = varied.length ? varied : pool;
+      if (rookieLeft(p.missionsCompleted) > 0) { const easy = src.filter((m) => m.difficulty === 1); if (easy.length) src = easy; }
+      // keep a photo one in every hand: they're quick and they fill the gallery
+      if (!p.hand.some((h) => MISSION_BY_ID[h.missionId]?.method === 'photo')) { const snaps = src.filter((m) => m.method === 'photo'); if (snaps.length) src = snaps; }
       if (sameDifficultyAs) { const same = src.filter((m) => m.difficulty === sameDifficultyAs); if (same.length) src = same; sameDifficultyAs = undefined; }
       const m = src[Math.floor(this.rng() * src.length)];
       p.hand.push({ missionId: m.id, assignedAt: this.now(), status: 'active' });
@@ -589,7 +592,8 @@ export class Engine {
     }
     if (Object.values(party.claims).some((c) => c.playerId === playerId && c.missionId === missionId && c.status === 'pending')) return this.fail('Already sent.');
 
-    if (mission.method === 'self' && !mission.starter && !isGroup) {
+    const rookie = !isGroup && rookieLeft(p.missionsCompleted) > 0;
+    if (mission.method === 'self' && !mission.starter && !isGroup && !rookie) {
       const wait = (p.lastHonourClaimAt ?? 0) + HONOUR_COOLDOWN_MS - now;
       if (wait > 0) return this.fail(`Easy, legend. Next honour-system claim in ${Math.floor(wait / 60000)}:${String(Math.ceil((wait % 60000) / 1000)).padStart(2, '0')}. Photo and mate-confirm ones are still open.`);
     }
@@ -607,11 +611,11 @@ export class Engine {
       if (!w || w.removed || w.id === playerId || !w.creature) return this.fail('Pick a mate who was there.');
       claim.witnessId = witnessId;
     }
-    if (mission.method === 'self' && !mission.starter && !isGroup) p.lastHonourClaimAt = now;
+    if (mission.method === 'self' && !mission.starter && !isGroup && !rookie) p.lastHonourClaimAt = now;
     party.claims[claimId] = claim;
     const direct: Outbound[] = [];
     const others = Object.values(party.players).filter((x) => !x.removed && x.creature && x.id !== playerId).length;
-    if (mission.method === 'photo' && party.photoMode !== 'instant' && others > 0) {
+    if (mission.method === 'photo' && party.photoMode !== 'instant' && others > 0 && !mission.starter && !rookie) { // the selfie and rookie snaps count straight away
       // Photo check: the lads vote it in (or the host approves it). Nobody is ever stuck: it times out in the snapper's favour.
       claim.review = party.photoMode; claim.votesUp = []; claim.votesDown = [];
       if (!isGroup) { const h = p.hand.find((x) => x.missionId === missionId)!; h.status = 'pending'; h.claimId = claimId; }
@@ -638,16 +642,18 @@ export class Engine {
     const h = p.hand.find((x) => x.missionId === mission.id);
     if (h) { h.status = 'done'; h.claimId = claim.id; }
     const newCategory = (p.categoryCounts[mission.category] ?? 0) === 0;
+    const rookie = !mission.starter && mission.scope === 'private' && rookieLeft(p.missionsCompleted) > 0 && p.joinedPhase !== 'saturday'; // Saturday arrivals have Fresh Legs instead
     p.missionsCompleted += 1;
     p.categoryCounts[mission.category] = (p.categoryCounts[mission.category] ?? 0) + 1;
     const fresh = p.freshLegs > 0;
     if (fresh) p.freshLegs -= 1;
     const points = mission.points * (fresh ? 2 : 1) + (newCategory ? VARIETY_BONUS : 0);
-    const bonus = [fresh ? '🦵 Fresh Legs: double points' : '', newCategory ? `+${VARIETY_BONUS} new category` : ''].filter(Boolean).join(' · ') || undefined;
-    const reward = this.grant(party, p, points, mission.xp, direct);
+    const xp = mission.xp * (rookie ? 2 : 1);
+    const bonus = [rookie ? '🚀 Rookie boost: double XP' : '', fresh ? '🦵 Fresh Legs: double points' : '', newCategory ? `+${VARIETY_BONUS} new category` : ''].filter(Boolean).join(' · ') || undefined;
+    const reward = this.grant(party, p, points, xp, direct);
     const label = mission.secret ? 'a sneaky one' : `"${mission.title}"`;
     this.feed(party, { kind: 'mission', text: `${p.nickname} did ${label} (+${points})`, playerId: p.id, photoUrl: claim.photoUrl, emoji: mission.secret ? '🕵️' : CATEGORY_EMOJI[mission.category], claimId: claim.id, flags: 0 });
-    direct.push({ to: p.id, msg: { type: 'reward', points, xp: mission.xp, ...reward, title: mission.title, bonus } });
+    direct.push({ to: p.id, msg: { type: 'reward', points, xp, ...reward, title: mission.title, bonus } });
     // Raid + phase progress
     const phase = this.activePhase(party);
     if (phase && !mission.starter) party.phaseMissions[phase] += 1;

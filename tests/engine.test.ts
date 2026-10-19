@@ -2,8 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { Engine, HONOUR_COOLDOWN_MS } from '../shared/engine';
 import { seededRng } from '../shared/battle';
 import { STARTER_MISSION, MISSIONS } from '../shared/missions';
+const SELFIE = 'data:image/jpeg;base64,c2VsZmll'; // the first challenge is a selfie
 const SELF = MISSIONS.filter((m) => m.method === 'self' && !m.starter && m.scope === 'private');
-const PHOTO_M = MISSIONS.filter((m) => m.method === 'photo' && m.scope === 'private');
+const PHOTO_M = MISSIONS.filter((m) => m.method === 'photo' && m.scope === 'private' && !m.starter);
 const WIT = MISSIONS.filter((m) => m.method === 'witness');
 
 function setup(n = 15) {
@@ -34,14 +35,14 @@ describe('engine', () => {
   });
   it('starter mission claims are idempotent and cannot be double-claimed', () => {
     const { eng, ids, party } = setup();
-    const a = eng.handle(ids[1], { type: 'claimMission', reqId: 'x', missionId: STARTER_MISSION.id, claimId: 'claim-0001' });
+    const a = eng.handle(ids[1], { type: 'claimMission', reqId: 'x', missionId: STARTER_MISSION.id, photo: SELFIE, claimId: 'claim-0001' });
     expect(a.ack?.ok).toBe(true);
     const p = party().players[ids[1]];
     const first = p.points;
     expect(first).toBeGreaterThanOrEqual(STARTER_MISSION.points);
-    const dup = eng.handle(ids[1], { type: 'claimMission', reqId: 'x', missionId: STARTER_MISSION.id, claimId: 'claim-0001' });
+    const dup = eng.handle(ids[1], { type: 'claimMission', reqId: 'x', missionId: STARTER_MISSION.id, photo: SELFIE, claimId: 'claim-0001' });
     expect(dup.ack?.ok).toBe(true); expect((dup.ack as any).data.duplicate).toBe(true);
-    const again = eng.handle(ids[1], { type: 'claimMission', reqId: 'x', missionId: STARTER_MISSION.id, claimId: 'claim-0002' });
+    const again = eng.handle(ids[1], { type: 'claimMission', reqId: 'x', missionId: STARTER_MISSION.id, photo: SELFIE, claimId: 'claim-0002' });
     expect(again.ack?.ok).toBe(false);
     expect(party().players[ids[1]].points).toBe(first);
     expect(p.achievements).toContain('first_blood');
@@ -124,7 +125,7 @@ describe('engine', () => {
   });
   it('host can remove players, reset claims and advance/recover phases; awards are computed from data', () => {
     const { eng, ids, party } = setup();
-    eng.handle(ids[9], { type: 'claimMission', reqId: 'x', missionId: STARTER_MISSION.id, claimId: 'claim-s-0009' });
+    eng.handle(ids[9], { type: 'claimMission', reqId: 'x', missionId: STARTER_MISSION.id, photo: SELFIE, claimId: 'claim-s-0009' });
     const earned = party().players[ids[9]].points;
     expect(earned).toBeGreaterThanOrEqual(10);
     expect(eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'resetClaim', playerId: ids[9], missionId: STARTER_MISSION.id } }).ack?.ok).toBe(true);
@@ -154,7 +155,8 @@ describe('engine', () => {
     const { eng, ids, party, advance } = setup();
     const p = party().players[ids[2]];
     p.hand = [{ missionId: STARTER_MISSION.id, assignedAt: 0, status: 'active' }, { missionId: SELF[0].id, assignedAt: 0, status: 'active' }, { missionId: SELF[1].id, assignedAt: 0, status: 'active' }, { missionId: PHOTO_M[0].id, assignedAt: 0, status: 'active' }];
-    expect(eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: STARTER_MISSION.id, claimId: 'cd-starter-01' }).ack?.ok).toBe(true);
+    expect(eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: STARTER_MISSION.id, photo: SELFIE, claimId: 'cd-starter-01' }).ack?.ok).toBe(true);
+    p.missionsCompleted = 10; // past the rookie boost: rookies skip the cooldown
     expect(eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: SELF[0].id, claimId: 'cd-self-01' }).ack?.ok).toBe(true);
     const second = eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: SELF[1].id, claimId: 'cd-self-02' });
     expect(second.ack?.ok).toBe(false);
@@ -167,7 +169,7 @@ describe('engine', () => {
   });
   it('Call BS: two mates freeze the points, the host rules, the owner cannot self-flag', () => {
     const { eng, ids, party } = setup();
-    eng.handle(ids[4], { type: 'claimMission', reqId: 'x', missionId: STARTER_MISSION.id, claimId: 'bs-claim-01' });
+    eng.handle(ids[4], { type: 'claimMission', reqId: 'x', missionId: STARTER_MISSION.id, photo: SELFIE, claimId: 'bs-claim-01' });
     const before = party().players[ids[4]].points;
     expect(before).toBeGreaterThan(0);
     expect(eng.handle(ids[4], { type: 'flagClaim', reqId: 'f', claimId: 'bs-claim-01' }).ack?.ok).toBe(false);
@@ -188,7 +190,7 @@ describe('engine', () => {
     expect(party().players[ids[4]].points).toBe(before);
     expect(party().claims['bs-claim-01'].status).toBe('approved');
     // a struck-out claim stays gone
-    eng.handle(ids[7], { type: 'claimMission', reqId: 'x', missionId: STARTER_MISSION.id, claimId: 'bs-claim-02' });
+    eng.handle(ids[7], { type: 'claimMission', reqId: 'x', missionId: STARTER_MISSION.id, photo: SELFIE, claimId: 'bs-claim-02' });
     const before7 = party().players[ids[7]].points;
     eng.handle(ids[5], { type: 'flagClaim', reqId: 'f', claimId: 'bs-claim-02' }); eng.handle(ids[6], { type: 'flagClaim', reqId: 'f', claimId: 'bs-claim-02' });
     eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'resolveClaim', claimId: 'bs-claim-02', approve: false } });

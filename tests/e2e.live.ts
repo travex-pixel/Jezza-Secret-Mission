@@ -5,6 +5,7 @@
 import { chromium } from 'playwright-core';
 import fs from 'node:fs';
 import path from 'node:path';
+import { SELFIE_FILE } from './fixtures';
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:8790';
 const OUT = process.env.SHOT_DIR ?? path.resolve('test-results/screenshots/live');
@@ -29,7 +30,7 @@ async function main() {
   await host.page.getByRole('button', { name: /adopt goldhorn/i }).click();
   await host.page.waitForTimeout(2000);
   await host.page.getByRole('button', { name: /first challenge/i }).click();
-  await host.page.getByRole('button', { name: /show me the lobby/i }).click();
+  await host.page.getByRole('button', { name: /do it later/i }).click(); await host.page.getByRole('button', { name: /let's go/i }).click();
   await host.page.waitForSelector('.bottom-nav');
   await host.page.locator('.quick-btn', { hasText: 'Party' }).click();
   await host.page.waitForSelector('.code-display');
@@ -46,9 +47,11 @@ async function main() {
   await mate.page.getByRole('button', { name: /adopt/i }).click();
   await mate.page.waitForTimeout(2000);
   await mate.page.getByRole('button', { name: /first challenge/i }).click();
-  await mate.page.getByRole('button', { name: /i did it/i }).click();
+  await mate.page.locator('input[data-selfie]').setInputFiles(SELFIE_FILE); // tutorial: the first challenge is a selfie
   await mate.page.waitForSelector('.reward');
+  check(/level\s*2/i.test((await mate.page.locator('.reward').textContent()) ?? ''), 'the selfie counts straight away and levels the creature up');
   await mate.page.locator('.reward').click();
+  await mate.page.getByRole('button', { name: /let's go/i }).click();
   await mate.page.waitForSelector('.bottom-nav');
 
   await host.page.waitForTimeout(500);

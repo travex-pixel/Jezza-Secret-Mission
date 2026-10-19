@@ -38,6 +38,14 @@ s07 Duet: Sing a chorus with a mate. The worse the harmonies, the better.
 s08 Power Ballad: Sing Jezza one chorus with way too much emotion. Eyes shut, fist clenched, one tear optional.
 
 PHOTOS
+m001 Say Cheese: Snap a selfie so the lads know you're in. Pull your best face.
+e01 Best View: Snap the best view you can find this weekend. No thumbs in the photo.
+e02 Better Face: Selfie with a mate. They have to pull a worse face than you.
+e03 Snack Report: Photo of the most questionable snack in the house.
+e06 Chef's Kiss: Photo of the best-looking plate of food this weekend.
+e07 Mirror Mirror: Mirror selfie with as many lads in it as you can fit.
+e09 Shoe Pile: Photo of the pile of shoes at the door. Bonus if one is a thong.
+e10 Creature Cosplay: Recreate your creature's pose. Get a mate to snap it.
 p01 Most Cooked Selfie: Take the most ridiculous selfie you can with Jezza. You both have to be happy with it.
 p02 Identical Idiots: Get three mates to pull the exact same face in one photo.
 p03 Pyramid of Lads: Pyramid-shaped group photo: back row standing, middle row squatting, front row sitting. Nobody climbs on anyone.
@@ -58,7 +66,9 @@ p17 Wombat Squad: Everyone gets low in a comfy squat for a group photo. Lower is
 p18 Grand Final Winners: Group photo of everyone celebrating like you just won the grand final. Jezza holds the imaginary cup.
 
 GET JEZZA INVOLVED
-m001 The Legend Begins: Get Jezza to say "absolutely cooked" without asking him to say it.
+e04 Candid Jezza: Catch Jezza mid-laugh. No posing allowed.
+e15 Absolutely Cooked: Get Jezza to say "absolutely cooked" without asking him to say it.
+e16 New Nickname: Give Jezza a new nickname and get another lad to use it.
 j01 Jezza Joins In: Get Jezza into your most ridiculous group pose.
 j02 Jezza Picks: Give Jezza two stupid (harmless) options for what you do next. Do whichever he picks.
 j03 Groom's Award: Give Jezza a made-up award for something he did this weekend. Photo of the presentation.
@@ -72,6 +82,7 @@ j10 Groom's Choice: Offer Jezza three options: joke, song or dance. Do whichever
 j11 Marriage Advice: Ask Jezza for his best marriage advice so far. Nod like it's the wisest thing you've ever heard.
 
 CHEERS
+e05 Clink: Close-up of at least three glasses clinking.
 c01 Cheers with Jezza: Clink glasses with Jezza and get a funny photo of it. Any drink counts.
 c02 Ten-Second Toast: Give Jezza a ten-second toast. Heartfelt, ridiculous, or both.
 c03 Cheers Crew: Get three mates and Jezza into a group cheers photo.
@@ -84,6 +95,7 @@ c09 Synchronised Cheers: Get four lads to pull the exact same cheers pose in one
 c10 Historic Toast: Toast Jezza like it's a moment in history: "On this day, a legend..." Under 20 seconds.
 
 SNEAKY
+e08 Photobomb: Sneak into the background of someone else's photo. Get a pic of the result.
 x01 Plant a Word: Get Jezza to say "ripper" without him knowing it's a mission.
 x02 Copycat: Copy everything a mate does for a minute until they notice. Then act innocent.
 x03 The Echo: Repeat the last two words Jezza says, three times in a row, without him clocking it.
@@ -91,6 +103,10 @@ x04 Nickname Launch: Give a mate a new nickname and get two other lads using it 
 x05 Photobomb: Sneak into the background of three different photos tonight. Nobody can notice until later.
 
 CHILL
+e11 Model Material: Snap a mate looking like a model in good light. Make them look unreal.
+e12 Hype Man: Give a mate a proper compliment out loud. Mean it.
+e13 High Five Streak: High five five different lads in a row.
+e14 Water Break: Smash a full glass of water. Legends hydrate.
 q01 Handshake Ratings: Rate three mates' handshakes out of ten and tell them their score. Feedback encouraged.
 q02 Quote of the Night: Grab the funniest thing someone's said tonight and read it back to the group.
 q03 Sequel: Catch someone telling the same story twice this weekend and yell "SEQUEL".

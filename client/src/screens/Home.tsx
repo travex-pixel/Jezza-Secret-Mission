@@ -122,7 +122,7 @@ export default function Home() {
         </div>
 
         {feedCount > 0 && (
-          <div className="stack-6" style={{ minHeight: 0 }}>
+          <div className="stack-6" style={{ minHeight: 0, flex: '0 1 auto', overflow: 'hidden' }}>{/* gives way on short phones instead of pushing the page */}
             <div className="row-between"><span className="eyebrow">What the lads are up to</span><span className="tiny faint">{rankFor(me.rating).emoji} {rankFor(me.rating).name}</span></div>
             {feed.length === 0 && <div className="feed-item"><span className="emoji">🌙</span><span className="grow dim">Quiet so far. Suspiciously quiet.</span></div>}
             {feed.map((f) => <FeedItem key={f.id} f={f} compact />)}

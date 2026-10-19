@@ -18,7 +18,8 @@ More screenshots at every tested viewport live in [`docs/screenshots/`](docs/scr
 | Area | Status |
 | --- | --- |
 | Cinematic Three.js opening (moonlit vineyard, fog, gold particles, cellar) with CSS/SVG fallback | ✅ |
-| 30-second onboarding: enter → nickname (code comes from the share link) → creature → reveal → first challenge | ✅ |
+| 30-second onboarding: enter → nickname (code comes from the share link) → creature → reveal → 2-step tutorial (a selfie that counts straight away and hits Level 2, then the game in three lines) | ✅ |
+| Rookie boost: the next 3 challenges are easy, give double XP, count straight away (photos skip the vote) and skip the honour cooldown. Every hand always has a photo challenge | ✅ |
 | **Runs itself, no host needed**: Friday starts on creation, Saturday at 5am Sydney, group challenges every 40 min | ✅ |
 | 92 quick challenges in Aussie English (make Jezza laugh, dance, sing, cooked photos, get Jezza in, cheers, sneaky, low-key, group) | ✅ |
 | Self-service checks: honour system (8-min cooldown), photo (the lads vote 👍/👎 by default; host can switch to *I approve* or *Instant*), a mate confirms. 🚩 Call BS, settled by the lads or the host | ✅ |
@@ -118,7 +119,7 @@ shared/   The game. Pure TypeScript shared by server and client:
             types.ts        protocol + domain types
             engine.ts       authoritative rules engine (parties, missions, claims, battles, host actions)
             battle.ts       deterministic combat resolution (seedable RNG)
-            missions.ts     92 missions · creatures.ts 8 creatures + the groom's Golden Stag · progression.ts XP/levels/cosmetics/achievements/awards
+            missions.ts     108 missions · creatures.ts 8 creatures + the groom's Golden Stag · progression.ts XP/levels/cosmetics/achievements/awards
             names.ts        nickname moderation
 server/   Node 22 + express + ws. Wraps the engine: WebSocket fan-out, per-viewer redaction, rate limiting,
           heartbeat presence, JSON persistence (debounced, atomic rename), photo storage.
@@ -196,7 +197,8 @@ a counter stance. It's tuned to win about 55% of fights: a groom's edge, but the
 
 ### Progression
 
-* Creature levels 1–10. Evolves at **Lv4** and **Lv8**. On Friday XP stops just short of Lv8, so max one evolution;
+* Creature levels 1–10, quick at the start (the first-challenge selfie alone is Level 2; first evolution after about
+  five challenges) and slower later. Evolves at **Lv4** and **Lv8**. On Friday XP stops just short of Lv8, so max one evolution;
   the final form unlocks Saturday. Points still count while capped.
 * Saturday arrivals get **Fresh Legs**: double points on their first 6 challenges and double XP until they reach the
   group's median level.
@@ -206,7 +208,7 @@ a counter stance. It's tuned to win about 55% of fights: a groom's edge, but the
 ### Keeping it honest (anti-spam)
 
 * **Honour-system cooldown.** "I did it" missions are limited to one per player every 8 minutes (server-side; the
-  card shows the countdown). Photo, witness, host-approved and the first mission are exempt. Honest play is
+  card shows the countdown). Photo, witness, host-approved, the first challenge and rookies' first 3 are exempt. Honest play is
   rarely faster than that; a liar is capped at about six honour missions an hour.
 * **Call BS.** Every completion is public in the feed with a 🚩 button. Two different mates flagging it freezes the
   points. Then the lads settle it: two other mates tapping 🤝 *Legit* restores it, otherwise it's struck out after

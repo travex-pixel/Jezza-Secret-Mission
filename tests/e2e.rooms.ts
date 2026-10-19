@@ -14,7 +14,7 @@ async function onboard(page: Page) {
   await page.getByRole('button', { name: /adopt/i }).click();
   await page.waitForTimeout(2000);
   await page.getByRole('button', { name: /first challenge/i }).click();
-  await page.getByRole('button', { name: /show me the lobby/i }).click();
+  await page.getByRole('button', { name: /do it later/i }).click(); await page.getByRole('button', { name: /let's go/i }).click();
   await page.waitForSelector('.bottom-nav');
 }
 async function partyCode(page: Page) {

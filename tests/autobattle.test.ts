@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { Engine, AUTO_REWARDS, type EngineState } from '../shared/engine';
 import { seededRng } from '../shared/battle';
-import { MISSIONS } from '../shared/missions';
+import { STARTER_MISSION, MISSIONS } from '../shared/missions';
 import { ACHIEVEMENTS } from '../shared/progression';
 import { buildTimeline } from '../client/src/battle/timeline';
 
@@ -158,8 +158,28 @@ describe('auto-battles', () => {
 });
 
 describe('photo checks', () => {
-  const photoM = MISSIONS.filter((m) => m.method === 'photo' && m.scope === 'private');
-  const give = (s: ReturnType<typeof setup>, id: string, missionId: string) => { s.party().players[id].hand = [{ missionId, assignedAt: s.now(), status: 'active' }]; };
+  const photoM = MISSIONS.filter((m) => m.method === 'photo' && m.scope === 'private' && !m.starter);
+  // a seasoned player: rookies' first few photos skip the vote (tested below)
+  const give = (s: ReturnType<typeof setup>, id: string, missionId: string) => { const p = s.party().players[id]; p.hand = [{ missionId, assignedAt: s.now(), status: 'active' }]; p.missionsCompleted = Math.max(p.missionsCompleted, 10); };
+
+  it('the first-challenge selfie and a rookie\'s first photos count straight away, with double XP for rookies', () => {
+    const s = setup(5);
+    const { eng, ids, party } = s;
+    expect(party().photoMode).toBe('vote');
+    const selfie = eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: STARTER_MISSION.id, claimId: 'selfie-0001', photo: PHOTO });
+    expect((selfie.ack as any).data.status).toBe('approved');
+    expect(party().players[ids[2]].level).toBe(2);
+    const p = party().players[ids[2]];
+    p.hand = [{ missionId: photoM[0].id, assignedAt: s.now(), status: 'active' }];
+    const xpBefore = p.xp;
+    const r = eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: photoM[0].id, claimId: 'rookie-0001', photo: PHOTO });
+    expect((r.ack as any).data.status).toBe('approved');
+    expect(p.xp - xpBefore).toBeGreaterThanOrEqual(photoM[0].xp * 2);
+    // the boost runs out after three
+    p.missionsCompleted = 4;
+    p.hand = [{ missionId: photoM[1].id, assignedAt: s.now(), status: 'active' }];
+    expect((eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: photoM[1].id, claimId: 'rookie-0002', photo: PHOTO }).ack as any).data.status).toBe('pending');
+  });
 
   it('vote mode: two 👍 from mates count it, the snapper can\'t vote, nothing pays out early', () => {
     const s = setup(5);

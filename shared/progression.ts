@@ -1,7 +1,8 @@
 import type { Cosmetic, PlayerPublic, MissionCategory, Battle, AwardResult, Phase } from './types';
 
 // Cumulative XP needed to reach each level (index = level-1). Max level 10.
-export const LEVEL_XP = [0, 60, 150, 280, 450, 670, 950, 1300, 1720, 2200];
+// Quick at the start (the selfie alone is Level 2, first evolution after about five challenges), slower later.
+export const LEVEL_XP = [0, 50, 110, 190, 320, 520, 800, 1150, 1600, 2200];
 export const MAX_LEVEL = LEVEL_XP.length;
 
 // ---------- Evolutions ----------
