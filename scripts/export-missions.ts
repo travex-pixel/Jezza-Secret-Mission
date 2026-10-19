@@ -4,7 +4,7 @@ import { MISSIONS, CATEGORY_META, METHOD_META } from '../shared/missions';
 const DIFF = ['', 'Easy', 'Spicy', 'Legendary'];
 const PHASE = { any: 'Fri + Sat', friday: 'Friday', saturday: 'Saturday' } as const;
 let out = `# Project Jezza: Challenge List\n\n${MISSIONS.length} missions. Points go to the weekend leaderboard, XP levels up your creature.\n\n`;
-out += `How they're checked: **Honour system** = tap "I did it" (one every 8 minutes) · **Snap it** = take the photo, points land straight away · **A mate confirms** = a mate who was there taps yes on their phone. Mates can 🚩 Call BS on anything. Nobody ever has to drink: any drink counts, water included.\n\n`;
+out += `How they're checked: **Honour system** = tap "I did it" (one every 8 minutes) · **Snap it** = take a photo or pick one from your library; by default the lads vote it in (two 👍), or the host can switch to approving them or to instant · **A mate confirms** = a mate who was there taps yes on their phone. Mates can 🚩 Call BS on anything. Nobody ever has to drink: any drink counts, water included.\n\n`;
 for (const cat of Object.keys(CATEGORY_META) as (keyof typeof CATEGORY_META)[]) {
   const ms = MISSIONS.filter((m) => m.category === cat);
   out += `## ${CATEGORY_META[cat].emoji} ${CATEGORY_META[cat].label} (${ms.length})\n\n| # | Mission | Instruction | Difficulty | Pts / XP | How | When |\n|---|---|---|---|---|---|---|\n`;

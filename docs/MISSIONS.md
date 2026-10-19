@@ -2,7 +2,7 @@
 
 92 missions. Points go to the weekend leaderboard, XP levels up your creature.
 
-How they're checked: **Honour system** = tap "I did it" (one every 8 minutes) · **Snap it** = take the photo, points land straight away · **A mate confirms** = a mate who was there taps yes on their phone. Mates can 🚩 Call BS on anything. Nobody ever has to drink: any drink counts, water included.
+How they're checked: **Honour system** = tap "I did it" (one every 8 minutes) · **Snap it** = take a photo or pick one from your library; by default the lads vote it in (two 👍), or the host can switch to approving them or to instant · **A mate confirms** = a mate who was there taps yes on their phone. Mates can 🚩 Call BS on anything. Nobody ever has to drink: any drink counts, water included.
 
 ## 😂 Make Jezza Laugh (12)
 

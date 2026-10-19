@@ -36,8 +36,8 @@ export default function Cellar() {
           <label><span className="label">What are you drinking?</span><input className="input" value={drink} maxLength={40} onChange={(e) => setDrink(e.target.value)} placeholder="2019 Hunter Semillon, Pepsi Max, tap water…" /></label>
           <div className="row-between"><span className="label" style={{ margin: 0 }}>Rating</span><span className="stars">{[1, 2, 3, 4, 5].map((n) => <button key={n} className={n <= stars ? 'on' : ''} onClick={() => setStars(n)} aria-label={`${n} stars`}>★</button>)}</span></div>
           <label><span className="label">Tasting note (optional)</span><input className="input" value={note} maxLength={90} onChange={(e) => setNote(e.target.value)} placeholder="Notes of oak, regret and a long finish of Saturday" /></label>
-          <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; if (f) { try { setPhoto(await compressImage(f)); } catch { toast('That photo didn\'t work', '⚠️', 'warn'); } } }} />
-          <div className="btn-row"><Button variant="secondary" size="sm" onClick={() => fileRef.current?.click()}>{photo ? '✅ Label snapped' : '📸 Snap the label'}</Button><Button size="sm" disabled={busy || drink.trim().length < 2 || !stars} onClick={save}>Post review</Button></div>
+          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) { try { setPhoto(await compressImage(f)); } catch { toast('That photo didn\'t work', '⚠️', 'warn'); } } }} />
+          <div className="btn-row"><Button variant="secondary" size="sm" onClick={() => fileRef.current?.click()}>{photo ? '✅ Label added' : '📸 Add a label photo'}</Button><Button size="sm" disabled={busy || drink.trim().length < 2 || !stars} onClick={save}>Post review</Button></div>
           <Button variant="ghost" onClick={() => setAdding(false)}>Cancel</Button>
         </div>
       ) : (
