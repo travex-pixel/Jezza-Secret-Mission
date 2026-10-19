@@ -219,6 +219,80 @@ describe('self-running weekend', () => {
     expect(k.board.length).toBe(6);
     expect(k.awards.find((a: any) => a.name === 'The Jezza Legend').winner).toBeTruthy();
   });
+  it('EPIC jobs: host posts, first in fill the crew, everyone on it gets points, XP and the themed item', () => {
+    const { eng, ids, party } = setup();
+    expect(eng.handle(ids[2], { type: 'host', reqId: 'h', action: { kind: 'postEpic', presetId: 'mac' } }).ack?.ok).toBe(false); // host only
+    const id = (eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'postEpic', presetId: 'mac' } }).ack as any).data.id as string;
+    expect(eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'postEpic', presetId: 'mac' } }).ack?.ok).toBe(false); // already up
+    const e = () => party().epics.find((x) => x.id === id)!;
+    expect(eng.publicView(party()).epics.map((x) => x.title)).toContain('Mac and Cheese Crew');
+    expect(eng.handle(ids[2], { type: 'finishEpic', reqId: 'f', epicId: id }).ack?.ok).toBe(false); // not on the crew
+    eng.handle(ids[2], { type: 'joinEpic', reqId: 'j', epicId: id });
+    expect(eng.handle(ids[2], { type: 'finishEpic', reqId: 'f', epicId: id }).ack?.ok).toBe(false); // needs 2
+    eng.handle(ids[3], { type: 'joinEpic', reqId: 'j', epicId: id });
+    expect(eng.handle(ids[4], { type: 'joinEpic', reqId: 'j', epicId: id }).ack?.ok).toBe(false); // only 2 spots: first in
+    expect(e().crew).toEqual([ids[2], ids[3]]);
+    eng.handle(ids[3], { type: 'leaveEpic', reqId: 'l', epicId: id });
+    eng.handle(ids[4], { type: 'joinEpic', reqId: 'j', epicId: id }); // a spot opened up
+    const before = { pts: party().players[ids[2]].points, xp: party().players[ids[2]].xp };
+    const r = eng.handle(ids[4], { type: 'finishEpic', reqId: 'f', epicId: id });
+    expect(r.ack?.ok).toBe(true);
+    expect(e().status).toBe('done');
+    for (const pid of [ids[2], ids[4]]) {
+      const p = party().players[pid];
+      expect(p.unlocked).toContain('hat_chef');
+      expect(p.epicsDone).toBe(1);
+      expect(r.direct.some((d) => d.to === pid && d.msg.type === 'reward')).toBe(true);
+    }
+    expect(party().players[ids[2]].points - before.pts).toBeGreaterThanOrEqual(25);
+    expect(party().players[ids[2]].xp).toBeGreaterThan(before.xp);
+    expect(party().players[ids[3]].unlocked).not.toContain('hat_chef'); // left before it was done
+    expect((eng.handle(ids[2], { type: 'finishEpic', reqId: 'f', epicId: id }).ack as any).data.already).toBe(true); // no double rewards
+    expect(party().players[ids[2]].epicsDone).toBe(1);
+    // KFC/pizza: 2-3 lads; custom jobs; cancel
+    const run = (eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'postEpic', presetId: 'food_run' } }).ack as any).data.id as string;
+    expect(party().epics.find((x) => x.id === run)).toMatchObject({ min: 2, max: 3, item: 'hat_cap' });
+    const custom = (eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'postEpic', title: 'Firewood', instruction: 'Grab wood for the fire pit', min: 1, max: 1 } }).ack as any).data.id as string;
+    expect(party().epics.find((x) => x.id === custom)).toMatchObject({ title: 'Firewood', max: 1, item: 'aura_epic' });
+    eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'cancelEpic', epicId: run } });
+    expect(eng.publicView(party()).epics.some((x) => x.id === run)).toBe(false);
+    expect(eng.publicView(party()).awards.find((a) => a.id === 'helpful')!.playerId).toBeTruthy();
+  });
+  it('EPIC jobs pay by size: the designated driver is a Legend job with the Hi-Vis Vest', () => {
+    const { eng, ids, party } = setup();
+    const dd = (eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'postEpic', presetId: 'dd_sat' } }).ack as any).data.id as string;
+    const salad = (eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'postEpic', presetId: 'salad' } }).ack as any).data.id as string;
+    const custom = (eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'postEpic', title: 'Firewood', max: 1, tier: 'big' } }).ack as any).data.id as string;
+    expect(party().epics.find((e) => e.id === dd)).toMatchObject({ max: 1, tier: 'legend', points: 60, item: 'cape_hivis' });
+    expect(party().epics.find((e) => e.id === salad)).toMatchObject({ tier: 'small', points: 15 });
+    expect(party().epics.find((e) => e.id === custom)).toMatchObject({ tier: 'big', points: 40 });
+    eng.handle(ids[3], { type: 'joinEpic', reqId: 'j', epicId: dd });
+    expect(eng.handle(ids[4], { type: 'joinEpic', reqId: 'j', epicId: dd }).ack?.ok).toBe(false); // one car, one driver
+    const before = party().players[ids[3]].points;
+    eng.handle(ids[3], { type: 'finishEpic', reqId: 'f', epicId: dd });
+    expect(party().players[ids[3]].points - before).toBeGreaterThanOrEqual(60);
+    expect(party().players[ids[3]].unlocked).toContain('cape_hivis');
+  });
+  it('cheat codes: host makes one, it unlocks the accessory once, wrong guesses are limited', () => {
+    const { eng, ids, party } = setup();
+    expect(eng.handle(ids[2], { type: 'host', reqId: 'h', action: { kind: 'makeCode', item: 'face_mo' } }).ack?.ok).toBe(false); // host only
+    expect(eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'makeCode', item: 'not_a_thing' } }).ack?.ok).toBe(false);
+    const code = (eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'makeCode', item: 'face_mo' } }).ack as any).data.code as string;
+    expect(code).toMatch(/^JEZZA-[A-Z0-9]{4}$/);
+    expect(eng.hostView(party()).codes.map((c) => c.code)).toEqual([code]);
+    expect(JSON.stringify(eng.publicView(party()))).not.toContain(code); // only the host sees codes
+    const r = eng.handle(ids[2], { type: 'redeemCode', reqId: 'c', code: code.toLowerCase().replace('-', ' ') }); // forgiving about case/spaces
+    expect(r.ack?.ok).toBe(true);
+    expect(party().players[ids[2]].unlocked).toContain('face_mo');
+    expect(r.direct.some((d) => d.to === ids[2] && d.msg.type === 'reward')).toBe(true);
+    expect(eng.handle(ids[3], { type: 'redeemCode', reqId: 'c', code }).ack?.ok).toBe(false); // used up
+    const multi = (eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'makeCode', item: 'aura_rainbow', uses: 3 } }).ack as any).data.code as string;
+    for (const id of ids.slice(1, 4)) expect(eng.handle(id, { type: 'redeemCode', reqId: 'c', code: multi }).ack?.ok).toBe(true);
+    expect(eng.handle(ids[4], { type: 'redeemCode', reqId: 'c', code: multi }).ack?.ok).toBe(false);
+    for (let i = 0; i < 6; i++) eng.handle(ids[5], { type: 'redeemCode', reqId: 'c', code: `JEZZA-ZZZ${i}` });
+    const fresh = (eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'makeCode', item: 'hat_viking' } }).ack as any).data.code as string;
+    expect((eng.handle(ids[5], { type: 'redeemCode', reqId: 'c', code: fresh }).ack as any).error).toMatch(/Too many wrong codes/);
+  });
   it('beating the leader claims the bounty; streaks and ratings move', () => {
     const { eng, ids, party } = setup();
     party().players[ids[3]].points = 500; // Big Dave leads

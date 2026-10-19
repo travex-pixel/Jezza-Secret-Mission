@@ -63,6 +63,17 @@ export const COSMETICS: Cosmetic[] = [
   { id: 'aura_moon', slot: 'aura', name: 'Moonlit Aura', description: 'Cool silver light. Mysterious. Slightly damp.' },
   { id: 'aura_gold', slot: 'aura', name: 'Legend Aura', description: 'Pure champagne gold. The vineyard knows your name.' },
   { id: 'aura_disco', slot: 'aura', name: 'Disco Aura', description: 'Earned by dancing three times. The floor is yours.' },
+  { id: 'hat_chef', slot: 'hat', name: 'Chef\'s Toque', description: 'EPIC: cooked for the lads. The kitchen salutes you.' },
+  { id: 'hat_cap', slot: 'hat', name: 'Delivery Cap', description: 'EPIC: did a food or supplies run. Hero of the hungry.' },
+  { id: 'cape_apron', slot: 'cape', name: 'BBQ Apron', description: 'EPIC: ran the barbie. Tongs-certified.' },
+  { id: 'face_headphones', slot: 'face', name: 'DJ Headphones', description: 'EPIC: set the party up. The vibe owes you one.' },
+  { id: 'aura_clean', slot: 'aura', name: 'Squeaky Clean Aura', description: 'EPIC: cleaned up after the lads. Sparkling.' },
+  { id: 'aura_epic', slot: 'aura', name: 'Epic Helper Aura', description: 'EPIC: put your hand up when it counted.' },
+  { id: 'cape_hivis', slot: 'cape', name: 'Hi-Vis Vest', description: 'EPIC LEGEND: designated driver. Got everyone home safe.' },
+  { id: 'hat_esky', slot: 'hat', name: 'Esky Hat', description: 'EPIC: Chief Hydration Officer. Kept the esky cold.' },
+  { id: 'face_mo', slot: 'face', name: 'The Mo', description: 'Cheat code only. Distinguished. Possibly a disguise.' },
+  { id: 'hat_viking', slot: 'hat', name: 'Viking Helmet', description: 'Cheat code only. For raiding the snack table.' },
+  { id: 'aura_rainbow', slot: 'aura', name: 'Rainbow Aura', description: 'Cheat code only. Fabulous, frankly.' },
   { id: 'pose_heroic', slot: 'pose', name: 'Heroic Pose', description: 'Chest out, chin up, wind machine implied.' },
   { id: 'pose_lounge', slot: 'pose', name: 'Lounge Pose', description: 'Reclined. Unbothered. Possibly asleep.' },
 ];
@@ -152,6 +163,7 @@ export const AWARDS: AwardDef[] = [
   { id: 'slayer', name: 'Boss Slayer', blurb: 'Most raid damage.' },
   { id: 'palate', name: 'Best Palate', blurb: 'Most 🔥 on Cellar reviews.' },
   { id: 'group', name: 'Best Group Effort', blurb: 'Most group challenges.' },
+  { id: 'helpful', name: 'Captain Helpful', blurb: 'Put their hand up for the most EPIC jobs.' },
   { id: 'unhinged', name: 'Most Unhinged', blurb: 'The host\'s call. No appeals.', hostPick: true },
 ];
 
@@ -179,6 +191,7 @@ export function computeAwards(players: PlayerPublic[], _battles: Battle[], overr
       case 'slayer': r = pick((p) => p.raidDamage, (_p, s) => `${s} raid damage`); break;
       case 'palate': r = pick((p) => p.cellarFires, (_p, s) => `${s} 🔥 on drink reviews`); break;
       case 'group': r = pick((p) => cat(p, 'group'), (_p, s) => `${s} group challenge${s === 1 ? '' : 's'}`); break;
+      case 'helpful': r = pick((p) => p.epicsDone ?? 0, (_p, s) => `${s} EPIC job${s === 1 ? '' : 's'}`); break;
       default: r = { playerId: null, reason: 'Waiting on the host.' };
     }
     if (a.id in overrides) { const pid = overrides[a.id]; r = { playerId: pid, reason: pid ? 'The host has spoken.' : 'Withheld by the host.' }; }

@@ -5,16 +5,18 @@ import { LEVEL_XP, sortLeaderboard, nextEvolveLevel, FRIDAY_MAX_LEVEL, rankFor }
 import { BOSSES } from '@shared/raid';
 import { Creature } from '../components/Creature';
 import { MissionCard } from '../components/MissionCard';
+import { EpicCard } from '../components/EpicCard';
 import { Button, ConnectionPill, FeedItem, XPBar, useCountdown } from '../components/ui';
 import { useStore, useMe, useIsHost } from '../store';
 import { request } from '../net';
 
 const PHASE_LABEL: Record<string, string> = { lobby: 'Paused', friday: 'Friday night', saturday: 'Saturday', finale: 'The Finale', ended: 'Wrapped' };
 
-function useFeedCount(busy: boolean) {
-  const calc = () => Math.max(0, (window.innerHeight < 600 ? 1 : window.innerHeight < 760 ? 2 : 3) - (busy ? 1 : 0));
+/** Room on the Lobby for banners + feed items: 1 on short phones, 2 on most, 3 on tall ones. */
+function useSlots() {
+  const calc = () => (window.innerHeight < 600 ? 1 : window.innerHeight < 760 ? 2 : 3);
   const [n, setN] = useState(calc);
-  useEffect(() => { const f = () => setN(calc()); f(); window.addEventListener('resize', f); return () => window.removeEventListener('resize', f); }, [busy]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { const f = () => setN(calc()); f(); window.addEventListener('resize', f); return () => window.removeEventListener('resize', f); }, []);
   return n;
 }
 
@@ -30,7 +32,20 @@ export default function Home() {
   const awayN = priv?.away?.length ?? 0;
   const setAwayOpen = useStore((s) => s.setAwayOpen);
   const voteEv = party?.feed.slice().reverse().find((f) => f.kind === 'vote' && f.playerId !== me?.id && party.pendingPhotos?.some((x) => x.claimId === f.claimId && !x.up.includes(me?.id ?? '') && !x.down.includes(me?.id ?? '')));
-  const feedCount = useFeedCount(!!raid || !!incoming || !!voteEv || awayN > 0);
+  // An EPIC job you're on (to tick off), else one with spots still open
+  const epic = party?.epics?.find((e) => e.status === 'open' && e.crew.includes(me?.id ?? '')) ?? party?.epics?.find((e) => e.status === 'open' && e.crew.length < e.max);
+  const slots = useSlots();
+  // Banners in priority order; only as many as fit, the feed gets what's left.
+  const myEpic = !!epic && epic.crew.includes(me?.id ?? '');
+  const banners = ([
+    (raid || incoming) && 'top',
+    myEpic && 'epic',
+    voteEv && 'vote',
+    epic && !myEpic && 'epic',
+    awayN > 0 && !raid && !incoming && 'away',
+  ].filter(Boolean) as string[]).slice(0, slots);
+  const show = (b: string) => banners.includes(b);
+  const feedCount = Math.max(0, slots - banners.length);
   if (!party || !me?.creature) return null;
   const board = sortLeaderboard(party.players);
   const rank = board.findIndex((p) => p.id === me.id) + 1;
@@ -66,17 +81,18 @@ export default function Home() {
           </span>
         </button>
 
-        {raid && (
+        {show('top') && raid && (
           <button className="raid-banner" onClick={() => setTab('raid')}>
             <span style={{ fontSize: 26 }}>👹</span>
             <span className="grow" style={{ minWidth: 0 }}><div className="bold ellipsis">{BOSSES[raid.boss].name} is here!</div><div className="tiny" style={{ opacity: .85 }}>{Math.round((raid.hp / raid.maxHp) * 100)}% HP · {Math.floor(raidLeft / 60)}:{String(raidLeft % 60).padStart(2, '0')} left · everyone who hits gets loot</div></span>
             <span className="pill pill-ember">FIGHT</span>
           </button>
         )}
-        {!raid && incoming && <button className="panel panel-gold pad row" style={{ width: '100%', textAlign: 'left', padding: '10px 12px' }} onClick={() => setTab('battle')}><span style={{ fontSize: 22 }}>⚔️</span><span className="grow bold">{party.players.find((p) => p.id === incoming.challengerId)?.nickname} wants a piece of you</span><span className="pill pill-ember">Answer</span></button>}
+        {show('top') && !raid && incoming && <button className="panel panel-gold pad row" style={{ width: '100%', textAlign: 'left', padding: '10px 12px' }} onClick={() => setTab('battle')}><span style={{ fontSize: 22 }}>⚔️</span><span className="grow bold">{party.players.find((p) => p.id === incoming.challengerId)?.nickname} wants a piece of you</span><span className="pill pill-ember">Answer</span></button>}
 
-        {!raid && !incoming && awayN > 0 && <button className="panel pad row" style={{ width: '100%', textAlign: 'left', padding: '10px 12px', gap: 10 }} onClick={() => setAwayOpen(true)}><span style={{ fontSize: 22 }}>🤖</span><span className="grow bold">{me.creatureName} auto-battled {awayN} time{awayN === 1 ? '' : 's'} while you were away</span><span className="pill pill-gold pill-xs">See</span></button>}
-        {voteEv && <FeedItem f={voteEv} compact />}
+        {show('away') && <button className="panel pad row" style={{ width: '100%', textAlign: 'left', padding: '10px 12px', gap: 10 }} onClick={() => setAwayOpen(true)}><span style={{ fontSize: 22 }}>🤖</span><span className="grow bold">{me.creatureName} auto-battled {awayN} time{awayN === 1 ? '' : 's'} while you were away</span><span className="pill pill-gold pill-xs">See</span></button>}
+        {show('epic') && epic && <EpicCard epic={epic} compact />}
+        {show('vote') && voteEv && <FeedItem f={voteEv} compact />}
 
         {party.phase === 'lobby' ? (
           <div className="panel pad-lg center stack-10 grow" style={{ justifyContent: 'center', display: 'flex', flexDirection: 'column' }}>

@@ -166,6 +166,7 @@ function connectDemo(): Transport {
   seedBots(code, true);
   engine.handle(hostId, { type: 'host', reqId: 'x', action: { kind: 'revealGroupMission', missionId: 'g01' } });
   engine.state.parties[code].nextAutoAt = Date.now() + 90_000; // demo: first auto-battle in ~90s rather than 10 min
+  engine.handle(hostId, { type: 'host', reqId: 'x', action: { kind: 'postEpic', presetId: 'mac' } }); // an EPIC job to grab
   engine.auth(identity.playerId, identity.secret);
   useStore.getState().setConn('demo');
   useStore.setState({ pendingCode: code });
@@ -223,6 +224,17 @@ function connectDemo(): Transport {
       // react to the human's challenges and vote their wall posts
       for (const ev of p.feed.slice(-8)) if (ev.kind === 'mission' && ev.playerId === identity.playerId && chance(0.08)) { const r = engine.handle(pick(online), { type: 'react', reqId: 'x', eventId: ev.id, emoji: chance(0.6) ? '😂' : '🔥' }); if (r.ack?.ok) changed = true; }
       for (const w of p.wall.slice(-6)) if (w.playerId === identity.playerId && chance(0.1)) { const r = engine.handle(pick(online), { type: 'wallVote', reqId: 'x', postId: w.id }); if (r.ack?.ok) changed = true; }
+      // EPIC jobs: bots grab spots (leaving the human a fair go first) and finish their own jobs
+      for (const e of p.epics ?? []) {
+        if (e.status !== 'open') continue;
+        const age = Date.now() - e.createdAt;
+        const left = e.max - e.crew.length;
+        if (left > 0 && age > 8000 && (left > 1 || age > 25_000) && chance(0.05)) {
+          const bot = online.find((id) => !e.crew.includes(id) && p.players[id]?.creature);
+          if (bot) { engine.handle(bot, { type: 'joinEpic', reqId: 'x', epicId: e.id }); changed = true; }
+        }
+        if (left === 0 && !e.crew.includes(identity.playerId) && age > 30_000 && chance(0.05)) { const r = engine.handle(e.crew[0], { type: 'finishEpic', reqId: 'x', epicId: e.id }); deliver(r.direct.filter((d) => d.to === 'party')); changed = true; }
+      }
       // the odd bot challenge so the feed and the raid counter move
       if (chance(0.03)) {
         const bot = pick(online); const bp = p.players[bot];
@@ -245,6 +257,7 @@ function connectDemo(): Transport {
       p.nextAutoAt = now - 1;
       const t = engine.tick(); deliver(t.direct); push();
     },
+    openAway: () => useStore.getState().setAwayOpen(true),
     giveXp: (xp: number) => { const p = engine.partyOf(identity.playerId); const me = p?.players[identity.playerId]; if (!p || !me) return; const out: Outbound[] = []; const r = (engine as any).grant(p, me, 0, xp, out); dispatch({ type: 'reward', points: 0, xp, ...r, title: 'Demo boost' }); push(); },
   };
 

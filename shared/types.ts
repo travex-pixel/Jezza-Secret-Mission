@@ -70,6 +70,7 @@ export interface PlayerPublic {
   upsetLosses: number;     // lost to someone rated well below you
   reactionsGiven: number;
   autoBattles: boolean;    // opt in/out of auto-battles
+  epicsDone: number;       // EPIC tier jobs finished (Captain Helpful)
 }
 
 export interface MissionAssignment {
@@ -124,7 +125,7 @@ export interface Claim {
 export interface FeedEvent {
   id: string;
   at: number;
-  kind: 'join' | 'mission' | 'battle' | 'phase' | 'achievement' | 'unlock' | 'host' | 'group' | 'levelup' | 'raid' | 'evolve' | 'wall' | 'cellar' | 'vote';
+  kind: 'join' | 'mission' | 'battle' | 'phase' | 'achievement' | 'unlock' | 'host' | 'group' | 'levelup' | 'raid' | 'evolve' | 'wall' | 'cellar' | 'vote' | 'epic';
   text: string;
   playerId?: string;
   photoUrl?: string;
@@ -134,6 +135,26 @@ export interface FeedEvent {
   disputed?: boolean;
   reactions?: Partial<Record<Reaction, string[]>>; // player ids per reaction
   battleId?: string;  // battle events can be replayed
+}
+
+/** EPIC tier: a real job for the weekend. First in fill the crew; everyone on it is rewarded when it's done. */
+export interface Epic {
+  id: string;
+  presetId?: string;
+  title: string;
+  instruction: string;
+  emoji: string;
+  min: number;
+  max: number;
+  item: string;
+  tier: 'small' | 'medium' | 'big' | 'legend';
+  points: number;
+  xp: number;
+  crew: string[];
+  status: 'open' | 'done' | 'cancelled';
+  createdAt: number;
+  doneAt?: number;
+  doneBy?: string;
 }
 
 export interface AwayEvent {
@@ -279,6 +300,7 @@ export interface PartyPublic {
   cellar: CellarEntry[];
   gallery: GalleryPhoto[];
   photoMode: PhotoMode;
+  epics: Epic[];
   pendingPhotos: { claimId: string; playerId: string; missionId: string; url: string; at: number; up: string[]; down: string[] }[];
   autoSaturdayAt: number | null;
   nextGroupAt: number | null;
@@ -289,7 +311,11 @@ export interface PartyPublic {
 export interface HostView {
   approvals: Claim[]; // pending photo/host claims and disputed (BS-called) claims
   takedowns: { photoId: string; url: string; ownerId: string; caption: string; by: string[]; at: number }[];
+  codes: CheatCode[];
 }
+
+/** Host-made code that unlocks one accessory for whoever types it in (host's eyes only). */
+export interface CheatCode { code: string; item: string; uses: number; redeemedBy: string[]; createdAt: number }
 
 /** Everything worth keeping from the weekend, for the host's keepsake download. */
 export interface Keepsake {
@@ -339,6 +365,10 @@ export type ClientMessage =
   | { type: 'deletePhoto'; reqId: string; photoId: string }
   | { type: 'votePhoto'; reqId: string; claimId: string; up: boolean }
   | { type: 'ackAway'; reqId: string }
+  | { type: 'joinEpic'; reqId: string; epicId: string }
+  | { type: 'redeemCode'; reqId: string; code: string }
+  | { type: 'leaveEpic'; reqId: string; epicId: string }
+  | { type: 'finishEpic'; reqId: string; epicId: string }
   | { type: 'setAutoBattles'; reqId: string; on: boolean }
   | { type: 'battlePlan'; reqId: string; battleId: string; plan: 'balanced' | 'aggro' | 'sneaky'; tap?: TapQuality }
   | { type: 'surrender'; reqId: string; battleId: string }
@@ -366,7 +396,11 @@ export type HostAction =
   | { kind: 'summonRaid' }
   | { kind: 'setPhotoMode'; mode: PhotoMode }
   | { kind: 'resolveTakedown'; photoId: string; remove: boolean }
-  | { kind: 'keepsake' };
+  | { kind: 'keepsake' }
+  | { kind: 'postEpic'; presetId?: string; title?: string; instruction?: string; min?: number; max?: number; tier?: 'small' | 'medium' | 'big' | 'legend' }
+  | { kind: 'cancelEpic'; epicId: string }
+  | { kind: 'makeCode'; item: string; uses?: number }
+  | { kind: 'deleteCode'; code: string };
 
 export type ServerMessage =
   | { type: 'welcome'; playerId: string; serverTime: number; inParty: boolean }

@@ -294,6 +294,10 @@ function Hat({ id, a }: { id: string; a: Anchors }) {
     case 'hat_crown': return (<g transform={`translate(${x} ${y})`}><path d={`M${-w / 2.4} 2 L${-w / 2.4} -22 L${-w / 4.8} -10 L0 -28 L${w / 4.8} -10 L${w / 2.4} -22 L${w / 2.4} 2 Z`} fill="#E5AD48" stroke="#c98a2a" strokeWidth="2" /><circle cx={-w / 4.8} cy="-4" r="3" fill="#F07842" /><circle cx="0" cy="-6" r="3.5" fill="#76243A" /><circle cx={w / 4.8} cy="-4" r="3" fill="#F07842" /></g>);
     case 'hat_jester': return (<g transform={`translate(${x} ${y + 2})`}><path d={`M${-w / 2.3} 0 Q${-w / 2} -26 ${-w / 1.4} -22 Q${-w / 4} -14 0 -6 Q${w / 4} -14 ${w / 1.4} -22 Q${w / 2} -26 ${w / 2.3} 0 Z`} fill="#76243A" /><path d={`M0 -6 Q${w / 4} -14 ${w / 1.4} -22 Q${w / 2} -26 ${w / 2.3} 0 Z`} fill="#E5AD48" /><circle cx={-w / 1.4} cy="-22" r="4" fill="#F3CD7A" /><circle cx={w / 1.4} cy="-22" r="4" fill="#F3CD7A" /><rect x={-w / 2.3} y="-3" width={w / 1.15} height="6" rx="3" fill="#F6EBDD" /></g>);
     case 'hat_feathers': return (<g transform={`translate(${x} ${y + 2})`}>{[-22, -8, 8, 22].map((r, i) => <g key={i} transform={`rotate(${r})`}><path d="M0 0 C-6 -14 -4 -30 0 -38 C4 -30 6 -14 0 0Z" fill="#F6EBDD" stroke="#c9c2c9" strokeWidth="1" /><path d="M0 -30 C-2 -34 -1 -37 0 -38 C1 -37 2 -34 0 -30Z" fill="#242127" /></g>)}<ellipse cx="0" cy="0" rx="10" ry="4" fill="#E5AD48" /></g>);
+    case 'hat_chef': return (<g transform={`translate(${x} ${y + 2})`}><rect x={-w / 3} y="-10" width={w / 1.5} height="12" rx="2" fill="#F6EBDD" stroke="#d8cfc6" strokeWidth="1.5" />{[-1, 0, 1].map((i) => <circle key={i} cx={i * w / 5} cy={-18 - (i === 0 ? 6 : 0)} r={w / 5.2} fill="#fffaf2" stroke="#d8cfc6" strokeWidth="1.5" />)}<path d={`M${-w / 3 + 4} -4 h${w / 1.5 - 8}`} stroke="#e7dfd6" strokeWidth="1.5" /></g>);
+    case 'hat_cap': return (<g transform={`translate(${x} ${y + 2})`}><path d={`M${-w / 2.4} 0 Q${-w / 2.4} -22 0 -22 Q${w / 2.4} -22 ${w / 2.4} 0 Z`} fill="#c8102e" /><path d={`M${w / 2.6} -2 Q${w / 1.3} -2 ${w / 1.1} 4 L${w / 2.6} 4 Z`} fill="#9e0b24" /><rect x={-w / 2.4} y="-3" width={w / 1.2} height="5" rx="2" fill="#9e0b24" /><circle cx="0" cy="-22" r="3" fill="#F6EBDD" /><text x="0" y="-8" textAnchor="middle" fontSize="9" fontWeight="900" fill="#fff">J</text></g>);
+    case 'hat_esky': return (<g transform={`translate(${x} ${y + 2})`}><rect x={-w / 2.6} y="-20" width={w / 1.3} height="20" rx="3" fill="#1f6fd1" stroke="#0f4a96" strokeWidth="1.5" /><rect x={-w / 2.6 - 2} y="-24" width={w / 1.3 + 4} height="7" rx="3" fill="#F6EBDD" stroke="#c9c2c9" strokeWidth="1" /><rect x="-7" y="-28" width="14" height="5" rx="2" fill="#F6EBDD" stroke="#c9c2c9" strokeWidth="1" /><text x="0" y="-6" textAnchor="middle" fontSize="7" fontWeight="900" fill="#fff">CHO</text></g>);
+    case 'hat_viking': return (<g transform={`translate(${x} ${y + 2})`}><path d={`M${-w / 2.3} 0 Q${-w / 2.3} -24 0 -24 Q${w / 2.3} -24 ${w / 2.3} 0 Z`} fill="#9a949c" stroke="#5a565c" strokeWidth="1.5" /><rect x={-w / 2.3} y="-4" width={w / 1.15} height="6" rx="2" fill="#c98a2a" /><path d={`M${-w / 2.3} -8 C${-w / 1.4} -12 ${-w / 1.3} -30 ${-w / 1.6} -40 C${-w / 1.8} -28 ${-w / 2.2} -20 ${-w / 2.6} -14 Z`} fill="#F6EBDD" stroke="#c9c2c9" strokeWidth="1" /><path d={`M${w / 2.3} -8 C${w / 1.4} -12 ${w / 1.3} -30 ${w / 1.6} -40 C${w / 1.8} -28 ${w / 2.2} -20 ${w / 2.6} -14 Z`} fill="#F6EBDD" stroke="#c9c2c9" strokeWidth="1" /></g>);
     case 'hat_beret': return (<g transform={`translate(${x} ${y + 2})`}><ellipse cx="2" cy="-6" rx={w / 2.2} ry="9" fill="#242127" /><ellipse cx="-4" cy="-10" rx={w / 2.6} ry="8" fill="#3a3340" /><circle cx="-6" cy="-19" r="2.5" fill="#242127" /></g>);
     default: return null;
   }
@@ -303,9 +307,19 @@ function Face({ id, a }: { id: string; a: Anchors }) {
   switch (id) {
     case 'face_shades': return (<g><rect x={lx - r - 3} y={y - r - 1} width={r * 2 + 6} height={r * 2 + 2} rx="5" fill="#15121a" /><rect x={rx - r - 3} y={y - r - 1} width={r * 2 + 6} height={r * 2 + 2} rx="5" fill="#15121a" /><line x1={lx + r + 3} y1={y} x2={rx - r - 3} y2={y} stroke="#15121a" strokeWidth="3" /><path d={`M${lx - r} ${y - r + 2} l${r} ${-1}`} stroke="#fff" strokeWidth="1.5" opacity={0.6} /></g>);
     case 'face_mic': return (<g transform={`translate(${rx + r + 6} ${y + r * 2 + 10}) rotate(-25)`}><rect x="-2.5" y="0" width="5" height="20" rx="2.5" fill="#242127" /><circle cx="0" cy="-3" r="6" fill="#9a949c" stroke="#5a565c" strokeWidth="1.5" /><path d="M-4 -3 h8 M0 -7 v8" stroke="#5a565c" strokeWidth="1" /><circle cx="0" cy="12" r="1.5" fill="#F07842" /></g>);
+    case 'face_headphones': { const hx = (lx + rx) / 2; const span = (rx - lx) / 2 + r * 2.6; return (<g><path d={`M${hx - span} ${y} Q${hx - span} ${y - span * 1.7} ${hx} ${y - span * 1.7} Q${hx + span} ${y - span * 1.7} ${hx + span} ${y}`} fill="none" stroke="#242127" strokeWidth="5" strokeLinecap="round" /><rect x={hx - span - 7} y={y - 9} width="12" height="20" rx="5" fill="#c38cff" stroke="#242127" strokeWidth="2" /><rect x={hx + span - 5} y={y - 9} width="12" height="20" rx="5" fill="#c38cff" stroke="#242127" strokeWidth="2" /></g>); }
+    case 'face_mo': { const hx = (lx + rx) / 2; const my = y + r * 2.6; return (<path d={`M${hx} ${my} C${hx - 6} ${my - 6} ${hx - 18} ${my - 4} ${hx - 22} ${my + 4} C${hx - 14} ${my + 2} ${hx - 8} ${my + 4} ${hx} ${my + 2} C${hx + 8} ${my + 4} ${hx + 14} ${my + 2} ${hx + 22} ${my + 4} C${hx + 18} ${my - 4} ${hx + 6} ${my - 6} ${hx} ${my} Z`} fill="#3a2a22" />); }
     case 'face_monocle': return (<g><circle cx={rx} cy={y} r={r + 4} fill="none" stroke="#E5AD48" strokeWidth="2.5" /><path d={`M${rx + r + 2} ${y + r} q6 14 2 26`} stroke="#E5AD48" strokeWidth="1.5" fill="none" /></g>);
     default: return null;
   }
+}
+function Apron({ a }: { a: Anchors }) {
+  const { y, w } = a.shoulders;
+  return (<g><path d={`M${100 - w / 4} ${y + 6} L${100 + w / 4} ${y + 6} L${100 + w / 3} ${y + 62} Q100 ${y + 68} ${100 - w / 3} ${y + 62} Z`} fill="#2f2a33" opacity={0.95} /><path d={`M${100 - w / 4} ${y + 6} Q100 ${y - 14} ${100 + w / 4} ${y + 6}`} fill="none" stroke="#2f2a33" strokeWidth="3" /><rect x={100 - w / 6} y={y + 30} width={w / 3} height="12" rx="3" fill="#F07842" opacity={0.9} /><text x="100" y={y + 25} textAnchor="middle" fontSize="8" fontWeight="900" fill="#E5AD48">BBQ</text></g>);
+}
+function HiVis({ a }: { a: Anchors }) {
+  const { y, w } = a.shoulders;
+  return (<g><path d={`M${100 - w / 2.6} ${y + 2} L${100 + w / 2.6} ${y + 2} L${100 + w / 2.3} ${y + 60} L${100 - w / 2.3} ${y + 60} Z`} fill="#d7ff1f" opacity={0.95} /><path d={`M${100 - w / 2.45} ${y + 24} h${w / 1.22} M${100 - w / 2.35} ${y + 44} h${w / 1.18}`} stroke="#e8e8e8" strokeWidth="5" /><path d={`M${100 - w / 2.45} ${y + 24} h${w / 1.22} M${100 - w / 2.35} ${y + 44} h${w / 1.18}`} stroke="#b9b9b9" strokeWidth="1" /><path d={`M100 ${y + 2} v58`} stroke="#b8d400" strokeWidth="2" /></g>);
 }
 function Sash({ a }: { a: Anchors }) {
   const { y, w } = a.shoulders;
@@ -330,7 +344,7 @@ function Cape({ id, a }: { id: string; a: Anchors }) {
   const fill = id === 'cape_gold' ? 'url(#capeGold)' : id === 'cape_slayer' ? 'url(#capeSlayer)' : 'url(#capeVelvet)';
   return <path d={`M${100 - w / 2} ${y} C${100 - w / 2 - 14} ${y + 40} ${100 - w / 2 - 18} ${y + 70} ${100 - w / 2 - 10} ${y + 72} L${100 + w / 2 + 10} ${y + 72} C${100 + w / 2 + 18} ${y + 70} ${100 + w / 2 + 14} ${y + 40} ${100 + w / 2} ${y} Z`} fill={fill} opacity={0.95} />;
 }
-const AURA_COLORS: Record<string, string> = { aura_ember: '#F07842', aura_moon: '#cfd8ff', aura_gold: '#E5AD48', aura_disco: '#c38cff' };
+const AURA_COLORS: Record<string, string> = { aura_ember: '#F07842', aura_moon: '#cfd8ff', aura_gold: '#E5AD48', aura_disco: '#c38cff', aura_clean: '#7fe3ff', aura_epic: '#9b5cff', aura_rainbow: '#ff6bd6' };
 
 export const Creature = memo(function Creature({ creature, colorway = 0, equipped, state = 'idle', flip, className, style, bare, animKey, level, stage: forcedStage, silhouette }: Props) {
   const stage = forcedStage ?? (level ? stageForLevel(level) : 1);
@@ -353,17 +367,19 @@ export const Creature = memo(function Creature({ creature, colorway = 0, equippe
           <linearGradient id="evoWing" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stopColor="#fff6d6" stopOpacity="0.2" /><stop offset="1" stopColor="#E5AD48" stopOpacity="0.85" /></linearGradient>
           <radialGradient id={`shadow-${uid}`}><stop offset="0" stopColor="#000" stopOpacity="0.45" /><stop offset="1" stopColor="#000" stopOpacity="0" /></radialGradient>
         </defs>
-        {!bare && (aura || state !== 'idle' || true) && <circle className="aura-g" cx="100" cy="118" r="78" fill={`url(#aura-${uid})`} opacity={aura ? 1 : 0.5} />}
+        {!bare && (aura || state !== 'idle' || true) && <circle className={`aura-g ${equipped?.aura === 'aura_rainbow' ? 'aura-rainbow' : ''}`} cx="100" cy="118" r="78" fill={`url(#aura-${uid})`} opacity={aura ? 1 : 0.5} />}
         <ellipse cx="100" cy="176" rx="48" ry="9" fill={`url(#shadow-${uid})`} />
         {state === 'guard' && (<g className="shield"><circle cx="100" cy="118" r="70" fill="none" stroke="#E5AD48" strokeWidth="3" strokeDasharray="14 10" opacity="0.9" /><circle cx="100" cy="118" r="62" fill="rgba(229,173,72,0.12)" stroke="#F6EBDD" strokeWidth="1.5" opacity="0.8" /></g>)}
         <g transform={evoScale !== 1 ? `translate(100 176) scale(${evoScale}) translate(-100 -176)` : undefined}>
         <g className={`body-g ${parts.floats ? 'float' : ''}`} transform={poseT}>
           <EvoBack stage={stage} a={parts.anchors} />
-          {!bare && equipped?.cape && equipped.cape !== 'cape_groomsman' && <Cape id={equipped.cape} a={parts.anchors} />}
+          {!bare && equipped?.cape && equipped.cape !== 'cape_groomsman' && equipped.cape !== 'cape_apron' && equipped.cape !== 'cape_hivis' && <Cape id={equipped.cape} a={parts.anchors} />}
           {parts.back}
           {parts.body}
           {parts.front}
           {!bare && equipped?.cape === 'cape_groomsman' && <Sash a={parts.anchors} />}
+          {!bare && equipped?.cape === 'cape_apron' && <Apron a={parts.anchors} />}
+          {!bare && equipped?.cape === 'cape_hivis' && <HiVis a={parts.anchors} />}
           {!bare && equipped?.face && <Face id={equipped.face} a={parts.anchors} />}
           <EvoFront stage={stage} a={parts.anchors} />
           {!bare && equipped?.hat && <Hat id={equipped.hat} a={parts.anchors} />}

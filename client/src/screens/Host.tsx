@@ -8,6 +8,8 @@ import { useStore, useIsHost } from '../store';
 import { request } from '../net';
 import { sfx } from '../audio';
 import { downloadKeepsake } from '../keepsake';
+import { EPIC_PRESETS, EPIC_TIERS, type EpicTier } from '@shared/epics';
+import { COSMETICS, COSMETIC_BY_ID } from '@shared/progression';
 
 const PHASES: { id: Phase; label: string; blurb: string }[] = [
   { id: 'lobby', label: 'Paused', blurb: 'Everything on hold. Use it for speeches or dinner.' },
@@ -31,6 +33,17 @@ export default function Host() {
   const [confirmPhase, setConfirmPhase] = useState<Phase | null>(null);
   const [confirmPurge, setConfirmPurge] = useState(false);
   const [newPin, setNewPin] = useState('');
+  const [epicTitle, setEpicTitle] = useState('');
+  const [epicWhat, setEpicWhat] = useState('');
+  const [epicMax, setEpicMax] = useState(2);
+  const [epicTier, setEpicTier] = useState<EpicTier>('medium');
+  const [codeItem, setCodeItem] = useState('face_mo');
+  const [codeUses, setCodeUses] = useState(1);
+  const hostCodes = hostView?.codes ?? [];
+  const makeCode = async () => {
+    try { const r = await request<{ code: string }>({ type: 'host', action: { kind: 'makeCode', item: codeItem, uses: codeUses } }); sfx.reward(); toast(`Code ${r.code} ready. Whisper it to a legend.`, '🎁', 'success'); }
+    catch (e) { toast((e as Error).message, '⚠️', 'warn'); }
+  };
   if (!party || !isHost) return <div className="screen with-nav"><div className="panel pad center">Host only.</div></div>;
 
   const host = async (action: HostAction) => {
@@ -70,6 +83,45 @@ export default function Host() {
                   <span className="grow"><div className="bold">{label}</div><div className="tiny faint">{blurb}</div></span>{party.photoMode === id && <span className="pill pill-xs pill-gold">on</span>}
                 </button>))}
             </div>
+            <div className="divider" />
+            <div className="eyebrow">🟣 EPIC jobs</div>
+            <div className="tiny faint">Post a real job. First lads to tap "I'm on it" fill the crew; when it's done each of them gets the points, XP and a themed item. Bigger jobs pay more: Small {EPIC_TIERS.small.points}, Medium {EPIC_TIERS.medium.points}, Big {EPIC_TIERS.big.points}, Legend {EPIC_TIERS.legend.points} pts.</div>
+            {(party.epics ?? []).filter((e) => e.status === 'open').map((e) => (
+              <div key={e.id} className="list-row epic-row"><span style={{ fontSize: 18 }}>{e.emoji}</span><span className="grow"><div className="bold">{e.title}</div><div className="tiny faint">{e.crew.length}/{e.max} on it{e.crew.length ? `: ${e.crew.map((id) => party.players.find((p) => p.id === id)?.nickname).join(', ')}` : ''}</div></span><Button size="xs" variant="ghost" onClick={() => host({ kind: 'cancelEpic', epicId: e.id })}>Cancel</Button></div>))}
+            {(['Dinner', 'Brekkie', 'Runs', 'Crew'] as const).map((g) => (
+              <div key={g} className="stack-6">
+                <div className="tiny bold" style={{ opacity: 0.8 }}>{g}</div>
+                <div className="epic-presets">
+                  {EPIC_PRESETS.filter((p) => p.group === g).map((p) => { const live = (party.epics ?? []).some((e) => e.status === 'open' && e.presetId === p.id); return (
+                    <button key={p.id} className="epic-preset" disabled={live} onClick={() => host({ kind: 'postEpic', presetId: p.id })}>
+                      <span style={{ fontSize: 20 }}>{p.emoji}</span><b>{p.title}</b><small>{p.min === p.max ? `${p.max}` : `${p.min}–${p.max}`} lad{p.max === 1 ? '' : 's'} · {EPIC_TIERS[p.tier].label} +{EPIC_TIERS[p.tier].points}{live ? ' · live' : ''}</small>
+                    </button>); })}
+                </div>
+              </div>))}
+            <div className="panel pad stack-6">
+              <div className="small bold">Or make your own</div>
+              <input className="input" style={{ minHeight: 44, fontSize: 16 }} value={epicTitle} maxLength={40} onChange={(e) => setEpicTitle(e.target.value)} placeholder="Job name, e.g. Ice Run" />
+              <input className="input" style={{ minHeight: 44, fontSize: 16 }} value={epicWhat} maxLength={130} onChange={(e) => setEpicWhat(e.target.value)} placeholder="What needs doing" />
+              <div className="row-between"><span className="small">How many lads?</span><span className="row" style={{ gap: 6 }}>{[1, 2, 3, 4].map((n) => <button key={n} className={`pill ${epicMax === n ? 'pill-epic' : ''}`} onClick={() => setEpicMax(n)}>{n}</button>)}</span></div>
+              <div className="row-between"><span className="small">How big a job?</span><span className="row" style={{ gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' }}>{(Object.keys(EPIC_TIERS) as EpicTier[]).map((t) => <button key={t} className={`pill pill-xs ${epicTier === t ? 'pill-epic' : ''}`} onClick={() => setEpicTier(t)}>{EPIC_TIERS[t].label} +{EPIC_TIERS[t].points}</button>)}</span></div>
+              <Button size="sm" disabled={epicTitle.trim().length < 3} onClick={() => { host({ kind: 'postEpic', title: epicTitle, instruction: epicWhat, min: epicMax, max: epicMax, tier: epicTier }); setEpicTitle(''); setEpicWhat(''); }}>🟣 Post EPIC job</Button>
+            </div>
+            <div className="divider" />
+            <div className="eyebrow">🎁 Cheat codes</div>
+            <div className="tiny faint">Make a code for an accessory and give it to whoever you reckon deserves it. They type it in on their Me screen. Only you can see these.</div>
+            <div className="panel pad stack-6">
+              <select className="input" style={{ minHeight: 44, fontSize: 16 }} value={codeItem} onChange={(e) => setCodeItem(e.target.value)} aria-label="Accessory">
+                {COSMETICS.map((c) => <option key={c.id} value={c.id}>{/Cheat code only/.test(c.description) ? '⭐ ' : ''}{c.name}</option>)}
+              </select>
+              <div className="tiny faint">{COSMETIC_BY_ID[codeItem]?.description}</div>
+              <div className="row-between"><span className="small">Can be used by</span><span className="row" style={{ gap: 6 }}>{[1, 3, 15].map((n) => <button key={n} className={`pill ${codeUses === n ? 'pill-gold' : ''}`} onClick={() => setCodeUses(n)}>{n === 1 ? '1 lad' : n === 15 ? 'everyone' : `${n} lads`}</button>)}</span></div>
+              <Button size="sm" onClick={makeCode}>🎁 Make a code</Button>
+            </div>
+            {[...hostCodes].reverse().map((c) => (
+              <div key={c.code} className="list-row code-row">
+                <span className="grow" style={{ minWidth: 0 }}><div className="bold" style={{ fontFamily: 'monospace', letterSpacing: '.08em' }}>{c.code}</div><div className="tiny faint ellipsis">{COSMETIC_BY_ID[c.item]?.name} · used {c.redeemedBy.length}/{c.uses}{c.redeemedBy.length ? ` by ${c.redeemedBy.map(nickOf).join(', ')}` : ''}</div></span>
+                <Button size="xs" variant="ghost" onClick={() => host({ kind: 'deleteCode', code: c.code })}>Delete</Button>
+              </div>))}
             <div className="divider" />
             <div className="eyebrow">Group missions</div>
             {GROUP_MISSIONS.map((m) => { const on = party.revealedGroupMissions.includes(m.id); return <div key={m.id} className="list-row"><span className="grow"><div className="bold">{m.title} <span className="tiny faint">+{m.points}</span></div><div className="tiny dim">{m.instruction}</div></span>{on ? <span className="pill pill-xs pill-ok">live</span> : <Button size="xs" onClick={() => host({ kind: 'revealGroupMission', missionId: m.id })}>Reveal</Button>}</div>; })}

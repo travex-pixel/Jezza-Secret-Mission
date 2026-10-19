@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { GROUP_MISSIONS, MISSION_BY_ID } from '@shared/missions';
 import { MissionCard } from '../components/MissionCard';
+import { EpicCard } from '../components/EpicCard';
 import { Button, useCountdown } from '../components/ui';
 import { useMe } from '../store';
 import { useStore } from '../store';
@@ -11,11 +12,14 @@ export default function Missions() {
   const priv = useStore((s) => s.priv);
   const party = useStore((s) => s.party);
   const [tab, setTab] = useState<'mine' | 'group' | 'done'>('mine');
+  const me = useMe();
   const hand = (priv?.hand ?? []).filter((h) => h.status !== 'done');
   const done = priv?.completedMissionIds ?? [];
+  const epics = party?.epics ?? [];
+  const openEpics = epics.filter((e) => e.status === 'open');
+  const myDoneEpics = epics.filter((e) => e.status === 'done' && e.crew.includes(me?.id ?? ''));
   const revealed = GROUP_MISSIONS.filter((m) => party?.revealedGroupMissions.includes(m.id));
   const eventLive = party?.phase === 'friday' || party?.phase === 'saturday';
-  const me = useMe();
   const toast = useStore((s) => s.toast);
   const refill = useCountdown(priv?.rerollRefillAt || undefined);
   const nextGroup = useCountdown(party?.nextGroupAt ?? undefined);
@@ -51,6 +55,7 @@ export default function Missions() {
         ))}
         {tab === 'mine' && (
           <>
+            {openEpics.map((e) => <EpicCard key={e.id} epic={e} />)}
             {!eventLive && !hand.length && <div className="panel pad center dim bold">The game's paused. Stretch. Hydrate. Judge your mates.</div>}
             {!party?.missionsOpen && eventLive && <div className="panel pad center small bold" style={{ borderColor: 'rgba(240,120,66,.5)' }}>⏸️ Challenges are paused for a bit.</div>}
             {hand.map((h) => { const m = MISSION_BY_ID[h.missionId]; return m ? <MissionCard key={h.missionId} mission={m} assignment={h} showReroll /> : null; })}
@@ -65,7 +70,8 @@ export default function Missions() {
         )}
         {tab === 'done' && (
           <>
-            {!done.length && <div className="panel pad center dim bold">Nothing yet. Get amongst it.</div>}
+            {!done.length && !myDoneEpics.length && <div className="panel pad center dim bold">Nothing yet. Get amongst it.</div>}
+            {myDoneEpics.map((e) => <div key={e.id} className="list-row epic-row"><span style={{ fontSize: 20 }}>🟣</span><span className="grow"><div className="bold">EPIC: {e.title}</div><div className="tiny faint">with {e.crew.filter((id) => id !== me?.id).map((id) => party?.players.find((p) => p.id === id)?.nickname).join(', ') || 'just you'}</div></span></div>)}
             {done.map((id) => { const m = MISSION_BY_ID[id]; return m ? <div key={id} className="list-row"><span style={{ fontSize: 20 }}>✅</span><span className="grow"><div className="bold">{m.title}</div><div className="tiny faint">+{m.points} pts · {m.xp} XP</div></span></div> : null; })}
           </>
         )}

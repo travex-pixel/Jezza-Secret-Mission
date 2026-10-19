@@ -140,7 +140,7 @@ describe('engine', () => {
     expect(party().phase).toBe('friday');
     eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'setPhase', phase: 'finale' } });
     const view = eng.publicView(party());
-    expect(view.awards.length).toBe(14);
+    expect(view.awards.length).toBe(15);
     expect(view.awards!.find((a) => a.id === 'unhinged')!.playerId).toBeNull();
     eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'setAward', awardId: 'unhinged', playerId: ids[3] } });
     expect(eng.publicView(party()).awards!.find((a) => a.id === 'unhinged')!.playerId).toBe(ids[3]);

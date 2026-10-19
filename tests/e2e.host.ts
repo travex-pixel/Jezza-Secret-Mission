@@ -16,11 +16,11 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // minimal WS mate
 function mate(id: string) {
-  const ws = new WebSocket(WSURL); let seq = 0; const pend = new Map<string, (v: any) => void>(); let priv: any = null;
+  const ws = new WebSocket(WSURL); let seq = 0; const pend = new Map<string, (v: any) => void>(); let priv: any = null; let party: any = null;
   const ready = new Promise<void>((res) => ws.on('open', () => { ws.send(JSON.stringify({ type: 'hello', playerId: id, secret: 'mate-secret-xxxxxxxx' })); res(); }));
-  ws.on('message', (d) => { const m = JSON.parse(d.toString()); if (m.type === 'ack') pend.get(m.reqId)?.(m); if (m.type === 'private') priv = m.priv; });
+  ws.on('message', (d) => { const m = JSON.parse(d.toString()); if (m.type === 'ack') pend.get(m.reqId)?.(m); if (m.type === 'private') priv = m.priv; if (m.type === 'party') party = m.party; });
   const req = (msg: any) => new Promise<any>((res) => { const reqId = `m${seq++}`; pend.set(reqId, res); ws.send(JSON.stringify({ ...msg, reqId })); });
-  return { ready, req, priv: () => priv, close: () => ws.close() };
+  return { ready, req, priv: () => priv, party: () => party, close: () => ws.close() };
 }
 
 async function main() {
@@ -71,6 +71,47 @@ async function main() {
   await page.locator('.list-row', { hasText: 'The Big Cheers' }).getByRole('button', { name: /reveal/i }).click();
   await page.locator('.list-row', { hasText: 'The Big Cheers' }).getByText('live').waitFor({ timeout: 4000 });
   check(true, 'group challenge revealed from the host panel');
+
+  // EPIC job: host posts it, a mate grabs a spot, the host takes the last one from the Lobby and ticks it off
+  await page.locator('.epic-preset', { hasText: 'Mac and Cheese Crew' }).click();
+  await page.locator('.epic-row', { hasText: 'Mac and Cheese Crew' }).waitFor({ timeout: 4000 });
+  check(true, 'host posts an EPIC job from the preset list');
+  await sleep(300);
+  const epic = m1.party()?.epics?.find((e: any) => e.title === 'Mac and Cheese Crew');
+  check(!!epic, 'mates see the EPIC job');
+  await m1.req({ type: 'joinEpic', epicId: epic.id });
+  await page.getByText(/‹ Host controls/).click();
+  const card = page.locator('.epic-card', { hasText: 'Mac and Cheese Crew' });
+  await card.waitFor({ timeout: 4000 });
+  await page.screenshot({ path: path.join(OUT, 'epic-lobby.png') });
+  await card.getByRole('button', { name: /i'm on it/i }).click();
+  await card.getByRole('button', { name: /done/i }).click({ timeout: 4000 }); // the Lobby strip ticks it off too
+  await page.locator('.reward', { hasText: 'Mac and Cheese' }).waitFor({ timeout: 5000 });
+  await page.screenshot({ path: path.join(OUT, 'epic-reward.png') });
+  check((await page.locator('.reward').textContent())?.includes('Chef'), 'the crew gets the reward and the Chef\'s Toque');
+  for (let i = 0; i < 4 && (await page.locator('.reward').count()); i++) { await page.locator('.reward').first().click(); await sleep(400); }
+  check(m2.party() !== null, 'mate view still live');
+  await page.getByRole('button', { name: /host controls/i }).click();
+  await page.waitForSelector('.tabs');
+
+  // Cheat code: host makes one for The Mo, then types it in on the Me screen
+  await page.locator('select[aria-label="Accessory"]').selectOption('face_mo');
+  await page.getByRole('button', { name: /make a code/i }).click();
+  const codeRow = page.locator('.code-row', { hasText: 'The Mo' }).first();
+  await codeRow.waitFor({ timeout: 4000 });
+  const cheat = ((await codeRow.locator('.bold').first().textContent()) ?? '').trim();
+  check(/^JEZZA-[A-Z0-9]{4}$/.test(cheat), `host makes a cheat code (${cheat})`);
+  await page.getByText(/‹ Host controls/).click();
+  await page.locator('.bottom-nav').getByRole('button', { name: 'Me' }).click();
+  await page.getByLabel('Cheat code').fill(cheat.toLowerCase());
+  await page.getByRole('button', { name: /^unlock$/i }).click();
+  await page.locator('.reward', { hasText: 'Cheat code' }).waitFor({ timeout: 5000 });
+  check(true, 'typing the code unlocks the accessory');
+  await page.screenshot({ path: path.join(OUT, 'cheat-code.png') });
+  for (let i = 0; i < 4 && (await page.locator('.reward').count()); i++) { await page.locator('.reward').first().click(); await sleep(400); }
+  await page.locator('.bottom-nav').getByRole('button', { name: 'Lobby' }).click();
+  await page.getByRole('button', { name: /host controls/i }).click();
+  await page.waitForSelector('.tabs');
 
   // Mate snaps the group photo: it goes up for the lads' vote; the host votes from the Lobby card, a mate seconds it
   const dataUrl = await page.evaluate(() => { const c = document.createElement('canvas'); c.width = 320; c.height = 200; const g = c.getContext('2d')!; g.fillStyle = '#76243A'; g.fillRect(0, 0, 320, 200); g.fillStyle = '#E5AD48'; g.font = 'bold 40px sans-serif'; g.fillText('CHEERS JEZZA', 20, 110); return c.toDataURL('image/jpeg', 0.8); });
@@ -152,10 +193,10 @@ async function main() {
   await page.waitForSelector('text=The Finale');
   const next = () => page.getByRole('button', { name: /open with|reveal|crown/i });
   check(/Weekend Menace/.test((await next().textContent()) ?? ''), 'ceremony opens with The Weekend Menace');
-  for (let i = 0; i < 16 && (await next().count()); i++) { if (i === 13) check(/JEZZA LEGEND/.test((await next().textContent()) ?? ''), 'and closes by crowning The Jezza Legend'); await next().click(); await sleep(200); }
+  for (let i = 0; i < 17 && (await next().count()); i++) { if (i === 14) check(/JEZZA LEGEND/.test((await next().textContent()) ?? ''), 'and closes by crowning The Jezza Legend'); await next().click(); await sleep(200); }
   await page.locator('.legend-hero').waitFor({ timeout: 3000 });
   await page.screenshot({ path: path.join(OUT, 'finale-legend.png') });
-  check((await page.getByText(/To Jezza. To the legends./).count()) === 1, 'all 14 awards revealed on the finale screen');
+  check((await page.getByText(/To Jezza. To the legends./).count()) === 1, 'all 15 awards revealed on the finale screen');
   check((await page.locator('.panel', { hasText: 'Most Unhinged' }).getByText('Robbo').count()) === 1, 'host-picked award shows the chosen player');
   await page.screenshot({ path: path.join(OUT, 'finale.png') });
   await page.getByRole('button', { name: /final board/i }).click();

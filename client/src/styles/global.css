@@ -350,6 +350,24 @@ img, svg { display: block; max-width: 100%; }
 .viewer-foot > * { pointer-events: auto; }
 .viewer-caption { font-size: 14px; }
 .tap-photo { cursor: zoom-in; }
+/* ===== EPIC tier (purple) ===== */
+.epic-card { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 18px; border: 1px solid rgba(166,107,255,.65); background: linear-gradient(160deg, rgba(120,60,220,.38), rgba(52,24,92,.55) 60%, rgba(30,18,44,.7)); box-shadow: 0 0 22px rgba(155,92,255,.25), inset 0 1px 0 rgba(255,255,255,.08); color: #f3eaff; }
+.epic-card.compact { padding: 10px 12px; gap: 6px; }
+.epic-strip { flex-direction: row; align-items: center; gap: 10px; padding: 8px 10px; }
+.epic-strip .btn { flex: 0 0 auto; white-space: nowrap; }
+.epic-card.done { opacity: .75; }
+.epic-title { font-family: var(--font-display); font-weight: 800; font-size: 18px; letter-spacing: .02em; display: flex; align-items: center; gap: 8px; }
+.epic-card.compact .epic-title { font-size: 15px; }
+.epic-emoji { font-size: 22px; }
+.pill-epic { background: rgba(155,92,255,.35); border-color: rgba(190,150,255,.8); color: #fff; }
+.pill-epic-soft { background: rgba(155,92,255,.18); border-color: rgba(190,150,255,.5); color: #e7d8ff; }
+.btn-epic { background: linear-gradient(180deg, #a66bff, #7a3fe0) !important; color: #fff !important; border-color: #c39bff !important; box-shadow: 0 6px 18px rgba(122,63,224,.45) !important; }
+.epic-row { border-color: rgba(166,107,255,.5); background: rgba(120,60,220,.14); }
+.epic-presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; }
+.epic-preset { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 10px; border-radius: 12px; border: 1px solid rgba(166,107,255,.5); background: rgba(120,60,220,.16); text-align: left; color: #f3eaff; }
+.epic-preset b { font-size: 13px; }
+.epic-preset small { font-size: 11px; opacity: .75; }
+.epic-preset:disabled { opacity: .45; }
 .replay-bar { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
 .replay-sheet { display: flex; flex-direction: column; gap: 8px; height: min(560px, 78vh); }
 .replay-sheet .arena { flex: 1; min-height: 260px; }
@@ -434,6 +452,8 @@ img, svg { display: block; max-width: 100%; }
 .creature .tail { transform-origin: 100px 150px; animation: cre-tail 2.8s ease-in-out infinite; }
 .creature .flame { transform-origin: 100px 100px; animation: cre-flame 0.5s ease-in-out infinite alternate; }
 .creature .lid { transform-origin: center; animation: cre-blink 4.5s linear infinite; }
+.creature .aura-rainbow { animation: cre-aura 3s ease-in-out infinite, rainbow 4s linear infinite !important; }
+@keyframes rainbow { to { filter: hue-rotate(360deg); } }
 .creature .aura-g { transform-origin: 100px 120px; animation: cre-aura 3s ease-in-out infinite; }
 .creature .float { animation-name: cre-float; animation-duration: 3.6s; }
 .creature[data-state="happy"] .body-g { animation: cre-happy 0.55s cubic-bezier(.3,1.4,.5,1) 2; }

@@ -4,8 +4,9 @@
 import type {
   Battle, BattleAction, Claim, TapQuality, ClientMessage, CreatureId, Equipped, FeedEvent, HostAction, HostView,
   MissionAssignment, PartyPublic, Phase, PlayerPrivate, PlayerPublic, ServerMessage, WitnessRequest,
-  Raid, Reaction, WallPost, CellarEntry, GalleryPhoto, PhotoMode, AwayEvent, Keepsake,
+  Raid, Reaction, WallPost, CellarEntry, GalleryPhoto, PhotoMode, AwayEvent, Keepsake, Epic, CheatCode,
 } from './types';
+import { EPIC_CUSTOM_ITEM, EPIC_MAX_CREW, EPIC_PRESET_BY_ID, EPIC_TIERS, isEpicTier } from './epics';
 import { CREATURES, CREATURE_IDS, FORMS } from './creatures';
 import { MISSIONS, MISSION_BY_ID, STARTER_MISSION, GROUP_MISSIONS, missionAvailableInPhase, type Mission } from './missions';
 import {
@@ -32,6 +33,7 @@ export interface PlayerState extends PlayerPublic {
   away: AwayEvent[];       // auto-battle results waiting for the player to look
   lastAutoAt: number;      // when this avatar last auto-battled
   recentAuto: string[];    // last few auto-battle opponents (avoid repeats)
+  codeTries: number[];     // recent wrong cheat-code guesses (rate limit)
 }
 
 export interface PartyState {
@@ -61,6 +63,8 @@ export interface PartyState {
   phaseMissions: { friday: number; saturday: number };
   photoMode: PhotoMode;
   nextAutoAt: number | null;
+  epics: Epic[];
+  codes: CheatCode[];
 }
 
 export interface EngineState {
@@ -126,6 +130,8 @@ const AUTO_NEAR_RATING = 60;
 export const AUTO_REWARDS = { win: { points: 0, xp: 15 }, lose: { points: 0, xp: 8 } }; // XP + rating only, never weekend points
 const UPSET_GAP = 40;                           // losing to someone rated this much lower counts as a choke
 const AWAY_LIMIT = 20;
+const CODE_WINDOW_MS = 10 * 60_000;            // wrong cheat-code guesses: 6 per 10 minutes
+const CODE_MAX_TRIES = 6;
 const CELLAR_REWARDED_PER_PHASE = 3;
 
 /** Next Saturday 5:00am in Sydney after `from` (the party goes to Saturday on its own then). */
@@ -171,6 +177,8 @@ export class Engine {
       party.raids ??= []; party.wall ??= []; party.cellar ??= [];
       party.phaseMissions ??= { friday: 0, saturday: 0 };
       party.photoMode ??= 'vote';
+      party.epics ??= []; party.codes ??= [];
+      for (const e of party.epics) { e.tier ??= 'medium'; e.points ??= EPIC_TIERS[e.tier].points; e.xp ??= EPIC_TIERS[e.tier].xp; }
       for (const b of Object.values(party.battles)) if (b.status === 'active' && !b.quick && !b.auto) { b.quick = true; b.roundDeadline = Math.min(b.roundDeadline ?? Infinity, this.now() + PLAN_SECONDS * 1000); }
       party.nextAutoAt ??= this.now() + FIRST_AUTO_DELAY_MS;
       for (const p of Object.values(party.players)) {
@@ -179,7 +187,7 @@ export class Engine {
         p.raidDamage ??= 0; p.raidsJoined ??= 0; p.lowKey ??= false; p.freshLegs ??= 0; p.joinedPhase ??= 'friday';
         p.rerollRefillAt ??= 0;
         p.h2h ??= {}; p.upsetLosses ??= 0; p.reactionsGiven ??= 0; p.autoBattles ??= true;
-        p.away ??= []; p.lastAutoAt ??= 0; p.recentAuto ??= [];
+        p.away ??= []; p.lastAutoAt ??= 0; p.recentAuto ??= []; p.epicsDone ??= 0; p.codeTries ??= [];
       }
     }
   }
@@ -244,6 +252,7 @@ export class Engine {
       cellar: party.cellar.slice(-30),
       gallery,
       photoMode: party.photoMode,
+      epics: party.epics.filter((e) => e.status === 'open' || (e.status === 'done' && now - (e.doneAt ?? 0) < 3 * 3600_000)).slice(-20),
       pendingPhotos: Object.values(party.claims).filter((c) => c.status === 'pending' && c.review === 'vote' && c.photoUrl)
         .map((c) => ({ claimId: c.id, playerId: c.playerId, missionId: c.missionId, url: c.photoUrl!, at: c.createdAt, up: c.votesUp ?? [], down: c.votesDown ?? [] })),
       autoSaturdayAt: party.autoSaturdayAt,
@@ -274,7 +283,7 @@ export class Engine {
   }
 
   hostView(party: PartyState): HostView {
-    return { approvals: Object.values(party.claims).filter((c) => needsHost(c) || (c.status === 'pending' && c.review === 'vote')).sort((a, b) => a.createdAt - b.createdAt), takedowns: this.takedowns(party) };
+    return { approvals: Object.values(party.claims).filter((c) => needsHost(c) || (c.status === 'pending' && c.review === 'vote')).sort((a, b) => a.createdAt - b.createdAt), takedowns: this.takedowns(party), codes: party.codes };
   }
 
   private takedowns(party: PartyState): HostView['takedowns'] {
@@ -317,6 +326,10 @@ export class Engine {
         case 'votePhoto': return this.votePhoto(playerId, msg.claimId, !!msg.up);
         case 'ackAway': return this.ackAway(playerId);
         case 'setAutoBattles': return this.setAutoBattles(playerId, !!msg.on);
+        case 'joinEpic': return this.joinEpic(playerId, msg.epicId);
+        case 'redeemCode': return this.redeemCode(playerId, msg.code);
+        case 'leaveEpic': return this.leaveEpic(playerId, msg.epicId);
+        case 'finishEpic': return this.finishEpic(playerId, msg.epicId);
         case 'surrender': return this.surrender(playerId, msg.battleId);
         case 'host': return this.hostAction(playerId, msg.action);
         default: res.ack = { ok: false, error: 'Unknown message.' }; return res;
@@ -355,7 +368,7 @@ export class Engine {
       code, name: (partyName ?? '').trim().slice(0, 40) || "Jezza's Bucks Weekend", hostId: playerId, phase: 'friday', missionsOpen: true,
       createdAt: now, players: {}, feed: [], claims: {}, revealedGroupMissions: [], battles: {}, awardOverrides: {}, finalized: false, fridayPoints: null, seq: 0,
       groomId: isJezza(v.name) ? playerId : null, autoSaturdayAt: nextSaturdayMorning(now), nextGroupAt: now + FIRST_GROUP_DELAY_MS,
-      raids: [], wall: [], cellar: [], phaseMissions: { friday: 0, saturday: 0 }, photoMode: 'vote', nextAutoAt: now + FIRST_AUTO_DELAY_MS,
+      raids: [], wall: [], cellar: [], phaseMissions: { friday: 0, saturday: 0 }, photoMode: 'vote', nextAutoAt: now + FIRST_AUTO_DELAY_MS, epics: [], codes: [],
     };
     party.players[playerId] = newPlayer(playerId, v.name, now, true, 'friday');
     if (pin) party.hostPinHash = hashPin(code, pin);
@@ -1015,6 +1028,78 @@ export class Engine {
     if (h) { h.status = 'active'; h.claimId = undefined; }
   }
 
+  // ---------- EPIC tier ----------
+  private openEpic(playerId: string, epicId: string) {
+    const party = this.partyOf(playerId); const p = party?.players[playerId];
+    const e = party?.epics.find((x) => x.id === epicId);
+    return { party, p, e };
+  }
+
+  private joinEpic(playerId: string, epicId: string): HandleResult {
+    const { party, p, e } = this.openEpic(playerId, epicId);
+    if (!party || !p || p.removed || !p.creature) return this.fail('Adopt a creature first.');
+    if (!e || e.status !== 'open') return this.fail('That job is already sorted.');
+    if (e.crew.includes(playerId)) return { ack: { ok: true, data: { already: true } }, changed: false, direct: [] };
+    if (e.crew.length >= e.max) return this.fail('Crew\'s full. Legends beat you to it.');
+    e.crew.push(playerId);
+    const direct: Outbound[] = [];
+    if (e.crew.length === e.max) {
+      const names = e.crew.map((id) => party.players[id]?.nickname ?? '?').join(' & ');
+      this.feed(party, { kind: 'epic', text: `🟣 ${e.title}: crew locked in (${names})`, emoji: e.emoji });
+      for (const id of e.crew) direct.push({ to: id, msg: { type: 'toast', text: `You're on ${e.title} with ${e.crew.filter((x) => x !== id).map((x) => party.players[x]?.nickname).join(' & ') || 'yourself'}. Tap Done when it's done.`, emoji: e.emoji, tone: 'success' } });
+    }
+    return this.ok(party, { crew: e.crew.length }, direct);
+  }
+
+  private leaveEpic(playerId: string, epicId: string): HandleResult {
+    const { party, e } = this.openEpic(playerId, epicId);
+    if (!party || !e || e.status !== 'open' || !e.crew.includes(playerId)) return this.fail('You\'re not on that crew.');
+    e.crew = e.crew.filter((x) => x !== playerId);
+    return this.ok(party);
+  }
+
+  private finishEpic(playerId: string, epicId: string): HandleResult {
+    const { party, e } = this.openEpic(playerId, epicId);
+    if (!party || !e) return this.fail('That job is gone.');
+    if (e.status !== 'open') return { ack: { ok: true, data: { already: true } }, changed: false, direct: [] };
+    if (!e.crew.includes(playerId) && party.hostId !== playerId) return this.fail('Only the crew (or the host) can mark it done.');
+    if (e.crew.length < e.min) return this.fail(`Needs ${e.min} on the crew first.`);
+    e.status = 'done'; e.doneAt = this.now(); e.doneBy = playerId;
+    const direct: Outbound[] = [];
+    for (const id of e.crew) {
+      const p = party.players[id];
+      if (!p || p.removed) continue;
+      p.epicsDone += 1;
+      const fresh = !p.unlocked.includes(e.item);
+      if (fresh) p.unlocked.push(e.item);
+      const r = this.grant(party, p, e.points, e.xp, direct);
+      direct.push({ to: id, msg: { type: 'reward', points: e.points, xp: e.xp, ...r, unlocked: [...(fresh ? [e.item] : []), ...r.unlocked], title: `EPIC: ${e.title}`, bonus: '🟣 Epic job done. Legend behaviour.' } });
+    }
+    const names = e.crew.map((id) => party.players[id]?.nickname ?? '?').join(' & ');
+    this.feed(party, { kind: 'epic', text: `🟣 EPIC DONE: ${names} sorted "${e.title}" (+${e.points} each)`, emoji: e.emoji });
+    return this.ok(party, undefined, direct);
+  }
+
+  // ---------- cheat codes ----------
+  private redeemCode(playerId: string, raw: string): HandleResult {
+    const party = this.partyOf(playerId); const p = party?.players[playerId];
+    if (!party || !p || p.removed || !p.creature) return this.fail('Adopt a creature first.');
+    const now = this.now();
+    p.codeTries = p.codeTries.filter((t) => now - t < CODE_WINDOW_MS);
+    if (p.codeTries.length >= CODE_MAX_TRIES) return this.fail('Too many wrong codes. Have a breather and try again in a few minutes.');
+    const code = String(raw ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const c = party.codes.find((x) => x.code.replace(/[^A-Z0-9]/g, '') === code);
+    if (!c) { p.codeTries.push(now); return this.fail('Nope, that code isn\'t a thing. Ask the host nicely.'); }
+    if (c.redeemedBy.includes(playerId)) return this.fail('You\'ve already used that one.');
+    if (c.redeemedBy.length >= c.uses) return this.fail('Someone beat you to it. That code is used up.');
+    const cos = COSMETIC_BY_ID[c.item];
+    if (p.unlocked.includes(c.item)) return this.fail(`You already have the ${cos?.name ?? 'item'}. Save it for a mate.`);
+    c.redeemedBy.push(playerId);
+    p.unlocked.push(c.item);
+    this.feed(party, { kind: 'unlock', text: `🎁 ${p.nickname} cracked a cheat code and unlocked the ${cos?.name ?? 'mystery item'}`, playerId: p.id, emoji: '🎁' });
+    return this.ok(party, { item: c.item }, [{ to: playerId, msg: { type: 'reward', points: 0, xp: 0, unlocked: [c.item], title: 'Cheat code unlocked!', bonus: '🎁 Straight from the host' } }]);
+  }
+
   // ---------- auto-battles ----------
   private ackAway(playerId: string): HandleResult {
     const party = this.partyOf(playerId); const p = party?.players[playerId];
@@ -1575,6 +1660,50 @@ export class Engine {
         this.feed(party, { kind: 'host', text: label, emoji: '📸' });
         return this.ok(party);
       }
+      case 'postEpic': {
+        const preset = action.presetId ? EPIC_PRESET_BY_ID[action.presetId] : undefined;
+        if (action.presetId && !preset) return this.fail('Unknown job.');
+        const title = (preset?.title ?? String(action.title ?? '')).replace(/\s+/g, ' ').trim().slice(0, 40);
+        const instruction = (preset?.instruction ?? String(action.instruction ?? '')).replace(/\s+/g, ' ').trim().slice(0, 130);
+        if (title.length < 3) return this.fail('Give the job a name.');
+        if (!isClean(title) || !isClean(instruction)) return this.fail('Keep it clean, boss.');
+        const max = Math.max(1, Math.min(EPIC_MAX_CREW, Math.round(Number(preset?.max ?? action.max ?? 2))));
+        const min = Math.max(1, Math.min(max, Math.round(Number(preset?.min ?? action.min ?? max))));
+        if (party.epics.some((x) => x.status === 'open' && x.title.toLowerCase() === title.toLowerCase())) return this.fail('That one is already up.');
+        const now = this.now();
+        const tier = preset?.tier ?? (isEpicTier(action.tier) ? action.tier : 'medium');
+        const e: Epic = { id: `ep_${now.toString(36)}_${Math.floor(this.rng() * 1e6).toString(36)}`, presetId: preset?.id, title, instruction: instruction || 'Help the lads out.', emoji: preset?.emoji ?? '🟣', min, max, item: preset?.item ?? EPIC_CUSTOM_ITEM, tier, points: EPIC_TIERS[tier].points, xp: EPIC_TIERS[tier].xp, crew: [], status: 'open', createdAt: now };
+        party.epics.push(e);
+        if (party.epics.length > 60) party.epics = party.epics.slice(-60);
+        const spots = min === max ? `${max} spot${max === 1 ? '' : 's'}` : `${min}–${max} spots`;
+        this.feed(party, { kind: 'epic', text: `🟣 EPIC TASK: ${e.title} (${spots}). First in!`, emoji: e.emoji });
+        direct.push({ to: 'party', msg: { type: 'toast', text: `🟣 EPIC TASK: ${e.title}. ${spots}, first in gets it.`, emoji: e.emoji, tone: 'info' } });
+        return this.ok(party, { id: e.id }, direct);
+      }
+      case 'makeCode': {
+        if (!COSMETIC_BY_ID[action.item]) return this.fail('Pick an accessory.');
+        const uses = Math.max(1, Math.min(20, Math.round(Number(action.uses ?? 1)) || 1));
+        let code = '';
+        for (let i = 0; i < 20; i++) {
+          code = 'JEZZA-' + Array.from({ length: 4 }, () => CODE_ALPHABET[Math.floor(this.rng() * CODE_ALPHABET.length)]).join('');
+          if (!party.codes.some((x) => x.code === code)) break;
+        }
+        party.codes.push({ code, item: action.item, uses, redeemedBy: [], createdAt: this.now() });
+        if (party.codes.length > 100) party.codes = party.codes.slice(-100);
+        return this.ok(party, { code });
+      }
+      case 'deleteCode': {
+        const before = party.codes.length;
+        party.codes = party.codes.filter((x) => x.code !== action.code);
+        if (party.codes.length === before) return this.fail('No such code.');
+        return this.ok(party);
+      }
+      case 'cancelEpic': {
+        const e = party.epics.find((x) => x.id === action.epicId);
+        if (!e || e.status !== 'open') return this.fail('Nothing to cancel.');
+        e.status = 'cancelled';
+        return this.ok(party);
+      }
       case 'resolveTakedown': {
         const claim = party.claims[action.photoId];
         const entry = party.cellar.find((e) => e.id === action.photoId);
@@ -1626,14 +1755,14 @@ function newPlayer(id: string, nickname: string, now: number, isHost: boolean, j
     missionsCompleted: 0, wins: 0, losses: 0, title: 'Fresh Legend', online: true, isHost, joinedAt: now, lastSeen: now, categoryCounts: {}, witnessed: 0,
     rating: START_RATING, streak: 0, bestStreak: 0, bounties: 0, laughs: 0, fires: 0, groomLoves: 0, wallVotes: 0,
     cellarCount: 0, cellarFires: 0, raidDamage: 0, raidsJoined: 0, lowKey: false, freshLegs: 0, joinedPhase,
-    h2h: {}, upsetLosses: 0, reactionsGiven: 0, autoBattles: true,
+    h2h: {}, upsetLosses: 0, reactionsGiven: 0, autoBattles: true, epicsDone: 0,
     hand: [], completedMissionIds: [], rerollsLeft: REROLLS_PER_PHASE, scoredBattlesVs: {}, missedRounds: 0, lastHonourClaimAt: 0, flagged: [], rerollRefillAt: 0,
-    away: [], lastAutoAt: 0, recentAuto: [],
+    away: [], lastAutoAt: 0, recentAuto: [], codeTries: [],
   };
 }
 
 function toPublic(p: PlayerState): PlayerPublic {
-  const { hand, completedMissionIds, rerollsLeft, scoredBattlesVs, missedRounds, lastHonourClaimAt, flagged, rerollRefillAt, away, lastAutoAt, recentAuto, ...pub } = p;
+  const { hand, completedMissionIds, rerollsLeft, scoredBattlesVs, missedRounds, lastHonourClaimAt, flagged, rerollRefillAt, away, lastAutoAt, recentAuto, codeTries, ...pub } = p;
   return pub;
 }
 

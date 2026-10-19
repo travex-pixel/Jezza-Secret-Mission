@@ -35,6 +35,8 @@ More screenshots at every tested viewport live in [`docs/screenshots/`](docs/scr
 | 😂 🔥 reactions (❤️ for Jezza only) that drive the awards | ✅ |
 | Party camera roll; delete your own photos any time, ask the host to take down anyone else's | ✅ |
 | Host keepsake download (every roast, toast, review, award and the final board) and a scan-to-join QR code | ✅ |
+| **🟣 EPIC jobs**: the host posts real jobs (dinner, brekkie, food runs, designated driver, Chief Hydration Officers, clean-up…); first in fill the crew; everyone on it gets points, XP and a themed item. Bigger jobs pay more | ✅ |
+| **🎁 Cheat codes**: the host makes a code for any accessory (plus three code-only items) and gives it to whoever deserves it | ✅ |
 | 14 data-driven awards (The Jezza Legend, The Weekend Menace, Best Hype Man, Biggest Choke…) + live "Award race" tab; animated finale ceremony with podium and weekend recap | ✅ |
 | Host PIN, leave/new room, join-by-link, link previews, persistence, keepsake photo export | ✅ |
 
@@ -148,6 +150,31 @@ this event; if you ever need multi-instance scale, the engine is already pure an
 * **Finale** is the one thing the host does: Host → Event → Finale, then reveal the awards one tap at a time.
   The Weekend Menace (last on points) opens, The Jezza Legend (first) closes. Suggested prize: a cheap trophy or
   sash, optionally a $50–$100 pool. The Menace's forfeit (a 20-second speech or dance) is optional and easy to decline.
+
+### EPIC jobs (purple)
+
+Real jobs that keep the weekend running, posted by the host from Host → Event (one tap from the list, or make your
+own). Everyone gets a ping; the job shows on the Lobby and at the top of Missions. The first lads to tap
+**I'm on it** fill the spots (mac and cheese takes 2, the KFC/pizza run 2–3, the designated driver 1). When it's
+done, anyone on the crew taps **Done** and every one of them gets the points, XP and the job's item. Leaving before
+it's done gives your spot back; nobody is rewarded twice.
+
+| Size | Points / XP | Examples |
+| --- | --- | --- |
+| Small | 15 / 35 | Salad, garlic bread, chimichurri, bacon, sausages, eggs, toast |
+| Medium | 25 / 60 | Mac and cheese, potatoes, KFC and pizza run, ice run, Chief Hydration Officer (drinks / water), party setup, dishes |
+| Big | 40 / 90 | BBQ, clean-up |
+| Legend | 60 / 120 | Designated driver (Saturday) |
+
+Items: Chef's Toque (cooking), Delivery Cap (runs), BBQ Apron, Hi-Vis Vest (designated driver), Esky Hat (drinks
+officer), DJ Headphones (setup), Squeaky Clean and Epic Helper auras. Most EPIC jobs → the **Captain Helpful** award.
+
+### Cheat codes
+
+Host → Event → Cheat codes: pick any accessory (⭐ marks the code-only ones: The Mo, Viking Helmet, Rainbow Aura),
+choose who can use it (1 lad, 3, or everyone) and tap *Make a code*. Tell someone the code (e.g. `JEZZA-K7Q2`);
+they type it on their Me screen to unlock the item. Only the host can see codes. Six wrong guesses lock a player
+out for ten minutes.
 
 ### Being the host (optional, but you can run a lot of it)
 
