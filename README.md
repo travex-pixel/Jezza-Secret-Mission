@@ -255,6 +255,9 @@ Skipping jumps straight to the engine's final state.
 
 ### Photos and privacy
 
+* Photos are taken with a camera **inside the game** (the page never switches to the phone's camera app, which Android
+  can close for memory: "Unable to complete previous operation due to low memory"). If the camera is blocked, one tap
+  opens the phone's own camera instead, and 🖼️ always picks from the library.
 * Mission photos are resized on the phone (1600 px on the long edge, JPEG ~82%, usually 250–500 KB) and uploaded over the WebSocket to **your own game
   server**. They are written to `DATA_DIR/photos/` and served from `/photos/<random-id>.jpeg`. No third-party
   service ever sees them.

@@ -168,7 +168,7 @@ export default function VineyardScene({ onFail, intensity = 'full' }: Props) {
       running = false; cancelAnimationFrame(raf); ro.disconnect(); document.removeEventListener('visibilitychange', vis);
       renderer.domElement.removeEventListener('webglcontextlost', lost);
       scene.traverse((o) => { const mesh = o as THREE.Mesh; if (mesh.geometry) mesh.geometry.dispose(); const mat = mesh.material as THREE.Material | THREE.Material[] | undefined; if (Array.isArray(mat)) mat.forEach((x) => x.dispose()); else mat?.dispose(); });
-      haloTex.dispose(); renderer.dispose(); if (renderer.domElement.parentNode === el) el.removeChild(renderer.domElement);
+      haloTex.dispose(); renderer.dispose(); renderer.forceContextLoss(); // hand the GPU memory back straight away if (renderer.domElement.parentNode === el) el.removeChild(renderer.domElement);
     };
   }, [onFail, intensity]);
   return <div ref={ref} className="hero" aria-hidden="true" />;

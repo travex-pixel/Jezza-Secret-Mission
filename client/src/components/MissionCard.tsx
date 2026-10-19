@@ -6,6 +6,7 @@ import { Creature } from './Creature';
 import { newClaimId, request } from '../net';
 import { useStore } from '../store';
 import { sfx } from '../audio';
+import CameraSheet, { canUseLiveCamera } from './CameraSheet';
 
 const DIFF = ['', 'Easy', 'Spicy', 'Big one'];
 
@@ -29,6 +30,7 @@ export function MissionCard({ mission, assignment, compact, onDone, showReroll, 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [pickWitness, setPickWitness] = useState(false);
+  const [camera, setCamera] = useState(false);
   const [note, setNote] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);  // camera
   const libRef = useRef<HTMLInputElement>(null);   // photo library
@@ -86,7 +88,7 @@ export function MissionCard({ mission, assignment, compact, onDone, showReroll, 
         <input ref={fileRef} type="file" accept="image/*" capture={mission.selfie ? 'user' : 'environment'} className="hidden" onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ''; }} />
         <input ref={libRef} type="file" accept="image/*" className="hidden" data-library onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ''; }} />
         {!busy && <Button size="sm" variant="secondary" onClick={() => libRef.current?.click()} aria-label="Pick from your photos">🖼️</Button>}
-        <Button size="sm" onClick={() => fileRef.current?.click()} disabled={busy}>{busy ? 'Uploading…' : `📸 ${method.cta}`}</Button>
+        <Button size="sm" onClick={() => (canUseLiveCamera() ? setCamera(true) : fileRef.current?.click())} disabled={busy}>{busy ? 'Uploading…' : `📸 ${method.cta}`}</Button>
       </>);
       case 'witness': return <Button size="sm" onClick={() => setPickWitness(true)} disabled={busy}>{busy ? '…' : `✅ ${method.cta}`}</Button>;
       default: return <Button size="sm" onClick={() => submit()} disabled={busy}>{busy ? '…' : `✅ ${method.cta}`}</Button>;
@@ -116,6 +118,7 @@ export function MissionCard({ mission, assignment, compact, onDone, showReroll, 
         <span className="tiny faint" style={{ maxWidth: '45%', lineHeight: 1.2 }}>{method.label}{showReroll && status === 'active' && !mission.starter ? <><br /><button className="bold" style={{ color: 'var(--rose)', textDecoration: 'underline' }} onClick={reroll} disabled={busy || (priv?.rerollsLeft ?? 0) <= 0}>Swap ({priv?.rerollsLeft ?? 0} left)</button></> : null}</span>
         <span className="row" style={{ gap: 6 }}>{cta()}</span>
       </div>
+      {camera && <CameraSheet facing={mission.selfie ? 'user' : 'environment'} onClose={() => setCamera(false)} onFallback={() => fileRef.current?.click()} onPhoto={(photo) => { setCamera(false); void submit({ photo }); }} />}
       {pickWitness && (
         <Sheet onClose={() => setPickWitness(false)}>
           <div className="eyebrow center">Who saw it?</div>

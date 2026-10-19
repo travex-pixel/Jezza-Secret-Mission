@@ -8,6 +8,7 @@ import { HowItWorksBasics } from '../components/HowItWorks';
 import { compressImage } from '../components/MissionCard';
 import { newClaimId, request } from '../net';
 import { sfx } from '../audio';
+import CameraSheet, { canUseLiveCamera } from '../components/CameraSheet';
 
 export default function FirstMission() {
   const setFlow = useStore((s) => s.setFlow);
@@ -18,6 +19,7 @@ export default function FirstMission() {
   const assignment = priv?.hand.find((h) => h.missionId === STARTER_MISSION.id);
   const [step, setStep] = useState<'snap' | 'done'>('snap');
   const [busy, setBusy] = useState(false);
+  const [camera, setCamera] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const cam = useRef<HTMLInputElement>(null);
   const lib = useRef<HTMLInputElement>(null);
@@ -26,16 +28,16 @@ export default function FirstMission() {
   useEffect(() => { if (assignment?.status === 'done' && !reward) setStep('done'); }, [assignment?.status, reward]);
   useEffect(() => { if (priv && !assignment && step === 'snap') setStep('done'); }, [priv, assignment, step]);
 
-  const onFile = async (f: File | undefined) => {
-    if (!f) return;
+  const send = async (getPhoto: () => Promise<string>) => {
     setBusy(true); setErr(null);
     try {
-      const photo = await compressImage(f);
+      const photo = await getPhoto();
       await request({ type: 'claimMission', missionId: STARTER_MISSION.id, claimId: claimId.current, photo });
       sfx.mission();
     } catch (e) { setErr((e as Error).message || 'Could not read that photo. Try another.'); sfx.error(); claimId.current = newClaimId(); }
     finally { setBusy(false); }
   };
+  const onFile = (f: File | undefined) => { if (f) void send(() => compressImage(f)); };
   const finish = () => { setTab('home'); setFlow('main'); };
   const dots = <div className="tut-dots" aria-hidden><span className={step === 'snap' ? 'on' : ''} /><span className={step === 'done' ? 'on' : ''} /></div>;
 
@@ -71,10 +73,11 @@ export default function FirstMission() {
           <div className="bold" style={{ fontSize: 17 }}>Snap a selfie so the lads know you're in.</div>
           <div className="small dim">Takes 5 seconds. Counts straight away: <b className="gold-text" style={{ whiteSpace: 'nowrap' }}>+{STARTER_MISSION.points} pts · +{STARTER_MISSION.xp} XP</b></div>
         </div>
-        <input ref={cam} type="file" accept="image/*" capture="user" data-selfie hidden onChange={(e) => { void onFile(e.target.files?.[0]); e.target.value = ''; }} />
-        <input ref={lib} type="file" accept="image/*" data-selfie-library hidden onChange={(e) => { void onFile(e.target.files?.[0]); e.target.value = ''; }} />
+        <input ref={cam} type="file" accept="image/*" capture="user" data-selfie hidden onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ''; }} />
+        <input ref={lib} type="file" accept="image/*" data-selfie-library hidden onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ''; }} />
+        {camera && <CameraSheet facing="user" onClose={() => setCamera(false)} onFallback={() => cam.current?.click()} onPhoto={(photo) => { setCamera(false); void send(async () => photo); }} />}
         {err && <div className="field-error center">{err}</div>}
-        <Button onClick={() => cam.current?.click()} disabled={busy}>{busy ? 'Sending…' : '📸 Take a selfie'}</Button>
+        <Button onClick={() => (canUseLiveCamera() ? setCamera(true) : cam.current?.click())} disabled={busy}>{busy ? 'Sending…' : '📸 Take a selfie'}</Button>
         <div className="row" style={{ justifyContent: 'center', gap: 18 }}>
           <button className="small bold dim" disabled={busy} onClick={() => lib.current?.click()}>🖼️ Pick a photo instead</button>
           <button className="small bold dim" disabled={busy} onClick={() => setStep('done')}>Do it later</button>
