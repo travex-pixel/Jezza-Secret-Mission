@@ -21,6 +21,7 @@ import { BottomNav, RewardOverlay, Toasts } from './components/ui';
 import IncomingChallenge from './components/IncomingChallenge';
 import AwaySummary, { useAwayAutoOpen } from './components/AwaySummary';
 import ReplayOverlay from './battle/Replay';
+import { GlobalPhotoViewer } from './components/PhotoViewer';
 
 export default function App() {
   const flow = useStore((s) => s.flow);
@@ -61,6 +62,7 @@ export default function App() {
       {showNav && <IncomingChallenge />}
       {showNav && <AwaySummary />}
       {showNav && <ReplayOverlay />}
+      {showNav && <GlobalPhotoViewer />}
       <Toasts />
       <RewardOverlay />
     </div>

@@ -25,6 +25,7 @@ interface State {
   pendingCode: string | null;
   replay: Battle | null;   // battle being replayed in the overlay
   awayOpen: boolean;       // "while you were away" sheet
+  photo: { src: string; caption?: string; sub?: string } | null; // full-screen photo viewer
   // actions
   setConn: (c: ConnStatus) => void;
   setFlow: (f: Flow) => void;
@@ -37,6 +38,7 @@ interface State {
   clearKicked: () => void;
   setReplay: (b: Battle | null) => void;
   setAwayOpen: (open: boolean) => void;
+  openPhoto: (p: { src: string; caption?: string; sub?: string } | null) => void;
 }
 
 let toastSeq = 1;
@@ -56,6 +58,7 @@ export const useStore = create<State>((set, get) => ({
   kicked: null,
   replay: null,
   awayOpen: false,
+  photo: null,
   pendingCode: new URLSearchParams(location.search).get('p')?.toUpperCase() ?? null,
 
   setConn: (conn) => set({ conn }),
@@ -97,6 +100,7 @@ export const useStore = create<State>((set, get) => ({
   clearKicked: () => set({ kicked: null }),
   setReplay: (replay) => set({ replay }),
   setAwayOpen: (awayOpen) => set({ awayOpen }),
+  openPhoto: (photo) => set({ photo }),
 }));
 
 /** Find a battle for replay: recent public ones first, then the player's own away log. */

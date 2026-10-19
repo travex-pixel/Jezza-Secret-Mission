@@ -91,7 +91,7 @@ export default function Host() {
               <div key={t.photoId} className="panel pad stack-6">
                 <div className="row-between"><span className="bold">🗑️ Take-down request</span><span className="tiny faint">{timeAgo(t.at)}</span></div>
                 <div className="small dim">{t.by.map(nickOf).join(' & ')} asked for {nickOf(t.ownerId)}&apos;s photo ({t.caption}) to come down.</div>
-                <img src={t.url} alt="Photo" style={{ width: '100%', borderRadius: 12, maxHeight: 220, objectFit: 'cover' }} />
+                <img src={t.url} alt="Photo" className="tap-photo" style={{ width: '100%', borderRadius: 12, maxHeight: 220, objectFit: 'cover' }} onClick={() => useStore.getState().openPhoto({ src: t.url, caption: t.caption })} />
                 <div className="btn-row"><Button size="sm" variant="secondary" onClick={() => host({ kind: 'resolveTakedown', photoId: t.photoId, remove: false })}>Keep it up</Button><Button size="sm" variant="danger" onClick={() => host({ kind: 'resolveTakedown', photoId: t.photoId, remove: true })}>Take it down</Button></div>
               </div>))}
             {approvals.length === 0 && takedowns.length === 0 && <div className="panel pad center dim bold">Nothing waiting. The lads sort BS calls out themselves; you can step in here if you want.</div>}
@@ -102,7 +102,7 @@ export default function Host() {
                 {c.review === 'vote' && c.status === 'pending' && <div className="pill pill-xs" style={{ alignSelf: 'flex-start' }}>🗳️ lads voting · 👍 {c.votesUp?.length ?? 0} 👎 {c.votesDown?.length ?? 0}</div>}
                 {c.status === 'disputed' && <div className="pill pill-ember" style={{ alignSelf: 'flex-start' }}>🚩 BS called by {(c.flags ?? []).map((id) => party.players.find((x) => x.id === id)?.nickname ?? '?').join(' & ')} · points frozen</div>}
                 <div className="small dim">{m?.instruction}</div>
-                {c.photoUrl && <img src={c.photoUrl} alt="Proof" style={{ width: '100%', borderRadius: 12, maxHeight: 260, objectFit: 'cover' }} />}
+                {c.photoUrl && <img src={c.photoUrl} alt="Proof" className="tap-photo" onClick={() => useStore.getState().openPhoto({ src: c.photoUrl!, caption: m?.title })} style={{ width: '100%', borderRadius: 12, maxHeight: 260, objectFit: 'cover' }} />}
                 {c.note && <div className="small italic">“{c.note}”</div>}
                 <div className="btn-row"><Button size="sm" variant={c.status === 'disputed' ? 'danger' : 'secondary'} onClick={() => host({ kind: 'resolveClaim', claimId: c.id, approve: false })}>{c.status === 'disputed' ? 'Strike it out' : 'Reject'}</Button><Button size="sm" onClick={() => host({ kind: 'resolveClaim', claimId: c.id, approve: true })}>{c.status === 'disputed' ? 'Uphold it' : `Approve +${m?.points}`}</Button></div>
               </div>); })}

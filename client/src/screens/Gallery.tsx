@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { GalleryPhoto } from '@shared/types';
-import { Button, Sheet, timeAgo } from '../components/ui';
+import { Button, timeAgo } from '../components/ui';
+import PhotoViewer from '../components/PhotoViewer';
 import { useStore } from '../store';
 import { request } from '../net';
 
@@ -35,15 +36,11 @@ export default function Gallery() {
         </div>
       </div>
       {open && (
-        <Sheet onClose={() => { setOpen(null); setConfirm(false); }}>
-          <img src={open.url} alt={open.caption} style={{ width: '100%', maxHeight: '55vh', objectFit: 'contain', borderRadius: 14 }} />
-          <div className="row-between" style={{ margin: '10px 0' }}>
-            <span><div className="bold">{open.source === 'cellar' ? '🍷' : '📸'} {open.caption}</div><div className="tiny faint">{nick(open.playerId)} · {timeAgo(open.at)}</div></span>
-          </div>
+        <PhotoViewer src={open.url} caption={`${open.source === 'cellar' ? '🍷' : '📸'} ${open.caption}`} sub={`${nick(open.playerId)} · ${timeAgo(open.at)}`} onClose={() => { setOpen(null); setConfirm(false); }}>
           {confirm
             ? <div className="stack-6"><div className="tiny faint center">{canDelete ? 'This deletes the photo from the server for good.' : 'The host gets a request and decides. The photo stays up until then.'}</div><div className="btn-row"><Button variant="secondary" size="sm" onClick={() => setConfirm(false)}>Keep it</Button><Button variant="danger" size="sm" onClick={remove}>{canDelete ? 'Delete it' : 'Ask the host'}</Button></div></div>
-            : <Button variant="ghost" onClick={() => setConfirm(true)}>{canDelete ? '🗑️ Delete this photo' : '🗑️ Ask the host to take it down'}</Button>}
-        </Sheet>
+            : <Button variant="ghost" size="sm" onClick={() => setConfirm(true)}>{canDelete ? '🗑️ Delete this photo' : '🗑️ Ask the host to take it down'}</Button>}
+        </PhotoViewer>
       )}
     </div>
   );

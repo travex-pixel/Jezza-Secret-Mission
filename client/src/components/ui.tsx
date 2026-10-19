@@ -198,13 +198,14 @@ export function FeedItem({ f, compact }: { f: FeedEvent; compact?: boolean }) {
   const pendingVote = useStore((s) => (f.kind === 'vote' ? s.party?.pendingPhotos?.find((x) => x.claimId === f.claimId) : undefined));
   const replayable = useStore((s) => (f.battleId ? findBattle(s, f.battleId) : undefined));
   const setReplay = useStore((s) => s.setReplay);
+  const openPhoto = useStore((s) => s.openPhoto);
   const vote = (up: boolean) => run(() => request({ type: 'votePhoto', claimId: f.claimId!, up }), up ? 'Voted it in 👍' : 'Voted it down 👎', up ? '👍' : '👎');
   return (
     <div className={`feed-item ${pendingVote ? 'vote-item' : ''}`}>
       <span className="emoji">{f.emoji ?? '•'}</span>
       <span className="grow" style={{ minWidth: 0 }}>
         <span className={compact ? 'ellipsis' : ''} style={{ display: 'block' }}>{f.text}</span>
-        {(!compact || pendingVote) && f.photoUrl && <img src={f.photoUrl} alt="Challenge photo" loading="lazy" className={compact ? 'vote-thumb' : ''} />}
+        {(!compact || pendingVote) && f.photoUrl && <img src={f.photoUrl} alt="Challenge photo" loading="lazy" className={`tap-photo ${compact ? 'vote-thumb' : ''}`} onClick={() => openPhoto({ src: f.photoUrl!, caption: f.text })} />}
         <span className="row" style={{ gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
           <time style={{ display: 'inline' }}>{timeAgo(f.at)}</time>
           {isMission && !compact && reactions.map((r) => { const n = f.reactions?.[r]?.length ?? 0; const on = !!f.reactions?.[r]?.includes(me); return (
