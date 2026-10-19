@@ -2,7 +2,7 @@ import { memo, useId } from 'react';
 import type { CreatureId, Equipped } from '@shared/types';
 import { CREATURES, type Colorway } from '@shared/creatures';
 
-export type CreatureState = 'idle' | 'happy' | 'victory' | 'defeat' | 'attack' | 'hit' | 'select' | 'enter';
+export type CreatureState = 'idle' | 'happy' | 'victory' | 'defeat' | 'attack' | 'hit' | 'select' | 'enter' | 'guard';
 
 interface Props {
   creature: CreatureId;
@@ -323,6 +323,7 @@ export const Creature = memo(function Creature({ creature, colorway = 0, equippe
         </defs>
         {!bare && (aura || state !== 'idle' || true) && <circle className="aura-g" cx="100" cy="118" r="78" fill={`url(#aura-${uid})`} opacity={aura ? 1 : 0.5} />}
         <ellipse cx="100" cy="176" rx="48" ry="9" fill={`url(#shadow-${uid})`} />
+        {state === 'guard' && (<g className="shield"><circle cx="100" cy="118" r="70" fill="none" stroke="#E5AD48" strokeWidth="3" strokeDasharray="14 10" opacity="0.9" /><circle cx="100" cy="118" r="62" fill="rgba(229,173,72,0.12)" stroke="#F6EBDD" strokeWidth="1.5" opacity="0.8" /></g>)}
         <g className={`body-g ${parts.floats ? 'float' : ''}`} transform={poseT}>
           {!bare && equipped?.cape && <Cape id={equipped.cape} a={parts.anchors} />}
           {parts.back}

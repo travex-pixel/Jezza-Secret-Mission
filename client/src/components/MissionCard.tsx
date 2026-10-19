@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { CATEGORY_META, METHOD_META, MISSION_BY_ID, type Mission } from '@shared/missions';
 import type { MissionAssignment, PlayerPublic } from '@shared/types';
-import { Button, Sheet } from './ui';
+import { Button, Sheet, useCountdown } from './ui';
 import { Creature } from './Creature';
 import { newClaimId, request } from '../net';
 import { useStore } from '../store';
@@ -37,6 +37,8 @@ export function MissionCard({ mission, assignment, compact, onDone, showReroll, 
   const toast = useStore((s) => s.toast);
   const completed = group ? !!priv?.completedMissionIds.includes(mission.id) : status === 'done';
   const claimIdRef = useRef<string>(newClaimId());
+  const coolingDown = mission.method === 'self' && !mission.starter && !group && (priv?.honourCooldownUntil ?? 0) > Date.now();
+  const coolLeft = useCountdown(coolingDown ? priv?.honourCooldownUntil : undefined);
 
   const submit = async (extra: { photo?: string; witnessId?: string } = {}) => {
     setBusy(true); setErr(null);
@@ -68,7 +70,7 @@ export function MissionCard({ mission, assignment, compact, onDone, showReroll, 
     if (completed) return <span className="pill pill-ok">✓ Done</span>;
     if (status === 'pending') return <span className="pill pill-gold">⏳ Awaiting {mission.method === 'witness' ? 'witness' : 'host'}</span>;
     switch (mission.method) {
-      case 'self': return <Button size="sm" onClick={() => submit()} disabled={busy}>{busy ? '…' : method.cta}</Button>;
+      case 'self': return coolingDown && coolLeft > 0 ? <Button size="sm" variant="secondary" disabled title="One honour-system claim every 8 minutes">⏳ {Math.floor(coolLeft / 60)}:{String(coolLeft % 60).padStart(2, '0')}</Button> : <Button size="sm" onClick={() => submit()} disabled={busy}>{busy ? '…' : method.cta}</Button>;
       case 'photo': return (<><input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} /><Button size="sm" onClick={() => fileRef.current?.click()} disabled={busy}>{busy ? 'Uploading…' : `📸 ${method.cta}`}</Button></>);
       case 'witness': return <Button size="sm" onClick={() => setPickWitness(true)} disabled={busy}>{busy ? '…' : `👀 ${method.cta}`}</Button>;
       case 'host': return <Button size="sm" onClick={() => submit()} disabled={busy}>{busy ? '…' : `📨 ${method.cta}`}</Button>;

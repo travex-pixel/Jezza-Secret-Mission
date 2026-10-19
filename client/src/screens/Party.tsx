@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Creature } from '../components/Creature';
-import { Button, timeAgo } from '../components/ui';
+import { Button, FeedItem, timeAgo } from '../components/ui';
 import { useStore, useMe } from '../store';
 import { isDemo } from '../net';
 
@@ -35,9 +35,8 @@ export default function Party() {
             <span className="col" style={{ alignItems: 'flex-end', gap: 4 }}><span className="bold gold-text">{p.points}</span><span className={`pill pill-xs ${p.online ? 'pill-ok' : ''}`}>{p.online ? 'online' : timeAgo(p.lastSeen)}</span></span>
           </div>
         ))}
-        {view === 'feed' && [...party.feed].reverse().map((f) => (
-          <div key={f.id} className="feed-item"><span className="emoji">{f.emoji ?? '•'}</span><span className="grow"><span>{f.text}</span>{f.photoUrl && <img src={f.photoUrl} alt="Mission proof" loading="lazy" />}<time>{timeAgo(f.at)}</time></span></div>
-        ))}
+        {view === 'feed' && <div className="tiny faint" style={{ padding: '0 4px' }}>Reckon someone's lying? 🚩 Call BS. Two calls freeze the points until the host rules.</div>}
+        {view === 'feed' && [...party.feed].reverse().map((f) => <FeedItem key={f.id} f={f} />)}
         {view === 'feed' && party.feed.length === 0 && <div className="center dim pad">Nothing has happened. Yet.</div>}
       </div>
     </div>

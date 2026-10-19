@@ -6,7 +6,7 @@ const mk = (a: CreatureId, b: CreatureId): Battle => ({ id: 'b', challengerId: '
 function sim(games = 120) {
   const wins: Record<string, number> = {}; const n: Record<string, number> = {}; let seed = 1; let rounds = 0, cnt = 0;
   for (const a of CREATURE_IDS) for (const b of CREATURE_IDS) { if (a === b) continue; for (let g = 0; g < games; g++) { const rng = seededRng(seed++); const bt = mk(a, b);
-    while (bt.status === 'active') { const pick = (cd: number) => (cd === 0 && rng() < 0.35 ? 'special' : rng() < 0.75 ? 'attack' : 'defend'); bt.a.action = pick(bt.a.specialCooldown); bt.b.action = pick(bt.b.specialCooldown); resolveRound(bt, rng, {}, 0); }
+    while (bt.status === 'active') { const pick = (cd: number) => (cd === 0 && rng() < 0.35 ? 'special' : rng() < 0.75 ? 'attack' : 'counter'); bt.a.action = pick(bt.a.specialCooldown); bt.b.action = pick(bt.b.specialCooldown); resolveRound(bt, rng, {}, 0); }
     rounds += bt.log.length; cnt++; n[a] = (n[a] ?? 0) + 1; n[b] = (n[b] ?? 0) + 1; const w = bt.winnerId === 'A' ? a : b; wins[w] = (wins[w] ?? 0) + 1; } }
   const rates: Record<string, number> = {}; for (const c of CREATURE_IDS) rates[c] = (wins[c] ?? 0) / n[c];
   return { rates, avgRounds: rounds / cnt };

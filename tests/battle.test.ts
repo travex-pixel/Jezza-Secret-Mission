@@ -20,8 +20,8 @@ describe('battle engine', () => {
       const bt = mk(a, b);
       let rounds = 0;
       while (bt.status === 'active' && rounds < 20) {
-        bt.a.action = rng() < 0.6 ? 'attack' : rng() < 0.5 ? 'defend' : 'special';
-        bt.b.action = rng() < 0.6 ? 'attack' : rng() < 0.5 ? 'defend' : 'special';
+        bt.a.action = rng() < 0.6 ? 'attack' : rng() < 0.5 ? 'counter' : 'special';
+        bt.b.action = rng() < 0.6 ? 'attack' : rng() < 0.5 ? 'counter' : 'special';
         resolveRound(bt, rng, {}, 0); rounds++;
       }
       expect(bt.status).toBe('finished');
@@ -39,7 +39,7 @@ describe('battle engine', () => {
         const rng = seededRng(seed++);
         const bt = mk(a, b);
         while (bt.status === 'active') {
-          const pick = (cd: number) => (cd === 0 && rng() < 0.35 ? 'special' : rng() < 0.75 ? 'attack' : 'defend');
+          const pick = (cd: number) => (cd === 0 && rng() < 0.35 ? 'special' : rng() < 0.75 ? 'attack' : 'counter');
           bt.a.action = pick(bt.a.specialCooldown); bt.b.action = pick(bt.b.specialCooldown);
           resolveRound(bt, rng, {}, 0);
         }
@@ -56,7 +56,7 @@ describe('battle engine', () => {
   it('defend reduces damage and special obeys cooldown', () => {
     const rng = seededRng(7);
     const bt = mk('dragon', 'wombat');
-    bt.a.action = 'special'; bt.b.action = 'defend';
+    bt.a.action = 'special'; bt.b.action = 'counter';
     const log = resolveRound(bt, rng, {}, 0);
     expect(log.a.action).toBe('special');
     expect(bt.a.specialCooldown).toBe(2);

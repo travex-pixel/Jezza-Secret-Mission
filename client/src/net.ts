@@ -153,8 +153,9 @@ function connectDemo(): Transport {
   const push = () => {
     const p = engine.partyOf(identity.playerId);
     if (!p) { dispatch({ type: 'private', priv: null }); return; }
-    dispatch({ type: 'party', party: engine.publicView(p, identity.playerId) });
-    const priv = engine.privateView(p, identity.playerId);
+    // Clone like the wire would: the engine mutates its objects in place and the UI must never share them.
+    dispatch({ type: 'party', party: structuredClone(engine.publicView(p, identity.playerId)) });
+    const priv = structuredClone(engine.privateView(p, identity.playerId));
     dispatch({ type: 'private', priv, hostView: p.hostId === identity.playerId ? engine.hostView(p) : undefined });
   };
   // Bots: accept challenges, pick actions, confirm witness requests; the bot host approves claims.
@@ -166,8 +167,9 @@ function connectDemo(): Transport {
         if (b.status === 'active') {
           for (const side of [b.a, b.b]) {
             if (mateIds.includes(side.playerId) && !side.action) {
-              const act = side.specialCooldown === 0 && Math.random() < 0.4 ? 'special' : Math.random() < 0.7 ? 'attack' : 'defend';
-              const r = engine.handle(side.playerId, { type: 'battleAction', reqId: 'x', battleId: b.id, round: b.round, action: act });
+              const act = side.specialCooldown === 0 && Math.random() < 0.4 ? 'special' : Math.random() < 0.7 ? 'attack' : 'counter';
+              const tap = act === 'counter' ? undefined : Math.random() < 0.3 ? 'perfect' : Math.random() < 0.5 ? 'good' : 'miss';
+              const r = engine.handle(side.playerId, { type: 'battleAction', reqId: 'x', battleId: b.id, round: b.round, action: act, tap });
               deliver(r.direct); changed = true;
             }
           }

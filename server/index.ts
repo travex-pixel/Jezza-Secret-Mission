@@ -46,7 +46,15 @@ function storePhoto(dataUrl: string, partyCode: string): string | null {
   try { fs.writeFileSync(path.join(PHOTO_DIR, id), Buffer.from(m[2], 'base64')); return `/photos/${id}`; } catch (e) { console.error('[photo] write failed', e); return null; }
 }
 
-const engine = new Engine({ storePhoto }, loadState());
+function deletePhotos(urls: string[]) {
+  for (const u of urls) {
+    const name = path.basename(u);
+    if (!/^[A-Z0-9]+_[a-z0-9]+_[a-z0-9]+\.(jpeg|png|webp)$/.test(name)) continue;
+    fs.unlink(path.join(PHOTO_DIR, name), (err) => { if (err && err.code !== 'ENOENT') console.error('[photo] delete failed', err); });
+  }
+}
+
+const engine = new Engine({ storePhoto, deletePhotos }, loadState());
 // Everyone starts offline after a restart; connections mark them online again.
 for (const party of Object.values(engine.state.parties)) for (const p of Object.values(party.players)) p.online = false;
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Engine } from '../shared/engine';
+import { Engine, HONOUR_COOLDOWN_MS } from '../shared/engine';
 import { seededRng } from '../shared/battle';
 import { STARTER_MISSION, MISSIONS } from '../shared/missions';
 
@@ -119,7 +119,7 @@ describe('engine', () => {
     const id2 = (ch2.ack as any).data.battleId as string;
     eng.handle(ids[6], { type: 'respondChallenge', reqId: 'r', battleId: id2, accept: true });
     for (let i = 0; i < 3; i++) {
-      eng.handle(ids[5], { type: 'battleAction', reqId: 'a', battleId: id2, round: party().battles[id2].round, action: 'defend' });
+      eng.handle(ids[5], { type: 'battleAction', reqId: 'a', battleId: id2, round: party().battles[id2].round, action: 'counter' });
       advance(26_000); eng.tick();
     }
     expect(party().battles[id2].status).toBe('finished');
@@ -153,5 +153,67 @@ describe('engine', () => {
     const { eng, code } = setup(5);
     const copy = new Engine({}, JSON.parse(JSON.stringify(eng.state)));
     expect(copy.publicView(copy.state.parties[code]).players.length).toBe(5);
+  });
+  it('honour-system claims are rate limited; photo/witness/starter are exempt', () => {
+    const { eng, ids, party, advance } = setup();
+    eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'setPhase', phase: 'friday' } });
+    const p = party().players[ids[2]];
+    p.hand = [{ missionId: STARTER_MISSION.id, assignedAt: 0, status: 'active' }, { missionId: 'm013', assignedAt: 0, status: 'active' }, { missionId: 'm017', assignedAt: 0, status: 'active' }, { missionId: 'm070', assignedAt: 0, status: 'active' }];
+    expect(eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: STARTER_MISSION.id, claimId: 'cd-starter-01' }).ack?.ok).toBe(true);
+    expect(eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: 'm013', claimId: 'cd-self-01' }).ack?.ok).toBe(true);
+    const second = eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: 'm017', claimId: 'cd-self-02' });
+    expect(second.ack?.ok).toBe(false);
+    expect((second.ack as any).error).toMatch(/Next honour-system claim/);
+    expect(eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: 'm070', claimId: 'cd-photo-01', photo: 'data:image/jpeg;base64,AAAA' }).ack?.ok).toBe(true);
+    expect(eng.privateView(party(), ids[2])!.honourCooldownUntil).toBeGreaterThan(1_000_000);
+    advance(HONOUR_COOLDOWN_MS + 1);
+    expect(eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: 'm017', claimId: 'cd-self-03' }).ack?.ok).toBe(true);
+  });
+  it('Call BS: two mates freeze the points, the host rules, the owner cannot self-flag', () => {
+    const { eng, ids, party } = setup();
+    eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'setPhase', phase: 'friday' } });
+    eng.handle(ids[4], { type: 'claimMission', reqId: 'x', missionId: STARTER_MISSION.id, claimId: 'bs-claim-01' });
+    const before = party().players[ids[4]].points;
+    expect(before).toBeGreaterThan(0);
+    expect(eng.handle(ids[4], { type: 'flagClaim', reqId: 'f', claimId: 'bs-claim-01' }).ack?.ok).toBe(false);
+    expect(eng.handle(ids[5], { type: 'flagClaim', reqId: 'f', claimId: 'bs-claim-01' }).ack?.ok).toBe(true);
+    expect(eng.handle(ids[5], { type: 'flagClaim', reqId: 'f', claimId: 'bs-claim-01' }).ack?.ok).toBe(false); // once each
+    expect(party().players[ids[4]].points).toBe(before);
+    const ev = party().feed.find((f) => f.claimId === 'bs-claim-01')!;
+    expect(ev.flags).toBe(1);
+    const r = eng.handle(ids[6], { type: 'flagClaim', reqId: 'f', claimId: 'bs-claim-01' });
+    expect(r.ack?.ok).toBe(true);
+    expect(party().claims['bs-claim-01'].status).toBe('disputed');
+    expect(party().players[ids[4]].points).toBe(0);
+    expect(party().players[ids[4]].missionsCompleted).toBe(0);
+    expect(eng.hostView(party()).approvals.some((c) => c.id === 'bs-claim-01')).toBe(true);
+    expect(eng.publicView(party()).pendingApprovals).toBe(1);
+    // host upholds → points restored
+    expect(eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'resolveClaim', claimId: 'bs-claim-01', approve: true } }).ack?.ok).toBe(true);
+    expect(party().players[ids[4]].points).toBe(before);
+    expect(party().claims['bs-claim-01'].status).toBe('approved');
+    // a struck-out claim stays gone
+    eng.handle(ids[7], { type: 'claimMission', reqId: 'x', missionId: STARTER_MISSION.id, claimId: 'bs-claim-02' });
+    eng.handle(ids[5], { type: 'flagClaim', reqId: 'f', claimId: 'bs-claim-02' }); eng.handle(ids[6], { type: 'flagClaim', reqId: 'f', claimId: 'bs-claim-02' });
+    eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'resolveClaim', claimId: 'bs-claim-02', approve: false } });
+    expect(party().players[ids[7]].points).toBe(0);
+    expect(party().claims['bs-claim-02'].status).toBe('rejected');
+  });
+  it('power tap: a hit reported faster than the bar can slide is downgraded; counter never taps', () => {
+    const { eng, ids, party, advance } = setup();
+    eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'setPhase', phase: 'friday' } });
+    const id = (eng.handle(ids[1], { type: 'challenge', reqId: 'b', opponentId: ids[2] }).ack as any).data.battleId as string;
+    eng.handle(ids[2], { type: 'respondChallenge', reqId: 'r', battleId: id, accept: true });
+    // instant "perfect" right as the round starts → not plausible
+    eng.handle(ids[1], { type: 'battleAction', reqId: 'a', battleId: id, round: 1, action: 'attack', tap: 'perfect' });
+    expect(party().battles[id].a.tap).toBe('miss');
+    advance(1500);
+    eng.handle(ids[2], { type: 'battleAction', reqId: 'a', battleId: id, round: 1, action: 'counter', tap: 'perfect' });
+    // both acted → round 1 resolved; the log records the validated taps
+    expect(party().battles[id].log[0].a.tap).toBe('miss');
+    expect(party().battles[id].log[0].b.tap).toBe('miss'); // counter has no tap
+    advance(2000);
+    eng.handle(ids[1], { type: 'battleAction', reqId: 'a', battleId: id, round: 2, action: 'attack', tap: 'perfect' });
+    expect(party().battles[id].a.tap).toBe('perfect'); // plausible timing → accepted
   });
 });

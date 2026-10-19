@@ -21,10 +21,11 @@ More screenshots at every tested viewport live in [`docs/screenshots/`](docs/scr
 | 30-second onboarding: enter → nickname + code → choose creature → reveal → first mission → lobby | ✅ |
 | 8 original SVG creatures, 3 colourways each, idle/happy/victory/defeat/attack/hit animations | ✅ |
 | 13 cosmetics (hats, face, capes, auras, poses) unlocked by level and achievements | ✅ |
-| 78 original missions across 10 categories, 4 completion methods (honour, photo, witness, host) | ✅ |
+| 109 original missions across 10 categories, 4 completion methods (honour, photo, witness, host) | ✅ |
+| Anti-spam: honour-claim cooldown, "Call BS" flags with host ruling, bounded battle rewards | ✅ |
 | Real multiplayer: party codes, join links, live roster, feed, presence, reconnection | ✅ |
 | Server-authoritative scoring, duplicate-claim protection, private mission hands | ✅ |
-| Turn-based creature battles resolved on the server, timeouts, surrender, rematch, practice mode | ✅ |
+| Turn-based creature battles (Attack / Counter / Special) with a power-tap timing bonus, resolved on the server, timeouts, surrender, rematch, practice mode | ✅ |
 | Host controls: phases, pause missions, approvals, group missions, rename/remove, reset, grant, awards, finalise | ✅ |
 | Friday → Saturday → Finale → Ended event structure with host recovery | ✅ |
 | 19 achievements, 10 data-driven weekend awards (+1 host pick), compact leaderboard, finale recap | ✅ |
@@ -126,6 +127,41 @@ and costs nothing to run locally. For 15 people over one weekend a single instan
 Trade-off: it is one process with a JSON snapshot on disk, not a replicated database. That is adequate for
 this event; if you ever need multi-instance scale, the engine is already pure and could sit behind a store.
 
+### Keeping it honest (anti-spam)
+
+* **Honour-system cooldown.** "I did it" missions are limited to one per player every 8 minutes (server-side; the
+  card shows the countdown). Photo, witness, host-approved and the first mission are exempt. Honest play is
+  rarely faster than that; a liar is capped at about six honour missions an hour.
+* **Call BS.** Every completion is public in the feed with a 🚩 button. Two different mates flagging it freezes the
+  points and XP and sends it to the host's queue, where the host can *uphold* (points restored) or *strike it out*
+  (mission gone for good). Flags are one per player per claim, only within 45 minutes, never on your own claim.
+* **Bounded battles.** Fixed rewards, three scored bouts per opponent per day, then "friendly".
+* **Host tools.** Reset any approved claim, grant or remove points with a visible reason, remove a player.
+
+### Battles
+
+Three actions, chosen simultaneously each round (25 s timer, auto-Counter on timeout):
+
+* **Attack**: straight damage.
+* **Counter**: take half damage and throw 45% of what you took back. Does nothing if they didn't hit you.
+* **Special**: creature-specific with a stated trade-off and a 2-round recharge.
+
+Attack and Special start a **power tap**: a marker slides across a bar for about a second, tap to stop it. The gold
+zone is a crit (+22%), the wider zone is +8%, a miss is normal damage. Missing never hurts you. The server only
+trusts a hit that arrives after the bar could physically have been crossed, and the bonus is capped, so a tampered
+client gains a few points at most.
+
+### Photos and privacy
+
+* Mission photos are compressed on the phone (~900 px, JPEG) and uploaded over the WebSocket to **your own game
+  server**. They are written to `DATA_DIR/photos/` and served from `/photos/<random-id>.jpeg`. No third-party
+  service ever sees them.
+* URLs are long random ids (not guessable), but anyone holding a URL can open it; there is no per-photo login.
+  Treat them as visible to the party.
+* The host has a **Delete all photos** button (Host → Event → Photos) that removes the files from disk and strips
+  them from the feed. Do this at the end of the weekend. Points already awarded are kept.
+* In the GitHub Pages demo nothing leaves the phone: photos live in that browser tab's memory only.
+
 ### Security model (what the server enforces)
 
 * Anonymous identity: `playerId` + random `secret` generated on the device, stored in `localStorage`.
@@ -215,8 +251,8 @@ fine for testing but will drop live connections (the client reconnects automatic
   last action or two. Acceptable for the event; not a general-purpose database.
 * Single server instance. Horizontal scaling would need the engine behind a shared store (the engine is
   pure, so this is a server-only change).
-* Photos are stored unencrypted on the server disk and visible to everyone in the party via the feed.
-  Tell your mates. Delete `DATA_DIR/photos` after the weekend.
+* Photos are stored unencrypted on the server disk and reachable by anyone with the link; the host's *Delete all photos*
+  button clears them. Tell your mates.
 * Creature "evolutions" are cosmetic (crown, auras, capes at levels 8–10) rather than new silhouettes.
 * iOS Safari needs a user gesture before audio plays; the first tap on *Enter the Vineyard* unlocks it.
 * The three.js opening is lazily loaded (~123 KB gzipped). On weak GPUs a watchdog swaps to the CSS

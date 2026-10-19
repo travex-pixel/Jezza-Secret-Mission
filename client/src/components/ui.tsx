@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore, type Tab } from '../store';
+import type { FeedEvent } from '@shared/types';
+import { request } from '../net';
 import { levelProgress, COSMETIC_BY_ID, ACHIEVEMENT_BY_ID } from '@shared/progression';
 import { sfx, isMuted, toggleMuted, unlockAudio } from '../audio';
 import { buzz } from '../haptics';
@@ -138,4 +140,36 @@ export function timeAgo(t: number) {
   const m = Math.round(s / 60); if (m < 60) return `${m}m ago`;
   const h = Math.round(m / 60); if (h < 24) return `${h}h ago`;
   return `${Math.round(h / 24)}d ago`;
+}
+
+/** A feed row. Mission completions by other players carry a "Call BS" button. */
+export function FeedItem({ f, compact }: { f: FeedEvent; compact?: boolean }) {
+  const me = useStore((s) => s.identity.playerId);
+  const priv = useStore((s) => s.priv);
+  const toast = useStore((s) => s.toast);
+  const [busy, setBusy] = useState(false);
+  const canFlag = f.kind === 'mission' && !!f.claimId && f.playerId !== me && !f.disputed && Date.now() - f.at < 45 * 60_000;
+  const flagged = !!f.claimId && (priv?.flagged ?? []).includes(f.claimId);
+  const flag = async () => {
+    if (!f.claimId || busy) return;
+    setBusy(true);
+    try { const r = await request<{ flags: number; disputed: boolean }>({ type: 'flagClaim', claimId: f.claimId }); sfx.select(); toast(r.disputed ? 'BS called. The host decides.' : `Flagged. ${2 - r.flags} more and it goes to the host.`, '🚩', 'warn'); }
+    catch (e) { toast((e as Error).message, '🚩', 'warn'); }
+    finally { setBusy(false); }
+  };
+  return (
+    <div className="feed-item">
+      <span className="emoji">{f.emoji ?? '•'}</span>
+      <span className="grow" style={{ minWidth: 0 }}>
+        <span className={compact ? 'ellipsis' : ''} style={{ display: 'block' }}>{f.text}</span>
+        {!compact && f.photoUrl && <img src={f.photoUrl} alt="Mission proof" loading="lazy" />}
+        <span className="row" style={{ gap: 8, marginTop: 2 }}>
+          <time style={{ display: 'inline' }}>{timeAgo(f.at)}</time>
+          {f.disputed && <span className="pill pill-xs pill-ember">⚖️ with the host</span>}
+          {!f.disputed && !!f.flags && <span className="tiny faint">🚩 {f.flags}</span>}
+        </span>
+      </span>
+      {canFlag && <button className="bs-btn" disabled={busy || flagged} onClick={flag} aria-label="Call BS on this completion">🚩 {flagged ? 'Called' : 'Call BS'}</button>}
+    </div>
+  );
 }

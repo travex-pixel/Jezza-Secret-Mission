@@ -3,7 +3,7 @@ import { CREATURES } from '@shared/creatures';
 import { sortLeaderboard } from '@shared/progression';
 import { Creature } from '../components/Creature';
 import { MissionCard } from '../components/MissionCard';
-import { Button, ConnectionPill, XPBar, timeAgo } from '../components/ui';
+import { Button, ConnectionPill, FeedItem, XPBar } from '../components/ui';
 import { useEffect, useState } from 'react';
 import { useStore, useMe, useIsHost } from '../store';
 import { request } from '../net';
@@ -78,7 +78,7 @@ export default function Home() {
         <div className="stack-6 home-feed" style={{ minHeight: 0 }}>
           <div className="row-between"><span className="eyebrow">Live from the vineyard</span><button className="tiny bold" style={{ color: 'var(--rose)' }} onClick={() => setTab('party')}>Party →</button></div>
           {feed.length === 0 && <div className="feed-item"><span className="emoji">🌙</span><span className="grow dim">Quiet so far. Suspiciously quiet.</span></div>}
-          {feed.map((f) => <div key={f.id} className="feed-item"><span className="emoji">{f.emoji ?? '•'}</span><span className="grow"><span className="ellipsis" style={{ display: 'block' }}>{f.text}</span><time>{timeAgo(f.at)}</time></span></div>)}
+          {feed.map((f) => <FeedItem key={f.id} f={f} compact />)}
         </div>
       </div>
     </div>

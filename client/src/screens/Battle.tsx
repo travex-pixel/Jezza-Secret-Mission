@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Battle, BattleAction, BattleRoundLog, PlayerPublic } from '@shared/types';
+import type { Battle, BattleAction, BattleRoundLog, PlayerPublic, TapQuality } from '@shared/types';
 import { CREATURES } from '@shared/creatures';
 import { makeCreatureState, resolveRound, ROUND_SECONDS } from '@shared/battle';
 import { Creature, type CreatureState } from '../components/Creature';
 import { Button, HPBar, Sheet, useCountdown } from '../components/ui';
+import PowerTap from '../components/PowerTap';
 import { useStore, useMe, useMyBattle, playerById } from '../store';
 import { request } from '../net';
 import { sfx } from '../audio';
@@ -14,7 +15,7 @@ interface ArenaProps {
   battle: Battle;
   meId: string;
   names: Record<string, { nick: string; name: string; level: number; colorway: number; equipped: PlayerPublic['equipped'] }>;
-  onAction: (a: BattleAction) => Promise<void> | void;
+  onAction: (a: BattleAction, tap?: TapQuality) => Promise<void> | void;
   onSurrender?: () => void;
   onRematch?: () => void;
   onExit: () => void;
@@ -41,17 +42,22 @@ function Arena({ battle, meId, names, onAction, onSurrender, onRematch, onExit, 
     const pops: typeof anim.pops = [];
     let id = Date.now();
     const seq: (() => void)[] = [];
-    seq.push(() => { setAnim((a) => ({ ...a, me: m.action === 'defend' ? 'idle' : 'attack', k: a.k + 1 })); if (m.action === 'special') sfx.special(); else if (m.action === 'attack') sfx.hit(); else sfx.guard(); });
-    seq.push(() => { if (m.dmgDealt > 0) { pops.push({ id: id++, side: 'foe', text: `-${m.dmgDealt}` }); setAnim((a) => ({ ...a, foe: 'hit', pops: [...pops], k: a.k + 1 })); } if (m.heal) { pops.push({ id: id++, side: 'me', text: `+${m.heal}`, heal: true }); setAnim((a) => ({ ...a, pops: [...pops] })); } });
-    seq.push(() => { setAnim((a) => ({ ...a, foe: f.action === 'defend' ? 'idle' : 'attack', me: 'idle', k: a.k + 1 })); if (f.action === 'special') sfx.special(); else if (f.action === 'attack') sfx.hit(); });
-    seq.push(() => { if (f.dmgDealt > 0) { pops.push({ id: id++, side: 'me', text: `-${f.dmgDealt}` }); buzz(30); setAnim((a) => ({ ...a, me: 'hit', pops: [...pops], k: a.k + 1 })); } if (f.heal) { pops.push({ id: id++, side: 'foe', text: `+${f.heal}`, heal: true }); setAnim((a) => ({ ...a, pops: [...pops] })); } setShownHp({ me: mine.hp, foe: foe.hp }); });
+    const myState = (act: BattleAction): CreatureState => act === 'counter' ? 'guard' : 'attack';
+    seq.push(() => { setAnim((a) => ({ ...a, me: myState(m.action), k: a.k + 1 })); if (m.action === 'special') sfx.special(); else if (m.action === 'attack') sfx.hit(); else sfx.guard(); });
+    seq.push(() => { if (m.dmgDealt - (m.reflected ?? 0) > 0) { pops.push({ id: id++, side: 'foe', text: `${m.tap === 'perfect' ? 'CRIT ' : ''}-${m.dmgDealt - (m.reflected ?? 0)}` }); setAnim((a) => ({ ...a, foe: 'hit', pops: [...pops], k: a.k + 1 })); } if (m.heal) { pops.push({ id: id++, side: 'me', text: `+${m.heal}`, heal: true }); setAnim((a) => ({ ...a, pops: [...pops] })); } });
+    seq.push(() => { setAnim((a) => ({ ...a, foe: myState(f.action), me: m.action === 'counter' ? 'guard' : 'idle', k: a.k + 1 })); if (f.action === 'special') sfx.special(); else if (f.action === 'attack') sfx.hit(); else sfx.guard(); });
+    seq.push(() => { if (f.dmgDealt - (f.reflected ?? 0) > 0) { pops.push({ id: id++, side: 'me', text: `${f.tap === 'perfect' ? 'CRIT ' : ''}-${f.dmgDealt - (f.reflected ?? 0)}` }); buzz(30); setAnim((a) => ({ ...a, me: 'hit', pops: [...pops], k: a.k + 1 })); } if (f.heal) { pops.push({ id: id++, side: 'foe', text: `+${f.heal}`, heal: true }); setAnim((a) => ({ ...a, pops: [...pops] })); } });
+    // reflections land last, with their own flash
+    seq.push(() => { let any = false; if (m.reflected) { pops.push({ id: id++, side: 'foe', text: `↩ -${m.reflected}` }); any = true; setAnim((a) => ({ ...a, foe: 'hit', me: 'guard', pops: [...pops], k: a.k + 1 })); } if (f.reflected) { pops.push({ id: id++, side: 'me', text: `↩ -${f.reflected}` }); any = true; setAnim((a) => ({ ...a, me: 'hit', foe: 'guard', pops: [...pops], k: a.k + 1 })); } if (any) sfx.hit(); setShownHp({ me: mine.hp, foe: foe.hp }); });
     seq.push(() => { setAnim((a) => ({ ...a, me: battle.status === 'finished' ? (battle.winnerId === meId ? 'victory' : 'defeat') : 'idle', foe: battle.status === 'finished' ? (battle.winnerId === meId ? 'defeat' : 'victory') : 'idle', pops: [], k: a.k + 1 })); if (battle.status === 'finished') { if (battle.winnerId === meId) { sfx.victory(); buzz([40, 60, 120]); } else sfx.defeat(); } });
     const timers = seq.map((fn, i) => setTimeout(fn, i * 420));
     return () => timers.forEach(clearTimeout);
   }, [battle.log.length, battle.status]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (battle.log.length === 0) setShownHp({ me: mine.hp, foe: foe.hp }); }, [battle.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const act = async (a: BattleAction) => { if (busy || mine.action || mine.locked) return; setBusy(true); try { await onAction(a); sfx.tap(); } finally { setBusy(false); } };
+  const [tapping, setTapping] = useState<BattleAction | null>(null);
+  const commit = async (a: BattleAction, tap?: TapQuality) => { setTapping(null); setBusy(true); try { await onAction(a, tap); } finally { setBusy(false); } };
+  const act = (a: BattleAction) => { if (busy || tapping || mine.action || mine.locked) return; sfx.tap(); if (a === 'counter') void commit(a); else setTapping(a); };
   const myInfo = names[mine.playerId]; const foeInfo = names[foe.playerId];
   const lastLog = battle.log[battle.log.length - 1];
   const finished = battle.status === 'finished';
@@ -74,10 +80,11 @@ function Arena({ battle, meId, names, onAction, onSurrender, onRematch, onExit, 
           {anim.pops.filter((p) => p.side === 'me').map((p) => <span key={p.id} className={`dmg-pop ${p.heal ? 'heal' : ''}`} style={{ top: '30%', left: '40%' }}>{p.text}</span>)}
           <span className="pill pill-xs status">{locked ? '🔒 locked in' : finished ? '' : 'your move'}</span>
         </div>
+        {tapping && <div className="pt-wrap"><PowerTap label={tapping === 'special' ? CREATURES[mine.creature].special.name : 'Attack'} onDone={(q) => commit(tapping, q)} /></div>}
         <div className="hpcard me-card"><div className="row-between tiny bold"><span className="ellipsis">{myInfo?.name}</span><span className="faint">Lv{myInfo?.level}</span></div><HPBar hp={shownHp.me} max={mine.maxHp} /><div className="tiny faint">You · {shownHp.me}/{mine.maxHp}</div></div>
       </div>
       <div className="arena-log">
-        {lastLog ? lastLog.lines.slice(-2).map((l, i) => <div key={`${lastLog.round}-${i}`} className="log-line ellipsis">{l}</div>) : <div className="log-line">{practice ? 'Practice bout. Nothing at stake but pride.' : battle.scored ? 'Winner +15 pts · loser +5 pts. Both earn XP.' : 'Friendly bout: you two have battled enough for points.'}</div>}
+        {lastLog ? lastLog.lines.slice(-2).map((l, i) => <div key={`${lastLog.round}-${i}`} className="log-line ellipsis">{l}</div>) : <div className="log-line">{practice ? 'Practice bout. Nothing at stake but pride.' : battle.scored ? 'Winner +15 · loser +5. Tap the gold zone for a crit.' : 'Friendly bout: you two have battled enough for points.'}</div>}
       </div>
       {finished ? (
         <div className="panel panel-gold pad center stack-6 fade-up">
@@ -89,11 +96,11 @@ function Arena({ battle, meId, names, onAction, onSurrender, onRematch, onExit, 
       ) : (
         <>
           <div className="actions">
-            <button className={`action-btn attack ${mine.action === 'attack' ? 'chosen' : ''}`} disabled={locked || busy} onClick={() => act('attack')}>ATTACK<small>Straight damage</small></button>
-            <button className={`action-btn defend ${mine.action === 'defend' ? 'chosen' : ''}`} disabled={locked || busy} onClick={() => act('defend')}>DEFEND<small>Take 40% damage</small></button>
+            <button className={`action-btn attack ${mine.action === 'attack' ? 'chosen' : ''}`} disabled={locked || busy} onClick={() => act('attack')}>ATTACK<small>Tap to power up</small></button>
+            <button className={`action-btn counter ${mine.action === 'counter' ? 'chosen' : ''}`} disabled={locked || busy} onClick={() => act('counter')}>COUNTER<small>Half damage, hit back</small></button>
             <button className={`action-btn special ${mine.action === 'special' ? 'chosen' : ''}`} disabled={locked || busy || mine.specialCooldown > 0} onClick={() => act('special')}>{CREATURES[mine.creature].special.name.toUpperCase()}<small>{mine.specialCooldown > 0 ? `Recharging (${mine.specialCooldown})` : CREATURES[mine.creature].special.blurb}</small></button>
           </div>
-          <div className="row-between"><span className="tiny faint">{CREATURES[mine.creature].special.tradeoff}</span>{onSurrender && <button className="tiny bold" style={{ color: 'var(--rose)' }} onClick={() => setConfirmSurrender(true)}>Surrender</button>}</div>
+          <div className="row-between"><span className="tiny faint">Counter: take half, throw 45% back. Nothing if they don't hit you.</span>{onSurrender && <button className="tiny bold" style={{ color: 'var(--rose)' }} onClick={() => setConfirmSurrender(true)}>Surrender</button>}</div>
         </>
       )}
       {confirmSurrender && <Sheet center onClose={() => setConfirmSurrender(false)}><div className="center stack-10"><div className="display title-md">Wave the white flag?</div><div className="small dim">Your opponent takes the win. You keep your dignity. Mostly.</div><div className="btn-row"><Button variant="secondary" size="sm" onClick={() => setConfirmSurrender(false)}>Keep fighting</Button><Button variant="danger" size="sm" onClick={() => { setConfirmSurrender(false); onSurrender?.(); }}>Surrender</Button></div></div></Sheet>}
@@ -112,12 +119,13 @@ function usePractice(me: PlayerPublic | undefined) {
     const b: Battle = { id: 'practice', challengerId: me.id, opponentId: 'bot', status: 'active', createdAt: Date.now(), startedAt: Date.now(), round: 1, roundDeadline: Date.now() + ROUND_SECONDS * 1000, a: makeCreatureState(me.id, me.creature, me.level), b: makeCreatureState('bot', creature, Math.max(1, me.level)), log: [], scored: false };
     setBattle(b);
   };
-  const act = (a: BattleAction) => {
+  const act = (a: BattleAction, tap?: TapQuality) => {
     setBattle((cur) => {
       if (!cur || cur.status !== 'active') return cur;
       const b: Battle = JSON.parse(JSON.stringify(cur));
-      b.a.action = a;
-      b.b.action = b.b.specialCooldown === 0 && Math.random() < 0.4 ? 'special' : Math.random() < 0.7 ? 'attack' : 'defend';
+      b.a.action = a; b.a.tap = a === 'counter' ? 'miss' : (tap ?? 'miss');
+      b.b.action = b.b.specialCooldown === 0 && Math.random() < 0.4 ? 'special' : Math.random() < 0.7 ? 'attack' : 'counter';
+      b.b.tap = b.b.action === 'counter' ? 'miss' : Math.random() < 0.3 ? 'perfect' : Math.random() < 0.5 ? 'good' : 'miss';
       resolveRound(b, Math.random, { [b.a.playerId]: me?.creatureName ?? 'You', bot: `Sparring ${CREATURES[b.b.creature].name}` }, Date.now());
       return b;
     });
@@ -126,7 +134,7 @@ function usePractice(me: PlayerPublic | undefined) {
     // auto-defend on timeout
     if (!battle || battle.status !== 'active') return;
     clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => act('defend'), ROUND_SECONDS * 1000);
+    timer.current = window.setTimeout(() => act('counter'), ROUND_SECONDS * 1000);
     return () => clearTimeout(timer.current);
   }, [battle?.round, battle?.status]); // eslint-disable-line react-hooks/exhaustive-deps
   return { battle, start, act, stop: () => setBattle(null), rematch: () => start(foeCreature) };
@@ -164,7 +172,7 @@ export default function BattleScreen() {
     return (
       <div className="screen with-nav">
         <div className="topbar"><h2 className="display title-md">Battle arena</h2><span className="pill pill-ember">⚔️ vs {names[foeId]?.nick ?? '?'}</span></div>
-        <Arena battle={b} meId={me.id} names={names} onAction={(a) => request({ type: 'battleAction', battleId: b.id, round: b.round, action: a }).then(() => undefined).catch((e) => toast((e as Error).message, '⚠️', 'warn'))} onSurrender={() => request({ type: 'surrender', battleId: b.id }).catch(() => undefined)} onExit={() => setDismissed(b.id)} onRematch={() => { setDismissed(b.id); challenge(foeId); }} />
+        <Arena battle={b} meId={me.id} names={names} onAction={(a, tap) => request({ type: 'battleAction', battleId: b.id, round: b.round, action: a, tap }).then(() => undefined).catch((e) => toast((e as Error).message, '⚠️', 'warn'))} onSurrender={() => request({ type: 'surrender', battleId: b.id }).catch(() => undefined)} onExit={() => setDismissed(b.id)} onRematch={() => { setDismissed(b.id); challenge(foeId); }} />
       </div>
     );
   }

@@ -2,7 +2,7 @@
 // with WebSockets + persistence; the browser demo mode runs it locally for
 // offline previews and practice battles (which never award real points).
 import type {
-  Battle, BattleAction, Claim, ClientMessage, CreatureId, Equipped, FeedEvent, HostAction, HostView,
+  Battle, BattleAction, Claim, TapQuality, ClientMessage, CreatureId, Equipped, FeedEvent, HostAction, HostView,
   MissionAssignment, PartyPublic, Phase, PlayerPrivate, PlayerPublic, ServerMessage, WitnessRequest,
 } from './types';
 import { CREATURES, CREATURE_IDS } from './creatures';
@@ -12,7 +12,7 @@ import {
 } from './progression';
 import { validateCreatureName, validateNickname } from './names';
 import {
-  BATTLE_REWARDS, CHALLENGE_TTL_MS, MAX_SCORED_VS_SAME_OPPONENT, ROUND_SECONDS, finish, makeCreatureState, redactBattle, resolveRound,
+  BATTLE_REWARDS, CHALLENGE_TTL_MS, MAX_SCORED_VS_SAME_OPPONENT, ROUND_SECONDS, TAP_BAR_MS, finish, makeCreatureState, redactBattle, resolveRound,
 } from './battle';
 
 export interface PlayerState extends PlayerPublic {
@@ -21,6 +21,8 @@ export interface PlayerState extends PlayerPublic {
   rerollsLeft: number;
   scoredBattlesVs: Record<string, number>;
   missedRounds: number;
+  lastHonourClaimAt: number;
+  flagged: string[];
 }
 
 export interface PartyState {
@@ -59,10 +61,14 @@ export interface EngineOptions {
   now?: () => number;
   rng?: () => number;
   storePhoto?: (dataUrl: string, partyCode: string) => string | null; // returns URL
+  deletePhotos?: (urls: string[]) => void;
   codeLength?: number;
 }
 
 const HAND_SIZE = 3;
+export const HONOUR_COOLDOWN_MS = 8 * 60_000;   // one "I did it" per player per 8 minutes
+export const FLAGS_TO_DISPUTE = 2;              // distinct mates calling BS before points freeze
+const FLAG_WINDOW_MS = 45 * 60_000;             // BS can be called within 45 min of a completion
 const REROLLS_PER_PHASE = 3;
 const FEED_LIMIT = 60;
 const MAX_PHOTO_CHARS = 450_000; // ~330KB jpeg base64
@@ -73,12 +79,14 @@ export class Engine {
   private now: () => number;
   private rng: () => number;
   private storePhoto: (dataUrl: string, partyCode: string) => string | null;
+  private deletePhotos: (urls: string[]) => void;
   private codeLength: number;
 
   constructor(opts: EngineOptions = {}, state?: EngineState) {
     this.now = opts.now ?? (() => Date.now());
     this.rng = opts.rng ?? Math.random;
     this.storePhoto = opts.storePhoto ?? ((d) => d);
+    this.deletePhotos = opts.deletePhotos ?? (() => undefined);
     this.codeLength = opts.codeLength ?? 4;
     this.state = state ?? { parties: {}, playerParty: {}, identities: {} };
   }
@@ -127,7 +135,7 @@ export class Engine {
       feed: party.feed.slice(-40),
       revealedGroupMissions: party.revealedGroupMissions,
       battles,
-      pendingApprovals: Object.values(party.claims).filter((c) => c.status === 'pending' && c.method !== 'witness').length,
+      pendingApprovals: Object.values(party.claims).filter((c) => (c.status === 'pending' && c.method !== 'witness') || c.status === 'disputed').length,
       awards: showAwards ? computeAwards(players, Object.values(party.battles), party.fridayPoints, party.awardOverrides) : null,
       finalized: party.finalized,
       serverTime: now,
@@ -145,12 +153,14 @@ export class Engine {
       completedMissionIds: p.completedMissionIds,
       rerollsLeft: p.rerollsLeft,
       pendingWitness,
+      honourCooldownUntil: (p.lastHonourClaimAt ?? 0) + HONOUR_COOLDOWN_MS,
+      flagged: p.flagged ?? [],
       secret: '',
     };
   }
 
   hostView(party: PartyState): HostView {
-    return { approvals: Object.values(party.claims).filter((c) => c.status === 'pending' && c.method !== 'witness').sort((a, b) => a.createdAt - b.createdAt) };
+    return { approvals: Object.values(party.claims).filter((c) => (c.status === 'pending' && c.method !== 'witness') || c.status === 'disputed').sort((a, b) => a.createdAt - b.createdAt) };
   }
 
   // ---------- main dispatcher ----------
@@ -169,7 +179,8 @@ export class Engine {
         case 'confirmWitness': return this.confirmWitness(playerId, msg.claimId, msg.approve);
         case 'challenge': return this.challenge(playerId, msg.opponentId);
         case 'respondChallenge': return this.respondChallenge(playerId, msg.battleId, msg.accept);
-        case 'battleAction': return this.battleAction(playerId, msg.battleId, msg.round, msg.action);
+        case 'battleAction': return this.battleAction(playerId, msg.battleId, msg.round, msg.action, msg.tap);
+        case 'flagClaim': return this.flagClaim(playerId, msg.claimId);
         case 'surrender': return this.surrender(playerId, msg.battleId);
         case 'host': return this.hostAction(playerId, msg.action);
         default: res.ack = { ok: false, error: 'Unknown message.' }; return res;
@@ -368,6 +379,11 @@ export class Engine {
     if (Object.values(party.claims).some((c) => c.playerId === playerId && c.missionId === missionId && c.status === 'pending')) return this.fail('Already submitted.');
 
     const now = this.now();
+    if (mission.method === 'self' && !mission.starter && !isGroup) {
+      const wait = (p.lastHonourClaimAt ?? 0) + HONOUR_COOLDOWN_MS - now;
+      if (wait > 0) return this.fail(`Easy, legend. Next honour-system claim in ${Math.floor(wait / 60000)}:${String(Math.ceil((wait % 60000) / 1000)).padStart(2, '0')}. Photo and witness missions are still open.`);
+      p.lastHonourClaimAt = now;
+    }
     const claim: Claim = { id: claimId, playerId, missionId, method: mission.method, status: 'pending', createdAt: now, group: isGroup, note: (note ?? '').slice(0, 120) || undefined };
     if (mission.method === 'photo') {
       if (!photo || typeof photo !== 'string' || !photo.startsWith('data:image/')) return this.fail('This mission needs a photo.');
@@ -405,7 +421,7 @@ export class Engine {
     p.categoryCounts[mission.category] = (p.categoryCounts[mission.category] ?? 0) + 1;
     const reward = this.grant(party, p, mission.points, mission.xp, direct);
     const label = mission.secret ? 'a SECRET mission' : `"${mission.title}"`;
-    this.feed(party, { kind: 'mission', text: `${p.nickname} completed ${label} (+${mission.points} pts)`, playerId: p.id, photoUrl: claim.photoUrl, emoji: mission.secret ? '🕵️' : '✅' });
+    this.feed(party, { kind: 'mission', text: `${p.nickname} completed ${label} (+${mission.points} pts)`, playerId: p.id, photoUrl: claim.photoUrl, emoji: mission.secret ? '🕵️' : '✅', claimId: claim.id, flags: 0 });
     direct.push({ to: p.id, msg: { type: 'reward', points: mission.points, xp: mission.xp, ...reward, title: mission.title } });
     this.refillHand(party, p);
   }
@@ -474,6 +490,26 @@ export class Engine {
   private resolve(party: PartyState, claim: Claim, approve: boolean, direct: Outbound[], resolver?: PlayerState) {
     const owner = party.players[claim.playerId];
     const mission = MISSION_BY_ID[claim.missionId];
+    if (claim.status === 'disputed') {
+      // Points were frozen when BS was called. Approve = give them back; reject = they stay gone.
+      claim.status = approve ? 'approved' : 'rejected'; claim.resolvedAt = this.now();
+      const ev = party.feed.find((f) => f.claimId === claim.id); if (ev) { ev.disputed = false; }
+      if (owner && mission) {
+        if (approve) {
+          const r = this.grant(party, owner, mission.points, mission.xp, direct);
+          owner.missionsCompleted += 1; owner.categoryCounts[mission.category] = (owner.categoryCounts[mission.category] ?? 0) + 1;
+          if (!owner.completedMissionIds.includes(mission.id)) owner.completedMissionIds.push(mission.id);
+          this.feed(party, { kind: 'host', text: `The host upheld ${owner.nickname}'s "${mission.title}". Points restored. Apologies owed.`, emoji: '⚖️' });
+          direct.push({ to: owner.id, msg: { type: 'reward', points: mission.points, xp: mission.xp, ...r, title: `${mission.title} (upheld by the host)` } });
+        } else {
+          owner.hand = owner.hand.filter((h) => h.missionId !== mission.id);
+          this.refillHand(party, owner);
+          this.feed(party, { kind: 'host', text: `The host struck out ${owner.nickname}'s "${mission.title}". BS confirmed.`, emoji: '🚩' });
+          direct.push({ to: owner.id, msg: { type: 'toast', text: `"${mission.title}" was struck out by the host. The people have spoken.`, emoji: '🚩', tone: 'warn' } });
+        }
+      }
+      return;
+    }
     if (approve) {
       this.approveClaim(party, claim, direct);
       if (resolver && claim.method === 'witness') { resolver.witnessed += 1; this.checkAchievements(party, resolver, direct); }
@@ -485,6 +521,41 @@ export class Engine {
         direct.push({ to: owner.id, msg: { type: 'toast', text: `"${mission?.title}" was not approved. Try again.`, emoji: '❌', tone: 'warn' } });
       }
     }
+  }
+
+  private flagClaim(playerId: string, claimId: string): HandleResult {
+    const party = this.partyOf(playerId); const p = party?.players[playerId];
+    if (!party || !p || p.removed) return this.fail('Join a party first.');
+    const claim = party.claims[claimId];
+    const mission = claim ? MISSION_BY_ID[claim.missionId] : undefined;
+    if (!claim || !mission) return this.fail('That claim is gone.');
+    if (claim.playerId === playerId) return this.fail('You cannot call BS on yourself. Though we admire the honesty.');
+    if (claim.status !== 'approved') return this.fail(claim.status === 'disputed' ? 'Already with the host.' : 'Only completed missions can be called out.');
+    if (this.now() - (claim.resolvedAt ?? claim.createdAt) > FLAG_WINDOW_MS) return this.fail('Too late to call BS on that one. Let it go.');
+    claim.flags = claim.flags ?? [];
+    if (claim.flags.includes(playerId)) return this.fail('You already called it.');
+    claim.flags.push(playerId);
+    p.flagged = [...(p.flagged ?? []), claimId];
+    const ev = party.feed.find((f) => f.claimId === claimId); if (ev) ev.flags = claim.flags.length;
+    const owner = party.players[claim.playerId];
+    const direct: Outbound[] = [];
+    if (claim.flags.length >= FLAGS_TO_DISPUTE) {
+      claim.status = 'disputed';
+      if (ev) ev.disputed = true;
+      if (owner) {
+        // Freeze: take the reward back until the host rules.
+        owner.points = Math.max(0, owner.points - mission.points); owner.xp = Math.max(0, owner.xp - mission.xp); owner.level = levelForXp(owner.xp);
+        owner.missionsCompleted = Math.max(0, owner.missionsCompleted - 1);
+        owner.categoryCounts[mission.category] = Math.max(0, (owner.categoryCounts[mission.category] ?? 1) - 1);
+        owner.completedMissionIds = owner.completedMissionIds.filter((x) => x !== mission.id);
+        this.feed(party, { kind: 'host', text: `BS CALLED on ${owner.nickname}'s "${mission.title}". Points frozen until the host rules.`, emoji: '🚩' });
+        direct.push({ to: owner.id, msg: { type: 'toast', text: `Your mates called BS on "${mission.title}". The host decides. Start sweating.`, emoji: '🚩', tone: 'warn' } });
+        direct.push({ to: party.hostId, msg: { type: 'toast', text: `BS called on ${owner.nickname}'s "${mission.title}". Your call.`, emoji: '⚖️', tone: 'info' } });
+      }
+    } else if (owner) {
+      direct.push({ to: owner.id, msg: { type: 'toast', text: `Someone side-eyed your "${mission.title}". One more and the host gets involved.`, emoji: '👀', tone: 'warn' } });
+    }
+    return this.ok(party, { flags: claim.flags.length, disputed: claim.status === 'disputed' }, direct);
   }
 
   // ---------- battles ----------
@@ -525,17 +596,24 @@ export class Engine {
     return this.ok(party);
   }
 
-  private battleAction(playerId: string, battleId: string, round: number, action: BattleAction): HandleResult {
+  private battleAction(playerId: string, battleId: string, round: number, action: BattleAction, tap?: TapQuality): HandleResult {
     const party = this.partyOf(playerId);
     const b = party?.battles[battleId];
     if (!party || !b || b.status !== 'active') return this.fail('That battle is not live.');
     const side = b.a.playerId === playerId ? b.a : b.b.playerId === playerId ? b.b : null;
     if (!side) return this.fail('Not your battle.');
     if (round !== b.round) return this.fail('That round already resolved.');
-    if (!['attack', 'defend', 'special'].includes(action)) return this.fail('Unknown action.');
+    if (!['attack', 'counter', 'special'].includes(action)) return this.fail('Unknown action.');
     if (action === 'special' && side.specialCooldown > 0) return this.fail('Special is recharging.');
     if (side.action) return { ack: { ok: true, data: { locked: true } }, changed: false, direct: [] };
     side.action = action;
+    // Power tap: only for damaging actions, and a hit can't arrive faster than the bar can physically slide.
+    let quality: TapQuality = 'miss';
+    if (action !== 'counter' && (tap === 'perfect' || tap === 'good')) {
+      const roundStart = (b.roundDeadline ?? this.now()) - ROUND_SECONDS * 1000;
+      quality = this.now() - roundStart >= TAP_BAR_MS * 0.6 ? tap : 'miss';
+    }
+    side.tap = quality;
     const direct: Outbound[] = [];
     if (b.a.action && b.b.action) this.resolveBattleRound(party, b, direct);
     return this.ok(party, undefined, direct);
@@ -652,7 +730,7 @@ export class Engine {
       }
       case 'resolveClaim': {
         const claim = party.claims[action.claimId];
-        if (!claim || claim.status !== 'pending') return this.fail('That claim is not pending.');
+        if (!claim || (claim.status !== 'pending' && claim.status !== 'disputed')) return this.fail('That claim is not waiting on you.');
         this.resolve(party, claim, !!action.approve, direct);
         return this.ok(party, undefined, direct);
       }
@@ -717,6 +795,14 @@ export class Engine {
         if (party.finalized) { party.phase = 'ended'; party.missionsOpen = false; this.feed(party, { kind: 'phase', text: 'Results are FINAL. Legends have been crowned.', emoji: '👑' }); }
         return this.ok(party);
       }
+      case 'purgePhotos': {
+        const urls: string[] = [];
+        for (const c of Object.values(party.claims)) if (c.photoUrl) { urls.push(c.photoUrl); c.photoUrl = undefined; }
+        for (const f of party.feed) if (f.photoUrl) { if (!urls.includes(f.photoUrl)) urls.push(f.photoUrl); f.photoUrl = undefined; }
+        this.deletePhotos(urls);
+        this.feed(party, { kind: 'host', text: `The host deleted ${urls.length} photo${urls.length === 1 ? '' : 's'} from the server. What happens in the vineyard…`, emoji: '🗑️' });
+        return this.ok(party, { deleted: urls.length });
+      }
       case 'transferHost': {
         const p = party.players[action.playerId];
         if (!p || p.removed) return this.fail('No such player.');
@@ -739,12 +825,12 @@ function newPlayer(id: string, nickname: string, now: number, isHost: boolean): 
   return {
     id, nickname, creature: null, creatureName: '', level: 1, xp: 0, points: 0, equipped: { colorway: 0 }, unlocked: [], achievements: [],
     missionsCompleted: 0, wins: 0, losses: 0, title: 'Fresh Legend', online: true, isHost, joinedAt: now, lastSeen: now, categoryCounts: {}, witnessed: 0,
-    hand: [], completedMissionIds: [], rerollsLeft: REROLLS_PER_PHASE, scoredBattlesVs: {}, missedRounds: 0,
+    hand: [], completedMissionIds: [], rerollsLeft: REROLLS_PER_PHASE, scoredBattlesVs: {}, missedRounds: 0, lastHonourClaimAt: 0, flagged: [],
   };
 }
 
 function toPublic(p: PlayerState): PlayerPublic {
-  const { hand, completedMissionIds, rerollsLeft, scoredBattlesVs, missedRounds, ...pub } = p;
+  const { hand, completedMissionIds, rerollsLeft, scoredBattlesVs, missedRounds, lastHonourClaimAt, flagged, ...pub } = p;
   return pub;
 }
 

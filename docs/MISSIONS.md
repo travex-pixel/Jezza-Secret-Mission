@@ -1,10 +1,10 @@
 # Project Jezza: Mission List
 
-78 missions. Points go to the weekend leaderboard, XP levels up your creature.
+109 missions. Points go to the weekend leaderboard, XP levels up your creature.
 
 Completion methods: **Honour** = tap "I did it" · **Photo** = snap proof, host approves · **Witness** = a mate confirms on their phone · **Host** = host approves.
 
-## 🎭 Social Chaos (11)
+## 🎭 Social Chaos (18)
 
 | # | Mission | Instruction | Difficulty | Pts / XP | How | When |
 |---|---|---|---|---|---|---|
@@ -19,8 +19,15 @@ Completion methods: **Honour** = tap "I did it" · **Photo** = snap proof, host 
 | m018 | **Quiz Master** | Run a 3-question pop quiz about Jezza for the nearest group. Award a made-up prize to the winner. | Spicy | 20 / 35 | Honour system | Fri + Sat |
 | m019 | **The Compliment Sniper** | Deliver five genuine, oddly specific compliments to five different mates within 10 minutes. | Spicy | 20 / 35 | Honour system | Fri + Sat · 10 min |
 | m111 | **Legendary Hospitality** | Do something genuinely kind and useful for the group (sort food, fix the music, drive the vibe). Host approves. | Spicy | 30 / 50 | Host approved | Fri + Sat |
+| m121 | **Variation Claim** | Lodge a variation claim for something that changed this weekend (dinner time, the music, the vibe). Itemise costs. Present it to the host for approval. | Spicy | 25 / 40 | Host approved | Fri + Sat |
+| m126 | **Concrete Cure Time** | Explain to a mate, in detail, why hangovers are just concrete curing. 28 days to full strength. Do not break character. | Easy | 10 / 20 | Honour system | Saturday |
+| m132 | **Have You Eaten?** | Ask every mate in the room "have you eaten?" in your best aunty voice. Anyone who says no must be handed food immediately. | Easy | 10 / 20 | Honour system | Fri + Sat |
+| m136 | **Chopstick Challenge** | Pick up an ice cube with chopsticks (or two pens) and carry it across the room to a mate's glass. Drops reset the attempt. | Spicy | 20 / 35 | Needs a witness | Fri + Sat |
+| m138 | **Hotpot Diplomacy** | Settle a fake argument between two mates by declaring one of them "the one who orders for the table". Explain why. Both must accept the ruling. | Spicy | 20 / 35 | Honour system | Fri + Sat |
+| m145 | **The Roast Permit** | Apply to the host for a Roast Permit, then deliver a 30-second roast of a mate of the host's choosing. Affectionate. Brutal. Approved. | Legendary | 40 / 60 | Host approved | Saturday |
+| m146 | **Performance Review** | Give a mate their annual performance review as a friend. Strengths, areas for development, and whether they're getting the bonus (a drink). | Spicy | 20 / 35 | Honour system | Fri + Sat |
 
-## 🤴 Jezza (11)
+## 🤴 Jezza (17)
 
 | # | Mission | Instruction | Difficulty | Pts / XP | How | When |
 |---|---|---|---|---|---|---|
@@ -35,8 +42,14 @@ Completion methods: **Honour** = tap "I did it" · **Photo** = snap proof, host 
 | m027 | **Best Mate Audition** | Formally audition to be Jezza's best man, even if the role is taken. Include one prop. | Spicy | 20 / 35 | Needs a witness | Saturday |
 | m028 | **Jezza Impression** | Do your best Jezza impression to Jezza. He must rate it. Any score counts. | Easy | 10 / 20 | Honour system | Fri + Sat |
 | m112 | **The Speech** | Give Jezza a proper, sincere speech. Make at least one person go "aww". Host approves. | Legendary | 45 / 70 | Host approved | Saturday |
+| m120 | **The RFI** | Submit a formal Request For Information to Jezza about his own wedding. Demand a response within 10 business days. Chase it twice. | Easy | 10 / 20 | Honour system | Fri + Sat |
+| m129 | **Defects Liability Period** | Inform Jezza that his marriage comes with a 12-month defects liability period and explain exactly what's covered. Keep a straight face. | Spicy | 20 / 35 | Needs a witness | Saturday |
+| m134 | **Parent Review** | Review Jezza's life choices as his disappointed-but-proud parent. Mention a cousin who is a doctor. End with "...but I am happy for you lah". | Spicy | 20 / 35 | Needs a witness | Fri + Sat |
+| m137 | **The Red Packet** | Present Jezza with a red packet (any envelope, any colour, any contents, a coaster counts) with a formal two-sentence blessing for his marriage. | Easy | 10 / 20 | Photo proof | Fri + Sat |
+| m143 | **Last Will and Testament** | Read out Jezza's will for his bachelor possessions: who gets the gaming chair, who inherits the group chat admin rights. Witnessed and signed. | Spicy | 20 / 35 | Needs a witness | Saturday |
+| m147 | **The Exit Interview** | Conduct Jezza's exit interview from bachelorhood. "What could we have done to keep you?" Take notes. Report findings to the group. | Spicy | 20 / 35 | Honour system | Fri + Sat |
 
-## 🔭 Observation (7)
+## 🔭 Observation (9)
 
 | # | Mission | Instruction | Difficulty | Pts / XP | How | When |
 |---|---|---|---|---|---|---|
@@ -47,21 +60,28 @@ Completion methods: **Honour** = tap "I did it" · **Photo** = snap proof, host 
 | m034 | **Who Said That** | Note down the funniest quote of the hour. Read it back to the group with a dramatic pause. | Easy | 10 / 20 | Honour system | Fri + Sat |
 | m035 | **The Doppelgänger** | Decide which celebrity each of three mates looks like. Present your findings. Accept no appeals. | Spicy | 20 / 35 | Honour system | Fri + Sat |
 | m036 | **The Vanishing** | Notice when someone leaves the group for more than 10 minutes. Greet them on return like a long-lost hero. | Spicy | 20 / 35 | Honour system | Fri + Sat |
+| m139 | **Asian Glow Check** | Conduct an official glow inspection of the room and rank the top three. Use a torch. Announce the results like a Lunar New Year lucky draw. | Easy | 10 / 20 | Honour system | Fri + Sat |
+| m144 | **Cause of Death: Banter** | When a mate gets roasted, pronounce time of death and give the cause in medical terms. Minimum three pronouncements tonight. | Spicy | 20 / 35 | Honour system | Fri + Sat |
 
-## 🎨 Creative (8)
+## 🎨 Creative (13)
 
 | # | Mission | Instruction | Difficulty | Pts / XP | How | When |
 |---|---|---|---|---|---|---|
-| m040 | **The Vineyard Anthem** | Write and perform a 4-line anthem for this weekend. It must rhyme something with "Hunter Valley". | Spicy | 20 / 35 | Needs a witness | Fri + Sat |
+| m040 | **The Safety Briefing** | Deliver a deadly serious site safety briefing for tonight. Identify three hazards (one must be a specific mate). Hi-vis optional, clipboard energy mandatory. | Spicy | 20 / 35 | Needs a witness | Fri + Sat |
 | m041 | **Wine Label** | Design a wine label for a vintage named after a mate. Describe the tasting notes out loud. Be cruel but fair. | Spicy | 20 / 35 | Honour system | Fri + Sat |
-| m042 | **Haiku Hour** | Compose a haiku about Jezza and read it aloud. Five, seven, five. No cheating on syllables. | Easy | 10 / 20 | Honour system | Fri + Sat |
+| m042 | **The Incident Report** | Write up a mate's last questionable decision as a formal site incident report. Date, time, root cause, corrective action. Read it to the group. | Easy | 10 / 20 | Honour system | Fri + Sat |
 | m043 | **Movie Pitch** | Pitch this weekend as a Hollywood movie. Title, tagline, and who plays Jezza. 30 seconds max. | Spicy | 20 / 35 | Honour system | Fri + Sat |
 | m044 | **Statue Garden** | Arrange three mates into a statue representing "Friendship". Photograph your masterpiece. | Spicy | 20 / 35 | Photo proof | Fri + Sat |
 | m045 | **The Commercial** | Film-free: perform a 20 second TV ad for a product that doesn't exist. Must include a jingle. | Spicy | 20 / 35 | Needs a witness | Saturday |
 | m046 | **Alphabet Toast** | Give a toast where each sentence starts with the next letter of the alphabet. Reach at least G. | Legendary | 35 / 60 | Needs a witness | Fri + Sat |
 | m110 | **The Grand Performance** | Perform a full one-minute set (comedy, song, magic, anything) for the whole party. Host decides if it counted. | Legendary | 45 / 70 | Host approved | Saturday |
+| m124 | **As-Built Drawing** | Draw an as-built of the room on a napkin, including where every mate is standing. Mark Jezza as "critical infrastructure". | Spicy | 20 / 35 | Photo proof | Fri + Sat |
+| m127 | **The Survey** | Set out the dance floor using your phone as a total station. Call out bearings. Make someone hold a "staff" (a bottle). | Spicy | 20 / 35 | Needs a witness | Fri + Sat |
+| m130 | **Risk Register** | Build a risk register for the rest of the night: five risks, likelihood, consequence, and who is the owner of each. Read it like a project meeting. | Spicy | 20 / 35 | Honour system | Fri + Sat |
+| m135 | **Karaoke Ballad** | Perform one chorus of a power ballad to Jezza, full karaoke commitment, eyes closed on the high note. Backing track optional. | Spicy | 20 / 35 | Needs a witness | Saturday |
+| m141 | **The Family WhatsApp** | Narrate the next 5 minutes of the party as a 60-year-old relative forwarding it to the family group chat. Good morning images included. | Spicy | 20 / 35 | Honour system | Fri + Sat |
 
-## 🫂 Group (6)
+## 🫂 Group (8)
 
 | # | Mission | Instruction | Difficulty | Pts / XP | How | When |
 |---|---|---|---|---|---|---|
@@ -71,8 +91,10 @@ Completion methods: **Honour** = tap "I did it" · **Photo** = snap proof, host 
 | m053 | **Creature Parade** 🫂 group | Line up in creature-level order and do your creature's cry one by one. Yes, out loud. Yes, all of you. | Spicy | 20 / 35 | Honour system | Saturday |
 | m054 | **The Human Pyramid of Lies** 🫂 group | Each person tells one lie about Jezza. The group votes on the most believable. Everyone who voted claims. | Spicy | 20 / 30 | Honour system | Fri + Sat |
 | m055 | **Sunset Salute** 🫂 group | Everyone outside, drinks raised (any drink counts), one synchronised "CHEERS JEZZA" at the sky. Photo for the archives. | Easy | 20 / 35 | Photo proof | Saturday |
+| m122 | **Toolbox Talk** | Gather three mates for a toolbox talk on the hazards of the next activity. Sign-on sheet required (a napkin counts). | Spicy | 20 / 35 | Photo proof | Fri + Sat |
+| m150 | **The Snag Ceremony** 🫂 group | Group mission: everyone lines up for a sausage sizzle style photo, bread in hand (any food counts), and salutes the groom. Host approves. | Spicy | 25 / 40 | Photo proof | Saturday |
 
-## 🕵️ Secret (7)
+## 🕵️ Secret (8)
 
 | # | Mission | Instruction | Difficulty | Pts / XP | How | When |
 |---|---|---|---|---|---|---|
@@ -83,8 +105,9 @@ Completion methods: **Honour** = tap "I did it" · **Photo** = snap proof, host 
 | m064 | **The Wingman** 🕵️ | Secretly hype up a mate's terrible joke until the whole group laughs. Never reveal you were on a mission. | Spicy | 20 / 35 | Honour system | Fri + Sat |
 | m065 | **The Word Smuggler** 🕵️ | Smuggle the phrase "structurally unsound" into three separate conversations tonight. | Legendary | 35 / 60 | Honour system | Saturday |
 | m066 | **Barrel 7** 🕵️ | Convince one mate there is a haunted barrel somewhere on the property. Bonus if they go looking. | Spicy | 20 / 35 | Honour system | Fri + Sat |
+| m149 | **Secret Shopper** 🕵️ | Secretly rate three mates' handshakes out of 10 tonight. Reveal the scores at once, with feedback. Grip strength will be discussed. | Spicy | 20 / 35 | Honour system | Fri + Sat |
 
-## 📸 Photo (7)
+## 📸 Photo (9)
 
 | # | Mission | Instruction | Difficulty | Pts / XP | How | When |
 |---|---|---|---|---|---|---|
@@ -95,8 +118,10 @@ Completion methods: **Honour** = tap "I did it" · **Photo** = snap proof, host 
 | m074 | **Jump Shot** | Capture at least three mates mid-air. Everyone's feet off the ground or it doesn't count. | Legendary | 35 / 60 | Photo proof | Saturday |
 | m075 | **Tiny Tour Guide** | Photo of a mate pointing at something totally unremarkable with huge enthusiasm. | Easy | 10 / 20 | Photo proof | Fri + Sat |
 | m076 | **Shadow Puppets** | Make a shadow creature on a wall with your hands. Photo it. Name it in your note. | Easy | 10 / 20 | Photo proof | Fri + Sat |
+| m125 | **Hi-Vis Hour** | Wear anything hi-vis, orange or reflective for 30 minutes. If nothing is available, improvise with a tea towel and commitment. | Easy | 10 / 20 | Photo proof | Fri + Sat |
+| m148 | **Memorial Plaque** | Photograph a spot where something embarrassing happened this weekend and caption it like a heritage plaque. "On this site, in 2026…" | Easy | 10 / 20 | Photo proof | Saturday |
 
-## 🍇 Vineyard (7)
+## 🍇 Vineyard (9)
 
 | # | Mission | Instruction | Difficulty | Pts / XP | How | When |
 |---|---|---|---|---|---|---|
@@ -104,9 +129,11 @@ Completion methods: **Honour** = tap "I did it" · **Photo** = snap proof, host 
 | m081 | **The Vintage** | Declare the current year "an excellent vintage for mateship" in a toast. Swirl something while you say it. | Easy | 10 / 20 | Honour system | Fri + Sat |
 | m082 | **Cellar Door Legend** | Invent a legend about the vineyard's founder and tell it to two mates as absolute fact. | Spicy | 20 / 35 | Honour system | Fri + Sat |
 | m083 | **Blind Tasting** | Taste-test two drinks (anything, even water vs sparkling) blindfolded and identify them. Be wrong beautifully. | Spicy | 20 / 35 | Needs a witness | Fri + Sat |
-| m084 | **The Grape Whisperer** | Compliment a plant, vine or tree out loud. Minimum three compliments. Someone must hear you. | Easy | 10 / 20 | Honour system | Fri + Sat |
+| m084 | **Structural Inspection** | Inspect the venue like it's a defects walk. Find three "defects" and announce them with full engineering confidence. Bonus if one is a person. | Easy | 10 / 20 | Honour system | Fri + Sat |
 | m085 | **Tasting Notes** | Give tasting notes for a mate's personality. "Nose of chaos, long finish of loyalty." Deliver to their face. | Spicy | 20 / 35 | Honour system | Fri + Sat |
-| m086 | **Moonrise** | Spot the moon (or the brightest light outside) and point it out to the group like you discovered it. | Easy | 10 / 20 | Honour system | Fri + Sat |
+| m086 | **Load Rating** | Pick a chair, bench or esky and announce its load rating in kN with a straight face. Then test it with the heaviest volunteer. | Easy | 10 / 20 | Honour system | Fri + Sat |
+| m123 | **Slump Test** | Perform a slump test on a drink's foam, a dessert, or a mate's posture. Announce the result in millimetres and whether it passes spec. | Easy | 10 / 20 | Honour system | Fri + Sat |
+| m131 | **The Geotech Report** | Assess the ground conditions of wherever you're standing. Soil type, bearing capacity, and whether it's suitable for Big Dave. | Easy | 10 / 20 | Honour system | Fri + Sat |
 
 ## 🐲 Creature (6)
 
@@ -119,7 +146,7 @@ Completion methods: **Honour** = tap "I did it" · **Photo** = snap proof, host 
 | m094 | **Creature Diplomacy** | Negotiate a formal alliance between your creature and a mate's creature. Shake on it. Announce the alliance name. | Spicy | 20 / 35 | Honour system | Fri + Sat |
 | m095 | **Fashion Week** | Equip a cosmetic on your creature and show it off to two mates with a runway commentary. | Easy | 10 / 20 | Honour system | Saturday |
 
-## 🥂 Toast (8)
+## 🥂 Toast (12)
 
 | # | Mission | Instruction | Difficulty | Pts / XP | How | When |
 |---|---|---|---|---|---|---|
@@ -131,4 +158,8 @@ Completion methods: **Honour** = tap "I did it" · **Photo** = snap proof, host 
 | m105 | **The Villain Toast** | Toast Jezza as if you are the villain in his life story. Slow clap optional. Monologue mandatory. | Spicy | 20 / 35 | Needs a witness | Saturday |
 | m106 | **Toast in Translation** | Deliver a toast in a language you don't speak, then "translate" it. The translation must be longer than the toast. | Spicy | 20 / 35 | Honour system | Fri + Sat |
 | m107 | **The Sommelier's Toast** | Toast whatever you're holding with a full tasting note. "Hints of regret, finish of Saturday." Even if it's water. | Easy | 10 / 20 | Honour system | Fri + Sat |
+| m128 | **The Tender** | Run a competitive tender for who buys the next round. Three bidders, evaluation criteria, a winner announced with a handshake. | Spicy | 20 / 35 | Honour system | Fri + Sat |
+| m133 | **The Yum Cha Order** | Order the next round of drinks or snacks yum cha style: point, nod, and say "two of those" with total authority. No menu allowed. | Easy | 10 / 20 | Needs a witness | Fri + Sat |
+| m140 | **Bubble Tea Sommelier** | Review whatever drink you're holding as if it were a bubble tea order: sugar level, ice level, pearls out of ten. Deliver to two mates. | Easy | 10 / 20 | Honour system | Fri + Sat |
+| m142 | **Eulogy for the Single Life** | Deliver a solemn eulogy for Jezza's single life. Fond memories, a moment of silence, one tasteful lie. The groom must bow his head. | Spicy | 20 / 35 | Needs a witness | Fri + Sat |
 

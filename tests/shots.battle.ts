@@ -1,0 +1,25 @@
+// Captures the power-tap bar, its result and a Counter round in demo mode (needs the Vite dev server).
+import { chromium } from "playwright-core";
+import fs from "node:fs"; fs.mkdirSync("test-results/screenshots", { recursive: true });
+const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--use-gl=swiftshader', '--no-sandbox'] });
+const p = await (await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true })).newPage();
+await p.goto('http://localhost:5173/?demo=1', { waitUntil: 'networkidle' });
+await p.getByRole('button', { name: /enter the vineyard/i }).click();
+await p.getByPlaceholder(/big dave/i).fill('Tester');
+await p.getByRole('button', { name: /join the legends/i }).click();
+await p.waitForSelector('.pick-grid'); await p.locator('.pick-card').nth(2).click();
+await p.getByRole('button', { name: /adopt/i }).click(); await p.waitForTimeout(2000);
+await p.getByRole('button', { name: /first mission/i }).click(); await p.getByRole('button', { name: /skip for now/i }).click();
+await p.waitForSelector('.bottom-nav');
+await p.locator('.bottom-nav').getByRole('button', { name: 'Battle' }).click();
+await p.getByRole('button', { name: /challenge a mate/i }).click(); await p.locator('.sheet .list-row').first().click();
+await p.waitForSelector('.actions', { timeout: 8000 });
+await p.locator('.action-btn.attack').click(); await p.waitForTimeout(450);
+await p.screenshot({ path: 'test-results/screenshots/powertap.png' });
+await p.locator('.powertap').click(); await p.waitForTimeout(300);
+await p.screenshot({ path: 'test-results/screenshots/powertap-result.png' });
+await p.waitForTimeout(3500);
+await p.screenshot({ path: 'test-results/screenshots/round-after.png' });
+await p.locator('.action-btn.counter').click(); await p.waitForTimeout(1300);
+await p.screenshot({ path: 'test-results/screenshots/counter.png' });
+await b.close(); console.log('shots ok');

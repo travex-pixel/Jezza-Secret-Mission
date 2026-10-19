@@ -36,7 +36,7 @@ export const CREATURES: Record<CreatureId, CreatureDef> = {
     species: 'Vineyard Dragon',
     tagline: 'Tiny. Proud. Flammable.',
     personality: 'Hoards corks, breathes fire at tapas, and thinks it is enormous.',
-    stats: { hp: 94, atk: 14, def: 6, spd: 9 },
+    stats: { hp: 96, atk: 14, def: 6, spd: 9 },
     special: { name: 'Ember Breath', blurb: 'Huge fire damage', tradeoff: 'Singes you a little too' },
     colorways: [
       { id: 'merlot', name: 'Merlot Ember', body: '#8E2B45', belly: '#E5AD48', accent: '#F07842', eye: '#F6EBDD', glow: '#F07842' },
@@ -52,8 +52,8 @@ export const CREATURES: Record<CreatureId, CreatureDef> = {
     species: 'Wombat Warrior',
     tagline: 'Stocky. Fearless. Tactical.',
     personality: 'Built like a brick, plans like a general, naps like a legend.',
-    stats: { hp: 110, atk: 11, def: 10, spd: 5 },
-    special: { name: 'Bunker Down', blurb: 'Heal + full guard', tradeoff: 'Deals no damage this round' },
+    stats: { hp: 96, atk: 11, def: 10, spd: 5 },
+    special: { name: 'Bunker Down', blurb: 'Heal + half damage taken', tradeoff: 'Deals no damage this round' },
     colorways: [
       { id: 'bark', name: 'Barrel Bark', body: '#7A5A44', belly: '#D8B992', accent: '#E5AD48', eye: '#242127', glow: '#E5AD48' },
       { id: 'ash', name: 'Cellar Ash', body: '#5A5660', belly: '#B9B2B8', accent: '#B98286', eye: '#242127', glow: '#B98286' },
@@ -84,8 +84,8 @@ export const CREATURES: Record<CreatureId, CreatureDef> = {
     species: 'Moonlit Owl',
     tagline: 'Mysterious. Observant. Smug.',
     personality: 'Knows what you did. Has not decided whether to tell anyone.',
-    stats: { hp: 95, atk: 12, def: 8, spd: 11 },
-    special: { name: 'Moon Gaze', blurb: 'Pierces any guard', tradeoff: 'Needs 2 rounds to recharge' },
+    stats: { hp: 98, atk: 12, def: 8, spd: 11 },
+    special: { name: 'Moon Gaze', blurb: 'Ignores counter stance', tradeoff: 'Needs 2 rounds to recharge' },
     colorways: [
       { id: 'moon', name: 'Moon Silver', body: '#5B5566', belly: '#F6EBDD', accent: '#E5AD48', eye: '#E5AD48', glow: '#F6EBDD' },
       { id: 'plum', name: 'Plum Night', body: '#571827', belly: '#B98286', accent: '#E5AD48', eye: '#F6EBDD', glow: '#B98286' },
@@ -101,7 +101,7 @@ export const CREATURES: Record<CreatureId, CreatureDef> = {
     tagline: 'Gremlin. Barrel-born. Suspicious.',
     personality: 'Lives in barrel 7. Charges rent. Motives unclear, cork collection enormous.',
     stats: { hp: 100, atk: 13, def: 7, spd: 8 },
-    special: { name: 'Cork Pop', blurb: 'Big ricochet shot', tradeoff: 'Bounces back if they guard' },
+    special: { name: 'Cork Pop', blurb: 'Big ricochet shot', tradeoff: 'Bounces back if they counter' },
     colorways: [
       { id: 'moss', name: 'Cellar Moss', body: '#5E7A4A', belly: '#D8C49A', accent: '#76243A', eye: '#E5AD48', glow: '#E5AD48' },
       { id: 'cork', name: 'Cork Brown', body: '#9A6B3C', belly: '#E8D4B8', accent: '#571827', eye: '#F6EBDD', glow: '#F07842' },
@@ -132,7 +132,7 @@ export const CREATURES: Record<CreatureId, CreatureDef> = {
     species: 'Barrel Beast',
     tagline: 'Chunky. Durable. Ridiculous.',
     personality: 'Is a barrel. Has legs. Nobody has explained this and nobody will.',
-    stats: { hp: 114, atk: 10, def: 11, spd: 3 },
+    stats: { hp: 116, atk: 10, def: 11, spd: 3 },
     special: { name: 'Barrel Roll', blurb: 'Crushing roll attack', tradeoff: 'You bump your head' },
     colorways: [
       { id: 'oak', name: 'French Oak', body: '#9C6B3F', belly: '#C99A62', accent: '#57514F', eye: '#E5AD48', glow: '#E5AD48' },
@@ -149,7 +149,7 @@ export const CREATURES: Record<CreatureId, CreatureDef> = {
     tagline: 'Quick. Stylish. Cunning.',
     personality: 'Dressed better than you, drinks faster than you, somehow never pays.',
     stats: { hp: 92, atk: 13, def: 6, spd: 12 },
-    special: { name: 'Outfox', blurb: 'Counter their attack', tradeoff: 'Weak if they guard' },
+    special: { name: 'Ambush', blurb: 'Huge if they attack', tradeoff: 'Weak if they don\'t' },
     colorways: [
       { id: 'ember', name: 'Ember Fur', body: '#D9622E', belly: '#F6EBDD', accent: '#242127', eye: '#E5AD48', glow: '#F07842' },
       { id: 'silver', name: 'Silver Fox', body: '#8A8590', belly: '#F6EBDD', accent: '#242127', eye: '#E5AD48', glow: '#F6EBDD' },
@@ -162,7 +162,7 @@ export const CREATURES: Record<CreatureId, CreatureDef> = {
 
 export const CREATURE_IDS: CreatureId[] = ['dragon', 'wombat', 'possum', 'owl', 'goblin', 'sprite', 'barrel', 'fox'];
 
-export const ACTION_LABELS: Record<BattleAction, string> = { attack: 'ATTACK', defend: 'DEFEND', special: 'SPECIAL' };
+export const ACTION_LABELS: Record<BattleAction, string> = { attack: 'ATTACK', counter: 'COUNTER', special: 'SPECIAL' };
 
 /** Deterministic trio of starters for a given seed string; `offset` cycles to show the rest of the roster. */
 export function starterTrio(seed: string, offset = 0): CreatureId[] {

@@ -28,6 +28,7 @@ export default function Host() {
   const [grant, setGrant] = useState('10');
   const [reason, setReason] = useState('');
   const [confirmPhase, setConfirmPhase] = useState<Phase | null>(null);
+  const [confirmPurge, setConfirmPurge] = useState(false);
   if (!party || !isHost) return <div className="screen with-nav"><div className="panel pad center">Host only.</div></div>;
 
   const host = async (action: HostAction) => {
@@ -58,6 +59,9 @@ export default function Host() {
             <div className="divider" />
             <div className="eyebrow">Group missions</div>
             {GROUP_MISSIONS.map((m) => { const on = party.revealedGroupMissions.includes(m.id); return <div key={m.id} className="list-row"><span className="grow"><div className="bold">{m.title} <span className="tiny faint">+{m.points}</span></div><div className="tiny dim">{m.instruction}</div></span>{on ? <span className="pill pill-xs pill-ok">live</span> : <Button size="xs" onClick={() => host({ kind: 'revealGroupMission', missionId: m.id })}>Reveal</Button>}</div>; })}
+            <div className="divider" />
+            <div className="eyebrow">Photos</div>
+            <div className="row-between"><div className="small dim">Mission photos sit on this game's server only, visible to this party. Wipe them when the weekend's done.</div><Button size="sm" variant="danger" onClick={() => setConfirmPurge(true)}>Delete all</Button></div>
           </>
         )}
         {section === 'approvals' && (
@@ -66,10 +70,11 @@ export default function Host() {
             {approvals.map((c) => { const m = MISSION_BY_ID[c.missionId]; const p = party.players.find((x) => x.id === c.playerId); return (
               <div key={c.id} className="panel pad stack-6">
                 <div className="row-between"><span className="bold">{p?.nickname ?? '?'} · {m?.title}</span><span className="tiny faint">{timeAgo(c.createdAt)}</span></div>
+                {c.status === 'disputed' && <div className="pill pill-ember" style={{ alignSelf: 'flex-start' }}>🚩 BS called by {(c.flags ?? []).map((id) => party.players.find((x) => x.id === id)?.nickname ?? '?').join(' & ')} · points frozen</div>}
                 <div className="small dim">{m?.instruction}</div>
                 {c.photoUrl && <img src={c.photoUrl} alt="Proof" style={{ width: '100%', borderRadius: 12, maxHeight: 260, objectFit: 'cover' }} />}
                 {c.note && <div className="small italic">“{c.note}”</div>}
-                <div className="btn-row"><Button size="sm" variant="secondary" onClick={() => host({ kind: 'resolveClaim', claimId: c.id, approve: false })}>Reject</Button><Button size="sm" onClick={() => host({ kind: 'resolveClaim', claimId: c.id, approve: true })}>Approve +{m?.points}</Button></div>
+                <div className="btn-row"><Button size="sm" variant={c.status === 'disputed' ? 'danger' : 'secondary'} onClick={() => host({ kind: 'resolveClaim', claimId: c.id, approve: false })}>{c.status === 'disputed' ? 'Strike it out' : 'Reject'}</Button><Button size="sm" onClick={() => host({ kind: 'resolveClaim', claimId: c.id, approve: true })}>{c.status === 'disputed' ? 'Uphold it' : `Approve +${m?.points}`}</Button></div>
               </div>); })}
           </>
         )}
@@ -98,6 +103,7 @@ export default function Host() {
         )}
       </div>
 
+      {confirmPurge && <Sheet center onClose={() => setConfirmPurge(false)}><div className="center stack-10"><div className="eyebrow">Delete photos</div><div className="display title-md">Wipe every party photo?</div><div className="small dim">Files are deleted from the server and removed from the feed. Points already awarded stay. This cannot be undone.</div><div className="btn-row"><Button variant="secondary" size="sm" onClick={() => setConfirmPurge(false)}>Keep them</Button><Button variant="danger" size="sm" onClick={() => { host({ kind: 'purgePhotos' }); setConfirmPurge(false); }}>Delete all</Button></div></div></Sheet>}
       {confirmPhase && <Sheet center onClose={() => setConfirmPhase(null)}><div className="center stack-10"><div className="eyebrow">Change phase</div><div className="display title-md">Move to {PHASES.find((p) => p.id === confirmPhase)?.label}?</div><div className="small dim">{PHASES.find((p) => p.id === confirmPhase)?.blurb} Everyone is notified.</div><div className="btn-row"><Button variant="secondary" size="sm" onClick={() => setConfirmPhase(null)}>Cancel</Button><Button size="sm" onClick={() => { host({ kind: 'setPhase', phase: confirmPhase }); setConfirmPhase(null); }}>Do it</Button></div></div></Sheet>}
 
       {target && (
