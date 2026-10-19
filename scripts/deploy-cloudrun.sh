@@ -15,10 +15,18 @@ BUCKET="${BUCKET:-${PROJECT_ID}-jezza-data}"
 
 echo "▶ project=$PROJECT_ID region=$REGION service=$SERVICE bucket=$BUCKET"
 gcloud config set project "$PROJECT_ID" >/dev/null
-gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com storage.googleapis.com >/dev/null
+echo "▶ enabling Google Cloud services (first time takes ~1 min)"
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com storage.googleapis.com --quiet >/dev/null
+
+# Permissions the build + server need (safe to re-run)
+PN=$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')
+SA="$PN-compute@developer.gserviceaccount.com"
+for ROLE in roles/cloudbuild.builds.builder roles/storage.objectAdmin; do
+  gcloud projects add-iam-policy-binding "$PROJECT_ID" --member="serviceAccount:$SA" --role="$ROLE" --quiet >/dev/null 2>&1 || true
+done
 
 # Bucket for state.json + photos (created once; harmless if it exists)
-gcloud storage buckets describe "gs://$BUCKET" >/dev/null 2>&1 || gcloud storage buckets create "gs://$BUCKET" --location="$REGION" --uniform-bucket-level-access
+gcloud storage buckets describe "gs://$BUCKET" >/dev/null 2>&1 || gcloud storage buckets create "gs://$BUCKET" --location="$REGION" --uniform-bucket-level-access --quiet
 
 # First deploy (or redeploy): build from source with Cloud Build, mount the bucket at /data.
 URL_ARG=""
@@ -31,11 +39,12 @@ gcloud run deploy "$SERVICE" \
   --add-volume "name=data,type=cloud-storage,bucket=$BUCKET" --add-volume-mount "volume=data,mount-path=/data" \
   --min-instances 1 --max-instances 1 --cpu 1 --memory 512Mi \
   --timeout 3600 --session-affinity --execution-environment gen2 \
-  $URL_ARG
+  --quiet $URL_ARG
 
 URL=$(gcloud run services describe "$SERVICE" --region "$REGION" --format='value(status.url)')
 echo
 echo "✅ Live at: $URL"
+echo "   Open it on your phone to check it loads, then share it."
 echo "   Health:  $URL/api/health"
 echo "   Share this with the lads: $URL   (the host taps \"I'm the host\" first)"
 if [ -z "$URL_ARG" ]; then echo "   Tip: run this script once more so link previews use the final URL."; fi
