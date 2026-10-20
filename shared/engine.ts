@@ -8,7 +8,7 @@ import type {
 } from './types';
 import { EPIC_CUSTOM_ITEM, EPIC_MAX_CREW, EPIC_PRESET_BY_ID, EPIC_TIERS, isEpicTier } from './epics';
 import { CREATURES, CREATURE_IDS, FORMS, GROOM_CREATURE, starterTrio } from './creatures';
-import { MISSIONS, MISSION_BY_ID, STARTER_MISSION, TUTORIAL_MISSIONS, GROUP_MISSIONS, missionAvailableInPhase, rookieLeft, type Mission } from './missions';
+import { MISSIONS, MISSION_BY_ID, STARTER_MISSION, TUTORIAL_MISSIONS, TUTORIAL_IDS, GROUP_MISSIONS, missionAvailableInPhase, rookieLeft, type Mission } from './missions';
 import {
   ACHIEVEMENTS, COSMETIC_BY_ID, colorwaysUnlocked, computeAwards, cosmeticsForLevel, levelForXp, titleForLevel,
   xpCapFor, stageForLevel, eloUpdate, START_RATING, sortLeaderboard,
@@ -117,6 +117,7 @@ const HAND_EXPIRE_MS = 2 * 3600_000;            // untouched challenges rotate o
 const GROUP_EVERY_MS = 40 * 60_000;             // a new group challenge goes live every 40 minutes
 const FIRST_GROUP_DELAY_MS = 20 * 60_000;
 export const FRESH_LEGS = 6;                    // Saturday arrivals: double points on their first 6 challenges
+export const LATE_ARRIVAL_BELOW = 3;            // when Saturday starts, anyone with fewer real challenges done than this gets the catch-up too
 const VARIETY_BONUS = 5;                        // first challenge in a new category
 export const WALL_PER_PHASE = 5;
 const PHOTO_VOTES_NEEDED = 2;                   // 👍 or 👎 from two mates settles a photo
@@ -186,7 +187,7 @@ export class Engine {
       for (const p of Object.values(party.players)) {
         p.rating ??= START_RATING; p.streak ??= 0; p.bestStreak ??= 0; p.bounties ??= 0;
         p.laughs ??= 0; p.fires ??= 0; p.groomLoves ??= 0; p.wallVotes ??= 0; p.cellarCount ??= 0; p.cellarFires ??= 0;
-        p.raidDamage ??= 0; p.raidsJoined ??= 0; p.lowKey ??= false; p.freshLegs ??= 0; p.joinedPhase ??= 'friday';
+        p.raidDamage ??= 0; p.raidsJoined ??= 0; p.lowKey ??= false; p.freshLegs ??= 0; p.joinedPhase ??= 'friday'; p.catchUp ??= p.joinedPhase === 'saturday';
         p.rerollRefillAt ??= 0;
         p.h2h ??= {}; p.upsetLosses ??= 0; p.reactionsGiven ??= 0; p.autoBattles ??= true;
         p.away ??= []; p.lastAutoAt ??= 0; p.recentAuto ??= []; p.epicsDone ??= 0; p.codeTries ??= [];
@@ -429,7 +430,7 @@ export class Engine {
       const active = Object.values(party.players).filter((p) => !p.removed).length;
       if (active >= 40) return this.fail('This party is full (40 legends max).');
       const np = newPlayer(playerId, v.name, now, false, party.phase);
-      if (party.phase === 'saturday') np.freshLegs = FRESH_LEGS;
+      if (party.phase === 'saturday') { np.freshLegs = FRESH_LEGS; np.catchUp = true; }
       party.players[playerId] = np;
       if (!party.groomId && isJezza(v.name)) party.groomId = playerId;
       this.feed(party, { kind: 'join', text: party.phase === 'saturday' ? `${v.name} rocked up for Saturday. Fresh legs: double points on their first ${FRESH_LEGS} challenges.` : `${v.name} wandered into the vineyard.`, playerId, emoji: '🍇' });
@@ -647,7 +648,7 @@ export class Engine {
     const mission = MISSION_BY_ID[claim.missionId];
     if (!p || !mission) return;
     claim.status = 'approved'; claim.resolvedAt = this.now();
-    const rookie = !mission.tutorial && mission.scope === 'private' && rookieLeft(p.completedMissionIds) > 0 && p.joinedPhase !== 'saturday'; // Saturday arrivals have Fresh Legs instead
+    const rookie = !mission.tutorial && mission.scope === 'private' && rookieLeft(p.completedMissionIds) > 0 && !p.catchUp; // Saturday arrivals have Fresh Legs instead
     if (!p.completedMissionIds.includes(mission.id)) p.completedMissionIds.push(mission.id);
     const h = p.hand.find((x) => x.missionId === mission.id);
     if (h) { h.status = 'done'; h.claimId = claim.id; }
@@ -698,7 +699,7 @@ export class Engine {
     const before = p.level; const stageBefore = stageForLevel(before);
     p.points = Math.max(0, p.points + points);
     // Saturday arrivals earn double XP until they've caught up to the group.
-    const boosted = xp > 0 && p.joinedPhase === 'saturday' && p.level < this.medianLevel(party, p.id) ? xp * 2 : xp;
+    const boosted = xp > 0 && p.catchUp && p.level < this.medianLevel(party, p.id) ? xp * 2 : xp;
     const { unlocked, capped } = this.applyXp(party, p, boosted);
     if (p.level > before) this.feed(party, { kind: 'levelup', text: `${p.creatureName} (${p.nickname}) hit level ${p.level}`, playerId: p.id, emoji: '⬆️' });
     const ach = this.checkAchievements(party, p, direct);
@@ -1560,6 +1561,25 @@ export class Engine {
     direct.push({ to: 'party', msg: { type: 'toast', text: `Group challenge live: ${m.title}`, emoji: '🫂', tone: 'info' } });
   }
 
+  /** The lads who joined the app early but haven't really played yet (they're arriving Saturday) get the same catch-up as a
+   *  Saturday joiner: Fresh Legs plus double XP until they reach the group's middle level. The intro doesn't count. */
+  private lateArrivalsCatchUp(party: PartyState, direct: Outbound[]) {
+    const names: string[] = [];
+    for (const p of Object.values(party.players)) {
+      if (p.removed || !p.creature || p.catchUp) continue;
+      if (p.completedMissionIds.filter((id) => !TUTORIAL_IDS.has(id)).length >= LATE_ARRIVAL_BELOW) continue;
+      this.giveCatchUp(p);
+      names.push(p.nickname);
+      direct.push({ to: p.id, msg: { type: 'toast', text: `🦵 Fresh Legs: double points on your next ${FRESH_LEGS} challenges, double XP till you catch the lads.`, emoji: '🦵', tone: 'success' } });
+    }
+    if (names.length) this.feed(party, { kind: 'host', text: `🦵 Fresh Legs for ${names.join(', ')}: double points on their first ${FRESH_LEGS} challenges.`, emoji: '🦵' });
+  }
+
+  private giveCatchUp(p: PlayerState) {
+    p.catchUp = true;
+    p.freshLegs = Math.max(p.freshLegs, FRESH_LEGS);
+  }
+
   private applyPhase(party: PartyState, phase: Phase, direct: Outbound[], auto = false) {
     const prev = party.phase;
     party.phase = phase;
@@ -1571,6 +1591,7 @@ export class Engine {
     }
     if (phase === 'finale' || phase === 'ended' || phase === 'lobby') party.missionsOpen = false;
     if (phase === 'saturday') party.autoSaturdayAt = null;
+    if (phase === 'saturday' && prev !== 'saturday') this.lateArrivalsCatchUp(party, direct);
     const labels: Record<Phase, string> = {
       lobby: 'The game is paused in the lobby.',
       friday: 'FRIDAY is live. Challenges are on.',
@@ -1678,6 +1699,16 @@ export class Engine {
         if (!PIN_RE.test(pin)) return this.fail('Host PIN must be 4 to 6 digits.');
         party.hostPinHash = hashPin(party.code, pin);
         return this.ok(party);
+      }
+      case 'setCatchUp': {
+        const t = party.players[action.playerId];
+        if (!t || t.removed) return this.fail('No such player.');
+        if (action.on) {
+          this.giveCatchUp(t);
+          this.feed(party, { kind: 'host', text: `🦵 The host gave ${t.nickname} Fresh Legs: double points on their next ${FRESH_LEGS} challenges.`, emoji: '🦵' });
+          direct.push({ to: t.id, msg: { type: 'toast', text: `🦵 Fresh Legs from the host: double points on your next ${FRESH_LEGS} challenges, double XP till you catch the lads.`, emoji: '🦵', tone: 'success' } });
+        } else { t.catchUp = false; t.freshLegs = 0; }
+        return this.ok(party, undefined, direct);
       }
       case 'setGroom': {
         const g = party.players[action.playerId];
@@ -1804,7 +1835,7 @@ function newPlayer(id: string, nickname: string, now: number, isHost: boolean, j
     id, nickname, creature: null, creatureName: '', level: 1, xp: 0, points: 0, equipped: { colorway: 0 }, unlocked: [], achievements: [],
     missionsCompleted: 0, wins: 0, losses: 0, title: 'Fresh Legend', online: true, isHost, joinedAt: now, lastSeen: now, categoryCounts: {}, witnessed: 0,
     rating: START_RATING, streak: 0, bestStreak: 0, bounties: 0, laughs: 0, fires: 0, groomLoves: 0, wallVotes: 0,
-    cellarCount: 0, cellarFires: 0, raidDamage: 0, raidsJoined: 0, lowKey: false, freshLegs: 0, joinedPhase,
+    cellarCount: 0, cellarFires: 0, raidDamage: 0, raidsJoined: 0, lowKey: false, freshLegs: 0, catchUp: false, joinedPhase,
     h2h: {}, upsetLosses: 0, reactionsGiven: 0, autoBattles: true, epicsDone: 0,
     hand: [], completedMissionIds: [], rerollsLeft: REROLLS_PER_PHASE, scoredBattlesVs: {}, missedRounds: 0, lastHonourClaimAt: 0, flagged: [], rerollRefillAt: 0,
     away: [], lastAutoAt: 0, recentAuto: [], codeTries: [],

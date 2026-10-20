@@ -1,6 +1,6 @@
 # Project Jezza: Challenge List
 
-98 missions. Points go to the weekend leaderboard, XP levels up your creature.
+101 missions. Points go to the weekend leaderboard, XP levels up your creature.
 
 How they're checked: **Just tap it** (honour system) = tap "I did it" (one every 8 minutes) · **Needs a photo** = take a photo or pick one from your library; by default the lads vote it in (two 👍), or the host can switch to approving them or to instant · **A mate confirms** = a mate who was there taps yes on their phone. Mates can 🚩 Call BS on anything. Nobody ever has to drink: any drink counts, water included.
 
@@ -11,39 +11,29 @@ New players start with a 30-second intro: **Get the Boys Online** (selfie with J
 | # | Mission | Instruction | Difficulty | Pts / XP | How | When |
 |---|---|---|---|---|---|---|
 | m002 | **Roast Jezza** (intro) | One line. Bring receipts: an old haircut, a school fail, a UNSW moment. Jezza can bin anything. | Easy | 15 / 20 | Jezza Wall post | Fri + Sat |
-| l01 | **Crack Him Up** | 30 seconds to make Jezza genuinely crack up. Joke, face, impression, whatever works. Go. | Easy | 10 / 20 | A mate confirms | Fri + Sat · performing |
-| l02 | **Worst Joke of the Weekend** | Tell Jezza your worst dad joke. Bonus respect if it's so bad he laughs anyway. | Easy | 10 / 20 | A mate confirms | Fri + Sat · performing |
-| l03 | **Doing a Jezza** | Do your best 15-second Jezza impression, to his face. He scores it out of ten. | Spicy | 20 / 35 | A mate confirms | Fri + Sat · performing |
+| l01 | **Crack Him Up** | Make Jezza genuinely crack up. A joke, a face, a story: whatever works, one on one. | Easy | 10 / 20 | A mate confirms | Fri + Sat · performing |
+| l02 | **Worst Joke of the Weekend** | Tell Jezza the worst dad joke you know. Bonus respect if it's so bad he laughs anyway. | Easy | 10 / 20 | A mate confirms | Fri + Sat · performing |
+| l03 | **Doing a Jezza** | Get someone to do their best Jezza impression. Jezza scores it out of ten. | Spicy | 20 / 35 | A mate confirms | Fri + Sat · performing |
 | l04 | **Hype Man** | Next time Jezza tells a story, react like it's the best yarn you've ever heard. He has to notice. | Easy | 10 / 20 | A mate confirms | Fri + Sat |
-| l05 | **Laugh-Off** | You and a mate get one go each at making Jezza laugh. Jezza picks the winner. Winner claims it. | Spicy | 20 / 35 | A mate confirms | Fri + Sat · performing |
+| l05 | **Laugh-Off** | You and a mate each get one go at making Jezza laugh. He picks the winner, the winner claims it. | Spicy | 20 / 35 | A mate confirms | Fri + Sat · performing |
 | l07 | **The Callback** | Bring back something dumb that actually happened earlier this weekend and make Jezza laugh about it again. | Spicy | 20 / 35 | A mate confirms | Fri + Sat |
 | l08 | **Weirdly Specific Compliment** | Give Jezza a weirdly specific compliment. "Your elbows have great energy" sort of thing. | Easy | 10 / 20 | A mate confirms | Fri + Sat |
-| l09 | **One-Line Roast** | Roast Jezza in one sharp line, to his face. Jezza judges it: no laugh, no points. | Spicy | 20 / 35 | A mate confirms | Fri + Sat · performing |
+| l09 | **One-Line Roast** | One line, to Jezza's face. If he laughs, it counts. | Spicy | 20 / 35 | A mate confirms | Fri + Sat · performing |
 | l10 | **Staring Contest** | Ten-second staring contest with Jezza. Get a mate to snap the exact moment someone cracks. | Easy | 10 / 20 | Needs a photo | Fri + Sat |
-| l11 | **Slow Clap** | Start a slow clap for something dead boring and get three lads to join in. | Spicy | 20 / 35 | Just tap it | Fri + Sat · performing |
+| l11 | **Slow Clap** | Start a slow clap for something dead boring. Get three lads to join in. | Spicy | 20 / 35 | Just tap it | Fri + Sat · performing |
 | l12 | **Copy His Face** | Copy Jezza's exact expression, deadpan, until he cracks. Side-by-side photo of the two faces. | Easy | 10 / 20 | Needs a photo | Fri + Sat |
 
-## 🕺 Dance (5)
+## 🕺 Dance (0)
 
 | # | Mission | Instruction | Difficulty | Pts / XP | How | When |
 |---|---|---|---|---|---|---|
-| d02 | **Worst Dancer Alive** | Show Jezza your worst moves. Anything you're actually good at is banned. | Easy | 10 / 20 | A mate confirms | Fri + Sat · performing |
-| d03 | **Dance-Off** | Call out a mate for a 15-second dance-off. Jezza picks the winner. Winner claims, loser gets respect. | Spicy | 20 / 35 | A mate confirms | Fri + Sat · performing |
-| d04 | **Dad at a Wedding** | Ten seconds of your best dad-at-a-wedding dance. Finger guns optional but encouraged. | Easy | 10 / 20 | A mate confirms | Fri + Sat · performing |
-| d05 | **Backup Dancer** | Be Jezza's way-too-keen backup dancer for ten seconds. He doesn't even have to be dancing. | Easy | 10 / 20 | A mate confirms | Fri + Sat · performing |
-| d07 | **Victory Dance** | Massive victory dance for something completely boring, like finding your phone. Snap the peak of it. | Easy | 10 / 20 | Needs a photo | Fri + Sat · performing |
 
-## 🎤 Sing (5)
+## 🎤 Sing (0)
 
 | # | Mission | Instruction | Difficulty | Pts / XP | How | When |
 |---|---|---|---|---|---|---|
-| s01 | **Song Dedication** | Sing a chorus straight to Jezza like you wrote it for him. Eye contact the whole time. | Easy | 10 / 20 | A mate confirms | Fri + Sat · performing |
-| s02 | **Terrible Karaoke** | Sing ten seconds of any song as badly as humanly possible. | Easy | 10 / 20 | A mate confirms | Fri + Sat · performing |
-| s04 | **Boy Band** | Get two mates to sing the same chorus with you. Harmonies optional. Confidence mandatory. | Spicy | 20 / 35 | A mate confirms | Fri + Sat · performing |
-| s05 | **Jezza Chant** | Make up a chant about Jezza and get at least one mate to join in. | Spicy | 20 / 35 | A mate confirms | Fri + Sat · performing |
-| s06 | **Grand Final Anthem** | Sing one line of any song like it's the anthem before the grand final. Hand on heart. | Easy | 10 / 20 | A mate confirms | Fri + Sat · performing |
 
-## 📸 Cooked Photos (21)
+## 📸 Cooked Photos (22)
 
 | # | Mission | Instruction | Difficulty | Pts / XP | How | When |
 |---|---|---|---|---|---|---|
@@ -51,7 +41,8 @@ New players start with a 30-second intro: **Get the Boys Online** (selfie with J
 | e01 | **Best View** | Snap the best view you can find this weekend. No thumbs in the photo. | Easy | 10 / 20 | Needs a photo | Fri + Sat |
 | e07 | **Mirror Mirror** | Mirror selfie with as many lads in it as you can fit. | Easy | 10 / 20 | Needs a photo | Fri + Sat |
 | e10 | **Creature Cosplay** | Recreate your creature's pose. Get a mate to snap it. | Easy | 10 / 20 | Needs a photo | Fri + Sat |
-| p01 | **Most Cooked Selfie** | Take the most ridiculous selfie you can with Jezza. You both have to be happy with it. | Easy | 10 / 20 | Needs a photo | Fri + Sat |
+| n13 | **No Questions Asked** | Get five people into a group photo without telling them why. | Spicy | 20 / 35 | Needs a photo | Fri + Sat |
+| p01 | **Most Cooked Selfie** | Convince Jezza to take a selfie with you. The more cooked, the better. | Easy | 10 / 20 | Needs a photo | Fri + Sat |
 | p02 | **Identical Idiots** | Get three mates to pull the exact same face in one photo. | Spicy | 20 / 35 | Needs a photo | Fri + Sat |
 | p03 | **Pyramid of Lads** | Pyramid-shaped group photo: back row standing, middle row squatting, front row sitting. Nobody climbs on anyone. | Legendary | 35 / 60 | Needs a photo | Fri + Sat |
 | p04 | **Jezza Is King** | Everyone poses around Jezza like he's royalty. The more over the top, the better. | Spicy | 20 / 35 | Needs a photo | Fri + Sat |
@@ -69,13 +60,19 @@ New players start with a 30-second intro: **Get the Boys Online** (selfie with J
 | p22 | **Formal Photo** | Recreate an awkward school formal photo with a mate. Stiff arms, forced smiles, the lot. | Easy | 10 / 20 | Needs a photo | Fri + Sat |
 | p18 | **Grand Final Winners** | Group photo of everyone celebrating like you just won the grand final. Jezza holds the imaginary cup. | Spicy | 20 / 35 | Needs a photo | Fri + Sat |
 
-## 🤵 Get Jezza In (9)
+## 🤵 Get Jezza In (15)
 
 | # | Mission | Instruction | Difficulty | Pts / XP | How | When |
 |---|---|---|---|---|---|---|
 | e04 | **Candid Jezza** | Catch Jezza mid-laugh. No posing allowed. | Easy | 10 / 20 | Needs a photo | Fri + Sat |
 | e15 | **Absolutely Cooked** | Get Jezza to say "absolutely cooked" without asking him to say it. | Easy | 10 / 20 | Just tap it | Fri + Sat |
 | e16 | **New Nickname** | Give Jezza a new nickname and get another lad to use it. | Easy | 10 / 20 | A mate confirms | Fri + Sat |
+| n01 | **Jezza Vision** | Get Jezza to let you wear his glasses for two minutes. Photo of you looking smarter than ever. | Easy | 10 / 20 | Needs a photo | Fri + Sat |
+| n03 | **Jezza Sings** | Get Jezza to sing a song. A full chorus counts. | Spicy | 20 / 35 | A mate confirms | Fri + Sat |
+| n04 | **Speech!** | Convince Jezza to give an impromptu speech. No notice, no notes. | Spicy | 20 / 35 | A mate confirms | Fri + Sat |
+| n05 | **Animal Instinct** | Get Jezza to make an animal sound. Your choice of animal. | Easy | 10 / 20 | A mate confirms | Fri + Sat |
+| n09 | **Peg Him** | Clip as many clothes pegs on Jezza as you can before he notices. Photo, and put the count in the caption. | Spicy | 20 / 35 | Needs a photo | Fri + Sat |
+| n12 | **Love You, Mate** | Get Jezza to say "I love you" to another lad. | Spicy | 20 / 35 | A mate confirms | Fri + Sat |
 | j02 | **Jezza Picks** | Give Jezza two stupid (harmless) options for what you do next. Do whichever he picks. | Easy | 10 / 20 | A mate confirms | Fri + Sat |
 | j03 | **Groom's Award** | Present Jezza a made-up award for something he actually did this weekend. Ten-second speech. Photo of the handover. | Easy | 10 / 20 | Needs a photo | Fri + Sat |
 | j06 | **Jezza's Best Side** | Ask Jezza for his best pose, then get the lads to copy it. Photo. | Spicy | 20 / 35 | Needs a photo | Fri + Sat |
@@ -95,27 +92,33 @@ New players start with a 30-second intro: **Get the Boys Online** (selfie with J
 | c06 | **Signature Cheers** | Invent your own cheers move and get a mate to do it with you. Photo of the move. | Easy | 10 / 20 | Needs a photo | Fri + Sat |
 | c07 | **Cheers Round** | Clink with five different lads in the next ten minutes. Clink, nod, move on. | Easy | 10 / 20 | Just tap it | Fri + Sat |
 | c08 | **Absent Mates** | Raise a glass to a mate who couldn't make it and send them the photo. | Easy | 10 / 20 | Needs a photo | Fri + Sat |
-| c10 | **Historic Toast** | Toast Jezza like it's a moment in history: "On this day, a legend..." Under 20 seconds. | Spicy | 20 / 35 | A mate confirms | Fri + Sat · performing |
+| c10 | **Historic Toast** | Glass up, one line: "On this day, a legend..." Finish it about Jezza. No speech needed. | Spicy | 20 / 35 | A mate confirms | Fri + Sat · performing |
 
-## 🕵️ Sneaky (4)
+## 🕵️ Sneaky (5)
 
 | # | Mission | Instruction | Difficulty | Pts / XP | How | When |
 |---|---|---|---|---|---|---|
 | e08 | **Photobomb** | Sneak into the background of someone else's photo. Get a pic of the result. | Easy | 10 / 20 | Needs a photo | Fri + Sat |
-| x01 | **Plant a Word** 🕵️ | Get Jezza to say "ripper" without him knowing it's a mission. | Spicy | 20 / 35 | Just tap it | Fri + Sat |
+| n11 | **Google That** | Get someone to Google something ridiculous. The more ridiculous, the better. | Easy | 10 / 20 | A mate confirms | Fri + Sat |
+| x01 | **Plant a Word** 🕵️ | Get Jezza to say "wedding" without him knowing it's a mission. | Spicy | 20 / 35 | Just tap it | Fri + Sat |
 | x02 | **Copycat** 🕵️ | Copy everything a mate does for a minute until they notice. Then act innocent. | Easy | 10 / 20 | Just tap it | Fri + Sat |
 | x03 | **The Echo** 🕵️ | Repeat the last two words Jezza says, three times in a row, without him clocking it. | Spicy | 20 / 35 | Just tap it | Fri + Sat |
 
-## 😎 Low-Key (11)
+## 😎 Low-Key (16)
 
 | # | Mission | Instruction | Difficulty | Pts / XP | How | When |
 |---|---|---|---|---|---|---|
 | e11 | **Model Material** | Snap Jezza looking like a model in good light. Make him look unreal. | Easy | 10 / 20 | Needs a photo | Fri + Sat |
 | e12 | **Big Rap** | Give a mate a proper compliment out loud. Mean it. | Easy | 10 / 20 | Just tap it | Fri + Sat |
 | e13 | **High Five Streak** | High five five different lads in a row. | Easy | 10 / 20 | Just tap it | Fri + Sat |
+| n02 | **Bartender** | Convince someone to make you a drink. Any drink counts. | Easy | 10 / 20 | A mate confirms | Fri + Sat |
+| n06 | **Drop and Give Me Ten** | Get someone to do ten push-ups. Proper ones. | Easy | 10 / 20 | A mate confirms | Fri + Sat |
+| n07 | **Fit Check** | Get someone to compliment your outfit without you asking for it. | Easy | 10 / 20 | A mate confirms | Fri + Sat |
+| n08 | **Spill It** | Get a mate to reveal an embarrassing story. Their call what they share. | Spicy | 20 / 35 | A mate confirms | Fri + Sat |
+| n10 | **Arm Wrestle** | Get someone to challenge you to an arm wrestle. They have to ask, not you. | Easy | 10 / 20 | A mate confirms | Fri + Sat |
 | q01 | **Handshake Ratings** | Rate three mates' handshakes out of ten and tell them their score. Feedback encouraged. | Easy | 10 / 20 | Just tap it | Fri + Sat |
 | q02 | **Quote of the Night** | Grab the funniest thing someone's said tonight and read it back to the group. | Easy | 10 / 20 | Just tap it | Fri + Sat |
-| q03 | **Sequel** | Catch someone telling the same story twice this weekend and yell "SEQUEL". | Spicy | 20 / 35 | Just tap it | Saturday |
+| q03 | **Sequel** | Get someone to tell you the same story twice. Yell "SEQUEL" when they do. | Spicy | 20 / 35 | Just tap it | Fri + Sat |
 | q04 | **Phone Rescue** | Catch a mate doom-scrolling while the boys are talking and drag them back into the yarn. | Easy | 10 / 20 | Just tap it | Fri + Sat |
 | q05 | **How'd You Meet?** | Ask Jezza how he met his partner. Only interrupt to say "no way". | Easy | 10 / 20 | Just tap it | Friday |
 | q07 | **Cooked Counter** | Count how many times someone says "cooked" in 15 minutes. Announce the total. | Easy | 10 / 20 | Just tap it | Fri + Sat |

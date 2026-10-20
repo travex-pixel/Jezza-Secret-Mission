@@ -65,6 +65,7 @@ export interface PlayerPublic {
   raidsJoined: number;
   lowKey: boolean;     // no performing missions
   freshLegs: number;   // Saturday arrivals: double-points missions left
+  catchUp: boolean;    // gets Saturday catch-up: double XP until at the group's middle level (Saturday joiners, late arrivals, or the host's call)
   joinedPhase: Phase;
   h2h: Record<string, { w: number; l: number }>; // head-to-head record vs each mate
   upsetLosses: number;     // lost to someone rated well below you
@@ -396,6 +397,7 @@ export type HostAction =
   | { kind: 'purgePhotos' }
   | { kind: 'setHostPin'; pin: string }
   | { kind: 'setGroom'; playerId: string }
+  | { kind: 'setCatchUp'; playerId: string; on: boolean }
   | { kind: 'summonRaid' }
   | { kind: 'setPhotoMode'; mode: PhotoMode }
   | { kind: 'resolveTakedown'; photoId: string; remove: boolean }

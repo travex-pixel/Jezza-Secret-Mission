@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { Engine, FRESH_LEGS, nextSaturdayMorning } from '../shared/engine';
+import { Engine, FRESH_LEGS, LATE_ARRIVAL_BELOW, nextSaturdayMorning } from '../shared/engine';
 import { seededRng } from '../shared/battle';
-import { MISSIONS, MISSION_BY_ID, STARTER_MISSION, GROUP_MISSIONS } from '../shared/missions';
-import { LEVEL_XP, FRIDAY_MAX_LEVEL, stageForLevel } from '../shared/progression';
+import { MISSIONS, MISSION_BY_ID, STARTER_MISSION, GROUP_MISSIONS, ACTIVE_MISSIONS } from '../shared/missions';
+import { LEVEL_XP, FRIDAY_MAX_LEVEL, stageForLevel, ACHIEVEMENTS } from '../shared/progression';
 import { RAID_THRESHOLD, RAID_HIT_COOLDOWN_MS, BOSSES } from '../shared/raid';
 
 const PHOTO = 'data:image/jpeg;base64,AAAA';
@@ -102,6 +102,38 @@ describe('self-running weekend', () => {
     eng.handle('late_arrival_01', { type: 'claimMission', reqId: 'x', missionId: photoM.id, claimId: 'late-claim-01', photo: PHOTO });
     expect(late.points - before).toBeGreaterThanOrEqual(photoM.points * 2);
     expect(late.freshLegs).toBe(FRESH_LEGS - 1);
+  });
+  it('lads who joined Friday but barely played get Fresh Legs when Saturday starts', () => {
+    const { eng, ids, party, give } = setup();
+    // Tommo has done 3 real challenges on Friday; Big Dave only the tutorial stuff
+    const real = MISSIONS.filter((m) => m.method === 'photo' && m.scope === 'private' && !m.tutorial && !m.retired).slice(0, LATE_ARRIVAL_BELOW);
+    real.forEach((m, k) => { give(ids[2], m.id); eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: m.id, claimId: `fri-claim-${k}`, photo: PHOTO }); });
+    party().players[ids[2]].freshLegs = 0;
+    expect(party().players[ids[3]].catchUp).toBe(false);
+    eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'setPhase', phase: 'saturday' } });
+    expect(party().players[ids[3]].catchUp).toBe(true);
+    expect(party().players[ids[3]].freshLegs).toBe(FRESH_LEGS);
+    expect(party().players[ids[2]].catchUp).toBe(false);
+    expect(party().players[ids[2]].freshLegs).toBe(0);
+    expect(party().feed.some((f) => /Fresh Legs/.test(f.text))).toBe(true);
+  });
+  it('the host can switch Fresh Legs on or off for any lad', () => {
+    const { eng, ids, party } = setup();
+    const p = party().players[ids[4]];
+    expect(eng.handle(ids[2], { type: 'host', reqId: 'h', action: { kind: 'setCatchUp', playerId: ids[4], on: true } }).ack?.ok).toBe(false); // host only
+    expect(eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'setCatchUp', playerId: ids[4], on: true } }).ack?.ok).toBe(true);
+    expect(p.catchUp).toBe(true);
+    expect(p.freshLegs).toBe(FRESH_LEGS);
+    eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'setCatchUp', playerId: ids[4], on: false } });
+    expect(p.catchUp).toBe(false);
+    expect(p.freshLegs).toBe(0);
+  });
+  it('no singing or dancing challenges are dealt, and the retired badges are not earnable', () => {
+    expect(ACTIVE_MISSIONS.some((m) => m.category === 'dance' || m.category === 'sing')).toBe(false);
+    expect(ACHIEVEMENTS.filter((a) => a.retired).map((a) => a.id).sort()).toEqual(['crooner', 'dancer']);
+    const karaoke = ACHIEVEMENTS.find((a) => a.id === 'karaoke')!;
+    expect(karaoke.check({ completedMissionIds: ['n03'] } as any, {} as any)).toBe(true);
+    expect(karaoke.check({ completedMissionIds: [] } as any, {} as any)).toBe(false);
   });
   it('boss raid spawns from group activity, has a hit cooldown, and pays everyone who swung', () => {
     const { eng, ids, party, give, advance } = setup();

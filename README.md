@@ -22,12 +22,12 @@ More screenshots at every tested viewport live in [`docs/screenshots/`](docs/scr
 | Rookie boost: the next 3 challenges are easy, give double XP, count straight away (photos skip the vote) and skip the honour cooldown. Every hand always has a photo challenge, and never the same category twice in a row | ✅ |
 | **Jezza Lore**: 16 challenges for childhood, UNSW and newer mates to compare notes (old nicknames, hidden lore, first impressions, then-and-now photos, two truths and a lie). Jezza can veto any topic | ✅ |
 | **Runs itself, no host needed**: Friday starts on creation, Saturday at 5am Sydney, group challenges every 40 min | ✅ |
-| 92 quick challenges in Aussie English (make Jezza laugh, dance, sing, cooked photos, get Jezza in, cheers, sneaky, low-key, group) | ✅ |
+| 101 quick challenges in Aussie English (make Jezza laugh, cooked photos, get Jezza in, cheers, sneaky, low-key, group, Jezza Lore), including the lads' own list (Jezza's glasses, clothes pegs, arm wrestles, "I love you, mate"…). No singing or dancing challenges | ✅ |
 | Self-service checks: honour system (8-min cooldown), photo (the lads vote 👍/👎 by default; host can switch to *I approve* or *Instant*), a mate confirms. 🚩 Call BS, settled by the lads or the host | ✅ |
 | Low-key mode: no performing challenges for anyone who'd rather not | ✅ |
 | Boss raids on Friday (Bin Chicken King) and Saturday (Hangover Hydra): 15 min, loot for everyone who swings | ✅ |
 | Evolutions at Lv4 and Lv8, max one on Friday, teased ahead ("twitching…", mystery silhouette), full reveal animation | ✅ |
-| Saturday arrivals: Fresh Legs (2× points on first 6 challenges, 2× XP until caught up) | ✅ |
+| Saturday arrivals: Fresh Legs (2× points on first 6 challenges, 2× XP until caught up). Also given automatically when Saturday starts to anyone with fewer than 3 real challenges done, and the host can switch it on or off per lad | ✅ |
 | Quick battles with mates: pick a game plan + one charge-up tap, then watch the fight play itself (~10 s). Ranked ladder, win streaks, bounty on the leader | ✅ |
 | **Animated battles**: creatures enter, dash across the arena, hit-stop, knockback, per-creature specials, KO and victory, all replayed from the engine's real round log; Fast / Skip / replay; reduced motion respected | ✅ |
 | **Auto-battles**: every avatar fights a mate's avatar about every 45 min, phones away or not; "While you were away" summary with replays | ✅ |
@@ -44,7 +44,8 @@ More screenshots at every tested viewport live in [`docs/screenshots/`](docs/scr
 | Host PIN, leave/new room, join-by-link, link previews, persistence, keepsake photo export | ✅ |
 
 Deliberately **not** built: Wine Snob Championship, Mr & Mrs Hot Seat, Jezza Bingo, video uploads
-(a mate confirming covers dances and songs, and video would be heavy on phones and the server).
+(a mate confirming covers it, and video would be heavy on phones and the server). Singing and dancing challenges are
+retired (ids kept so old progress resolves); the only song left is getting Jezza himself to sing.
 
 ## Try it right now (no install)
 
@@ -120,7 +121,7 @@ shared/   The game. Pure TypeScript shared by server and client:
             types.ts        protocol + domain types
             engine.ts       authoritative rules engine (parties, missions, claims, battles, host actions)
             battle.ts       deterministic combat resolution (seedable RNG)
-            missions.ts     98 active missions (+32 retired, kept so old progress resolves) · creatures.ts 8 creatures + the groom's Golden Stag · progression.ts XP/levels/cosmetics/achievements/awards
+            missions.ts     101 active missions (+42 retired, kept so old progress resolves) · creatures.ts 8 creatures + the groom's Golden Stag · progression.ts XP/levels/cosmetics/achievements/awards
             names.ts        nickname moderation
 server/   Node 22 + express + ws. Wraps the engine: WebSocket fan-out, per-viewer redaction, rate limiting,
           heartbeat presence, JSON persistence (debounced, atomic rename), photo storage.
@@ -153,7 +154,7 @@ this event; if you ever need multi-instance scale, the engine is already pure an
   and the same moves a person has. Players can switch it off on the Battle tab.
 * **Finale** is the one thing the host does: Host → Event → Finale, then reveal the awards one tap at a time.
   The Weekend Menace (last on points) opens, The Jezza Legend (first) closes. Suggested prize: a cheap trophy or
-  sash, optionally a $50–$100 pool. The Menace's forfeit (a 20-second speech or dance) is optional and easy to decline.
+  sash, optionally a $50–$100 pool. The Menace's forfeit (a 20-second speech) is optional and easy to decline.
 
 ### EPIC jobs (purple)
 
@@ -203,8 +204,10 @@ a counter stance. It's tuned to win about 55% of fights: a groom's edge, but the
   five challenges) and slower later. Evolves at **Lv4** and **Lv8**. On Friday XP stops just short of Lv8, so max one evolution;
   the final form unlocks Saturday. Points still count while capped.
 * Saturday arrivals get **Fresh Legs**: double points on their first 6 challenges and double XP until they reach the
-  group's median level.
-* Cosmetics are earned, never bought: by level, by category achievements (jester hat, karaoke mic, disco aura,
+  group's median level. When Saturday starts, anyone already in the party with fewer than **3** real challenges done
+  (the selfie/roast/toast intro doesn't count) gets it too, so lads who joined from home on Friday aren't left behind.
+  The host can switch it on or off for anyone: Host → tap the lad → 🦵 Fresh Legs (🦵 shows in the roster).
+* Cosmetics are earned, never bought: by level, by achievements (jester hat, karaoke mic for getting Jezza to sing, disco aura for Jezza Lore,
   groomsman sash…), and by raids (Bin Chicken Plume, Hydra Slayer Cape).
 
 ### Keeping it honest (anti-spam)

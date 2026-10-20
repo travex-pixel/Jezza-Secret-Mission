@@ -163,7 +163,7 @@ export default function Host() {
         {section === 'players' && players.map((p) => (
           <button key={p.id} className="list-row" style={{ width: '100%', textAlign: 'left' }} onClick={() => { setTarget(p); setRename(p.nickname); }}>
             <span className="avatar sm">{p.creature ? <Creature creature={p.creature} level={p.level} colorway={p.equipped.colorway} bare /> : '🥚'}</span>
-            <span className="grow"><div className="bold">{p.isHost ? '👑 ' : ''}{party.groomId === p.id ? '🤵 ' : ''}{p.nickname}</div><div className="tiny faint">{p.points} pts · {p.missionsCompleted} missions · {p.online ? 'online' : 'away'}</div></span>
+            <span className="grow"><div className="bold">{p.isHost ? '👑 ' : ''}{party.groomId === p.id ? '🤵 ' : ''}{p.nickname}{p.catchUp ? ' 🦵' : ''}</div><div className="tiny faint">{p.points} pts · {p.missionsCompleted} missions · {p.online ? 'online' : 'away'}</div></span>
             <span className="tiny faint">manage ›</span>
           </button>
         ))}
@@ -199,6 +199,10 @@ export default function Host() {
               {Object.entries(target.categoryCounts).length === 0 && <div className="tiny faint">No completed challenges.</div>}
               {party.feed.filter((f) => f.kind === 'mission' && f.playerId === target.id).slice(-8).reverse().map((f) => { const title = f.text.match(/"([^"]+)"/)?.[1]; const m = title ? Object.values(MISSION_BY_ID).find((x) => x.title === title) : undefined; return m ? <div key={f.id} className="list-row"><span className="grow small">{m.title}</span><Button size="xs" variant="secondary" onClick={() => host({ kind: 'resetClaim', playerId: target.id, missionId: m.id })}>Reset</Button></div> : null; })}
             </div>
+            <button className="row-between panel pad" style={{ width: '100%', textAlign: 'left', padding: '8px 12px' }} onClick={() => host({ kind: 'setCatchUp', playerId: target.id, on: !target.catchUp })} aria-label="Fresh Legs">
+              <span><div className="bold small">🦵 Fresh Legs (late arrival)</div><div className="tiny faint">{target.catchUp ? `On: ${target.freshLegs} double-points challenges left, double XP till they catch up.` : 'Double points on 6 challenges, double XP till they catch the lads. Saturday turns it on by itself for anyone under 3 challenges.'}</div></span>
+              <span className={`switch ${target.catchUp ? 'on' : ''}`} />
+            </button>
             {party.groomId !== target.id && <Button size="sm" variant="secondary" onClick={() => { host({ kind: 'setGroom', playerId: target.id }); setTarget(null); }}>🤵 This is Jezza (the groom)</Button>}
             <div className="btn-row">
               {!target.isHost && <Button size="sm" variant="secondary" onClick={() => { host({ kind: 'transferHost', playerId: target.id }); setTarget(null); }}>Make host</Button>}

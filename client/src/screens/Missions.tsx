@@ -23,7 +23,7 @@ export default function Missions() {
   const toast = useStore((s) => s.toast);
   const refill = useCountdown(priv?.rerollRefillAt || undefined);
   const nextGroup = useCountdown(party?.nextGroupAt ?? undefined);
-  const toggleLowKey = async () => { try { await request({ type: 'setPrefs', lowKey: !me?.lowKey }); toast(!me?.lowKey ? 'Low-key on: no dancing, singing or performing.' : 'Low-key off: all challenges back in.', '😎'); } catch (e) { toast((e as Error).message, '⚠️', 'warn'); } };
+  const toggleLowKey = async () => { try { await request({ type: 'setPrefs', lowKey: !me?.lowKey }); toast(!me?.lowKey ? 'Low-key on: no jokes or impressions on the spot.' : 'Low-key off: all challenges back in.', '😎'); } catch (e) { toast((e as Error).message, '⚠️', 'warn'); } };
 
   const witness = async (claimId: string, approve: boolean) => {
     try { await request({ type: 'confirmWitness', claimId, approve }); sfx.select(); } catch { sfx.error(); }
@@ -60,7 +60,7 @@ export default function Missions() {
             {!!openEpics.length && <div className="eyebrow" style={{ marginTop: 4 }}>🟣 EPIC jobs: real chores, big points</div>}
             {openEpics.map((e) => <EpicCard key={e.id} epic={e} />)}
             <button className="row-between panel pad" style={{ width: '100%', textAlign: 'left', padding: '8px 12px' }} onClick={toggleLowKey}>
-              <span><div className="bold small">😎 Low-key mode</div><div className="tiny faint">No dancing, singing or performing. Still plenty to do.</div></span>
+              <span><div className="bold small">😎 Low-key mode</div><div className="tiny faint">No jokes or impressions on the spot. Still plenty to do.</div></span>
               <span className={`switch ${me?.lowKey ? 'on' : ''}`} aria-label="Low-key mode" />
             </button>
           </>

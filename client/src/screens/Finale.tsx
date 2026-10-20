@@ -69,7 +69,7 @@ export default function Finale() {
                   <div className="eyebrow">{a.name}</div>
                   <div className="display title-md ellipsis">{p?.nickname ?? 'Nobody'}</div>
                   <div className="tiny dim">{a.reason}</div>
-                  {menace && p && <div className="tiny faint" style={{ marginTop: 4 }}>Optional forfeit: a 20-second speech or dance for Jezza. Saying &quot;nah&quot; is completely fine.</div>}
+                  {menace && p && <div className="tiny faint" style={{ marginTop: 4 }}>Optional forfeit: a 20-second speech for Jezza. Saying &quot;nah&quot; is completely fine.</div>}
                 </span>
               </div>); })}
             {next ? <Button onClick={() => { sfx.sting(); setRevealed((r) => r + 1); }}>{revealed === 0 ? `Open with: ${next.name}` : next.id === 'legend' ? '👑 Crown THE JEZZA LEGEND' : `Reveal: ${next.name}`}</Button>

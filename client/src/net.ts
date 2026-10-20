@@ -131,7 +131,7 @@ function connectDemo(): Transport {
       p.level = levelForXp(m.xp);
       p.rating = 1000 + (m.w - m.l) * 18; p.streak = m.w > m.l ? 1 : 0; p.bestStreak = Math.max(1, m.w);
       p.online = i % 4 !== 3;
-      p.categoryCounts = { laugh: i % 3, jezza: i % 2, photo: i % 4, dance: (i + 1) % 3 };
+      p.categoryCounts = { laugh: i % 3, jezza: i % 2, photo: i % 4, lore: (i + 1) % 3 };
       p.laughs = (i * 3) % 7; p.fires = (i * 5) % 6; p.wallVotes = i % 4; p.raidDamage = 0;
     });
     party.groomId = includeJezzaAsHost ? hostId : party.groomId;
@@ -141,7 +141,7 @@ function connectDemo(): Transport {
       [5, 'toast', 'To the only bloke who brings a spare phone charger for everyone. Legend.'],
       [3, 'roast', 'Jezza\'s idea of a big night is the extended edition of anything.'],
       [7, 'roast', 'Mate has been "five minutes away" since 2014.'],
-      [9, 'toast', 'Best mate, worst dancer, absolute rock. Cheers Jez.'],
+      [9, 'toast', 'Best mate, worst parallel parker, absolute rock. Cheers Jez.'],
     ];
     const t0 = Date.now();
     roasts.forEach(([who, kind, text], n) => {
@@ -154,7 +154,7 @@ function connectDemo(): Transport {
       party.cellar.push({ id: `ce_demo_${n}`, at: t0 - (n + 2) * 300000, playerId: pid, drink, stars, note, phase: 'friday', fires: mateIds.filter((_, k) => k % (n + 2) === 0 && k !== who) });
     });
     party.feed.push(
-      { id: 'd1', at: t0 - 540000, kind: 'mission', text: 'Big Dave did "Ripper Dance" (+15)', emoji: '🕺', playerId: mateIds[2], claimId: 'demo-c1', reactions: { '😂': [mateIds[1], mateIds[4], mateIds[6]] } },
+      { id: 'd1', at: t0 - 540000, kind: 'mission', text: 'Big Dave did "Jezza Sings" (+20)', emoji: '🤵', playerId: mateIds[2], claimId: 'demo-c1', reactions: { '😂': [mateIds[1], mateIds[4], mateIds[6]] } },
       { id: 'd2', at: t0 - 420000, kind: 'battle', text: 'Keg (Big Dave) knocked out Bruce (Tommo) · 🔥3 streak', emoji: '🏆' },
       { id: 'd3', at: t0 - 300000, kind: 'evolve', text: '🧬 Shorty\'s Professor EVOLVED into a Midnight Owl!', emoji: '🧬' },
       { id: 'd4', at: t0 - 120000, kind: 'mission', text: 'Nath did a sneaky one (+20)', emoji: '🕵️', playerId: mateIds[3], claimId: 'demo-c2' },

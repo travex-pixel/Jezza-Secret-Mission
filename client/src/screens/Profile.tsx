@@ -104,7 +104,7 @@ export default function Profile() {
           )}
           {slot === 'badges' && (
             <div className="stack-6">
-              {ACHIEVEMENTS.map((a) => { const got = me.achievements.includes(a.id); return (
+              {ACHIEVEMENTS.filter((a) => !a.retired || me.achievements.includes(a.id)).map((a) => { const got = me.achievements.includes(a.id); return (
                 <div key={a.id} className="list-row" style={{ opacity: got ? 1 : 0.5 }}>
                   <span style={{ fontSize: 22 }}>{got ? '🏅' : '🔒'}</span>
                   <span className="grow"><div className="bold">{a.name}</div><div className="tiny dim">{a.blurb}{a.cosmetic ? ` · unlocks ${COSMETIC_BY_ID[a.cosmetic].name}` : ''}</div></span>
