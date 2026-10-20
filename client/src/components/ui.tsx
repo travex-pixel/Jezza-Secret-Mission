@@ -40,7 +40,7 @@ export function Toasts() {
   if (!toasts.length) return null;
   return (
     <div className="toasts">
-      {toasts.map((t) => <div key={t.id} className={`toast ${t.tone ?? ''}`} onClick={() => dismiss(t.id)}>{t.emoji && <span className="emoji">{t.emoji}</span>}<span className="grow">{t.text}</span></div>)}
+      {toasts.slice(-2).map((t) => <div key={t.id} className={`toast ${t.tone ?? ''}`} onClick={() => dismiss(t.id)}>{t.emoji && <span className="emoji">{t.emoji}</span>}<span className="grow">{t.text}</span></div>)}
     </div>
   );
 }

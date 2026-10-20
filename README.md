@@ -18,7 +18,7 @@ More screenshots at every tested viewport live in [`docs/screenshots/`](docs/scr
 | Area | Status |
 | --- | --- |
 | Cinematic Three.js opening (moonlit vineyard, fog, gold particles, cellar) with CSS/SVG fallback | ✅ |
-| 30-second onboarding: enter → nickname (code comes from the share link) → creature → reveal → the intro: **Get the Boys Online** (selfie with Jezza and two lads, in-game camera; stays pinned if you're not together yet) → **Roast Jezza** → **Toast Jezza** (one line each, posted to the Jezza Wall) → straight into a real challenge. Every step scores once, can be passed without penalty, and can be replayed from ❓ (done steps are skipped). The groom just gets the selfie | ✅ |
+| 30-second onboarding: enter → nickname (code comes from the share link) → creature → reveal → the intro: **Get the Boys Online** (selfie with Jezza and two lads, in-game camera; stays pinned if you're not together yet) → **Roast Jezza** → **Toast Jezza** (one line each, posted to the Jezza Wall) → straight into a real challenge. One job and one big button per screen; after each step you see what you earned and a button that names the next step (no pop-ups during the intro). Every step scores once, can be skipped without penalty, and can be replayed from ❓ (done steps are skipped). The groom just gets the selfie | ✅ |
 | Rookie boost: the next 3 challenges are easy, give double XP, count straight away (photos skip the vote) and skip the honour cooldown. Every hand always has a photo challenge, and never the same category twice in a row | ✅ |
 | **Jezza Lore**: 16 challenges for childhood, UNSW and newer mates to compare notes (old nicknames, hidden lore, first impressions, then-and-now photos, two truths and a lie). Jezza can veto any topic | ✅ |
 | **Runs itself, no host needed**: Friday starts on creation, Saturday at 5am Sydney, group challenges every 40 min | ✅ |
@@ -258,7 +258,9 @@ Skipping jumps straight to the engine's final state.
 ### Photos and privacy
 
 * Photos are taken with a camera **inside the game** (the page never switches to the phone's camera app, which Android
-  can close for memory: "Unable to complete previous operation due to low memory"). If the camera is blocked, one tap
+  can close for memory: "Unable to complete previous operation due to low memory"). Three states you can tell apart at a
+  glance: live (shutter, with a hint of what to get in the shot) → taken (flash, framed still, "Photo taken", Retake /
+  **Use this photo**) → sending. One photo per shutter tap, however fast you hit it. If the camera is blocked, one tap
   opens the phone's own camera instead, and 🖼️ always picks from the library.
 * Mission photos are resized on the phone (1600 px on the long edge, JPEG ~82%, usually 250–500 KB) and uploaded over the WebSocket to **your own game
   server**. They are written to `DATA_DIR/photos/` and served from `/photos/<random-id>.jpeg`. No third-party

@@ -10,7 +10,7 @@ import { SELFIE_FILE } from './fixtures';
 const BASE = process.env.BASE_URL ?? 'http://localhost:5173';
 const OUT = process.env.SHOT_DIR ?? path.resolve('test-results/screenshots');
 const VIEWPORTS = [[320, 568], [360, 640], [390, 844], [412, 915]] as const;
-const CORE_NO_SCROLL = new Set(['01-opening', '03-choose', '04-reveal', '05-first-mission', '06b-intro-roast', '06c-intro-go', '07-lobby', '09-battle-arena', '14-raid', '14b-raid-lobby']);
+const CORE_NO_SCROLL = new Set(['01-opening', '03-choose', '04-reveal', '05-first-mission', '06-selfie-done', '06b-intro-roast', '06c-intro-go', '07-lobby', '09-battle-arena', '14-raid', '14b-raid-lobby']);
 
 const findChrome = () => {
   const roots = [process.env.CHROME_PATH, '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', '/opt/pw-browsers/chromium/chrome-linux/chrome'];
@@ -62,26 +62,36 @@ async function run() {
     await page.getByRole('button', { name: /adopt/i }).click();
     await page.waitForTimeout(2200);
     await shot(page, vp, '04-reveal');
-    await page.getByRole('button', { name: /first challenge/i }).click();
+    await page.getByRole('button', { name: /group selfie/i }).click();
     await page.locator('input[data-selfie]').waitFor({ state: 'attached' });
     await shot(page, vp, '05-first-mission');
     await page.locator('input[data-selfie]').setInputFiles(SELFIE_FILE);
-    await page.waitForSelector('.reward');
-    await shot(page, vp, '06-reward');
-    await page.locator('.reward').click();
+    await page.getByTestId('intro-next').waitFor();
+    await shot(page, vp, '06-selfie-done');
+    await page.getByTestId('intro-next').click();
     // intro 2: roast Jezza (posts to the Wall and counts the challenge)
     await page.locator('textarea[data-intro=roast]').waitFor();
     await shot(page, vp, '06b-intro-roast');
     await page.locator('textarea[data-intro=roast]').fill('Jezza\'s Year 9 haircut had its own postcode');
     await page.getByRole('button', { name: /post the roast/i }).click();
-    await page.waitForSelector('.reward'); await page.locator('.reward').click();
-    // intro 3: toast (passed here), then straight into a real challenge
-    await page.getByRole('button', { name: /pass for now/i }).click();
-    await page.getByRole('button', { name: /let's go/i }).waitFor();
+    await page.getByTestId('intro-next').waitFor(); await page.getByTestId('intro-next').click();
+    // intro 3: toast (skipped here), then straight into a real challenge
+    await page.getByRole('button', { name: /skip for now/i }).click();
+    await page.getByRole('button', { name: /start playing/i }).waitFor();
     await shot(page, vp, '06c-intro-go');
-    await page.getByRole('button', { name: /let's go/i }).click();
+    await page.getByRole('button', { name: /start playing/i }).click();
     await page.waitForSelector('.bottom-nav');
     await shot(page, vp, '07-lobby');
+    {
+      // nothing on the Lobby may sit on top of anything else (e.g. the challenge card's buttons under the quick row)
+      const sel = '.status-strip, .alert, .raid-banner, .epic-card, .vote-item, .mission-card, .quick-row, .feed-item';
+      const boxes = await page.evaluate((sel) => [...document.querySelectorAll(sel)].map((el, i) => { const r = el.getBoundingClientRect(); return { i, c: el.className.split(' ')[0], t: r.top, b: r.bottom, l: r.left, r: r.right, kids: [...el.querySelectorAll(sel)].length }; }).filter((b) => b.b - b.t > 0), sel);
+      for (let x = 0; x < boxes.length; x++) for (let y = x + 1; y < boxes.length; y++) {
+        const A = boxes[x], B = boxes[y];
+        const dy = Math.min(A.b, B.b) - Math.max(A.t, B.t), dx = Math.min(A.r, B.r) - Math.max(A.l, B.l);
+        if (dy > 2 && dx > 2 && !A.kids && !B.kids) problems.push({ viewport: vp, screen: '07-lobby', issue: `overlap ${Math.round(dy)}px: ${A.c} over ${B.c}` });
+      }
+    }
     await page.locator('.bottom-nav').getByRole('button', { name: 'Challenges' }).click();
     await shot(page, vp, '08-missions');
     await page.locator('.bottom-nav').getByRole('button', { name: 'Battle' }).click();
@@ -120,7 +130,7 @@ async function run() {
     await page.waitForTimeout(900);
     await shot(page, vp, '14-raid');
     await page.locator('.bottom-nav').getByRole('button', { name: 'Lobby' }).click();
-    await page.getByRole('button', { name: /jezza wall/i }).click();
+    await page.getByRole('button', { name: /wall$/i }).click();
     await page.getByPlaceholder(/parallel parks/i).fill('Jezza still claps when the plane lands.');
     await page.getByRole('button', { name: /post \+5/i }).click();
     await page.waitForTimeout(500);

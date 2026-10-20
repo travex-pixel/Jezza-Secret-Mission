@@ -23,7 +23,7 @@ export async function compressImage(file: File, maxSide = 1600, quality = 0.82):
   } finally { URL.revokeObjectURL(url); }
 }
 
-export function MissionCard({ mission, assignment, compact, onDone, showReroll, group }: { mission: Mission; assignment?: MissionAssignment; compact?: boolean; onDone?: () => void; showReroll?: boolean; group?: boolean }) {
+export function MissionCard({ mission, assignment, compact, onDone, showReroll, group, preview }: { mission: Mission; assignment?: MissionAssignment; compact?: boolean; onDone?: () => void; showReroll?: boolean; group?: boolean; preview?: boolean }) {
   const meta = CATEGORY_META[mission.category];
   const method = METHOD_META[mission.method];
   const status = assignment?.status ?? 'active';
@@ -64,6 +64,16 @@ export function MissionCard({ mission, assignment, compact, onDone, showReroll, 
     finally { setBusy(false); }
   };
 
+  /** Same as submit, but the error goes back to the caller (the camera shows it on the photo) instead of the card. */
+  const submitOrThrow = async (extra: { photo?: string }) => {
+    setBusy(true); setErr(null);
+    try {
+      const res = await request<{ status: string }>({ type: 'claimMission', missionId: mission.id, claimId: claimIdRef.current, note: note || undefined, ...extra });
+      claimIdRef.current = newClaimId();
+      if (res.status === 'pending') { sfx.select(); toast('Photo sent. The lads vote it in.', '🗳️', 'success'); } else sfx.mission();
+      onDone?.();
+    } finally { setBusy(false); }
+  };
   const onFile = async (f: File | undefined) => {
     if (!f) return;
     setBusy(true); setErr(null);
@@ -103,7 +113,7 @@ export function MissionCard({ mission, assignment, compact, onDone, showReroll, 
   const witnesses = (party?.players ?? []).filter((p) => p.id !== myId && p.creature).sort((a, b) => Number(b.id === groomId) - Number(a.id === groomId) || Number(b.online) - Number(a.online) || a.nickname.localeCompare(b.nickname));
 
   return (
-    <div className={`mission-card ${mission.secret ? 'secret' : ''} ${completed ? 'done' : ''} ${status === 'pending' ? 'pending' : ''}`} style={{ ['--hue' as any]: meta.hue }}>
+    <div className={`mission-card ${compact ? 'compact' : ''} ${mission.secret ? 'secret' : ''} ${completed ? 'done' : ''} ${status === 'pending' ? 'pending' : ''}`} style={{ ['--hue' as any]: meta.hue }}>
       <div className="mc-head">
         <span className="row" style={{ gap: 6 }}>
           <span className="pill pill-xs" style={{ borderColor: meta.hue, color: 'var(--cream)' }}>{meta.emoji} {mission.secret ? 'SECRET' : meta.label}</span>
@@ -116,14 +126,13 @@ export function MissionCard({ mission, assignment, compact, onDone, showReroll, 
       </div>
       <div className="mc-title">{mission.title}</div>
       <div className={`mc-body ${compact ? 'clamp' : ''}`}>{mission.instruction}</div>
-      {mission.method === 'photo' && !compact && status === 'active' && <div className="tiny faint" style={{ padding: '0 14px' }}>📸 opens the camera · 🖼️ picks from your photos. Want the full-quality original? Take it in your normal camera app, then tap 🖼️.</div>}
       {err && <div className="field-error" style={{ padding: '0 14px' }}>{err}</div>}
-      <div className="mc-foot">
+      {!preview && <div className="mc-foot">
         <span className="tiny faint" style={{ maxWidth: '45%', lineHeight: 1.2 }}>{mission.wall ? 'Posts to the Jezza Wall' : method.label}{showReroll && status === 'active' && !mission.starter ? <><br /><button className="bold" style={{ color: 'var(--rose)', textDecoration: 'underline' }} onClick={reroll} disabled={busy || (!freeSkip && (priv?.rerollsLeft ?? 0) <= 0)}>{isGroom ? 'Veto' : freeSkip ? 'Skip' : `Skip (${priv?.rerollsLeft ?? 0} left)`}</button></> : null}</span>
         <span className="row" style={{ gap: 6 }}>{cta()}</span>
-      </div>
+      </div>}
       {writing && mission.wall && <WallSheet kind={mission.wall} title={mission.title} hint={mission.instruction} onClose={() => setWriting(false)} />}
-      {camera && <CameraSheet facing={mission.selfie ? 'user' : 'environment'} onClose={() => setCamera(false)} onFallback={() => fileRef.current?.click()} onPhoto={(photo) => { setCamera(false); void submit({ photo }); }} />}
+      {camera && <CameraSheet facing={mission.selfie ? 'user' : 'environment'} hint={mission.title} onClose={() => setCamera(false)} onFallback={() => fileRef.current?.click()} onPhoto={async (photo) => { await submitOrThrow({ photo }); setCamera(false); }} />}
       {pickWitness && (
         <Sheet onClose={() => setPickWitness(false)}>
           <div className="eyebrow center">Who saw it?</div>

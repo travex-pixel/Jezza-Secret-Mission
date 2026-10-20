@@ -30,6 +30,7 @@ interface State {
   heldRewards: Reward[];
   heldToasts: Omit<Toast, 'id'>[];
   doneBattles: string[];   // finished battles the player tapped Done on (so the result never pops back up)
+  introRewards: Reward[];  // rewards earned during the intro: shown inline on the step, not as a pop-up
   // actions
   setConn: (c: ConnStatus) => void;
   setFlow: (f: Flow) => void;
@@ -45,6 +46,7 @@ interface State {
   openPhoto: (p: { src: string; caption?: string; sub?: string } | null) => void;
   watchBattle: (id: string | null) => void;
   doneBattle: (id: string) => void;
+  endIntro: () => void;
 }
 
 let toastSeq = 1;
@@ -73,6 +75,7 @@ export const useStore = create<State>((set, get) => ({
   heldRewards: [],
   heldToasts: [],
   doneBattles: loadDoneBattles(),
+  introRewards: [],
   pendingCode: new URLSearchParams(location.search).get('p')?.toUpperCase() ?? null,
 
   setConn: (conn) => set({ conn }),
@@ -96,6 +99,7 @@ export const useStore = create<State>((set, get) => ({
       case 'reward': {
         const r: Reward = { points: m.points, xp: m.xp, levelUp: m.levelUp, unlocked: m.unlocked, achievements: m.achievements, title: m.title, evolved: m.evolved, capped: m.capped, bonus: m.bonus, battleId: m.battleId };
         if (r.battleId && r.battleId === get().watchingBattle) { set({ heldRewards: [...get().heldRewards, r] }); break; } // don't spoil the fight
+        if (get().flow === 'firstMission' && !r.evolved) { set({ introRewards: [...get().introRewards, r] }); break; } // the intro shows it in place
         if (get().reward) set({ rewardQueue: [...get().rewardQueue, r] }); else set({ reward: r });
         break;
       }
@@ -106,7 +110,7 @@ export const useStore = create<State>((set, get) => ({
   },
   toast: (text, emoji, tone = 'info') => {
     // "Achievement: Taste of Victory" mid-fight would give the result away; it waits with the reward.
-    if (get().watchingBattle && text.startsWith('Achievement')) { set({ heldToasts: [...get().heldToasts, { text, emoji, tone }] }); return; }
+    if ((get().watchingBattle || get().flow === 'firstMission') && text.startsWith('Achievement')) { set({ heldToasts: [...get().heldToasts, { text, emoji, tone }] }); return; }
     const id = toastSeq++;
     set({ toasts: [...get().toasts.slice(-3), { id, text, emoji, tone }] });
     setTimeout(() => get().dismissToast(id), 3800);
@@ -118,6 +122,11 @@ export const useStore = create<State>((set, get) => ({
   setReplay: (replay) => set({ replay }),
   setAwayOpen: (awayOpen) => set({ awayOpen }),
   openPhoto: (photo) => set({ photo }),
+  endIntro: () => {
+    const toasts = get().heldToasts;
+    set({ flow: 'main', tab: 'home', introRewards: [], heldToasts: [] });
+    for (const t of toasts) get().toast(t.text, t.emoji, t.tone);
+  },
   doneBattle: (id) => {
     const doneBattles = [...get().doneBattles.filter((x) => x !== id), id].slice(-30);
     set({ doneBattles });

@@ -29,7 +29,7 @@ async function main() {
   check((await host.page.locator('.pick-grid').count()) === 0 && (await host.page.getByText('Golden Stag').count()) > 0, 'the groom is offered only the Golden Stag');
   await host.page.getByRole('button', { name: /adopt goldhorn/i }).click();
   await host.page.waitForTimeout(2000);
-  await host.page.getByRole('button', { name: /first challenge/i }).click();
+  await host.page.getByRole('button', { name: /group selfie/i }).click();
   await finishIntro(host.page);
   await host.page.waitForSelector('.bottom-nav');
   await host.page.locator('.quick-btn', { hasText: 'Party' }).click();
@@ -46,11 +46,11 @@ async function main() {
   await mate.page.locator('.pick-card').nth(2).click();
   await mate.page.getByRole('button', { name: /adopt/i }).click();
   await mate.page.waitForTimeout(2000);
-  await mate.page.getByRole('button', { name: /first challenge/i }).click();
+  await mate.page.getByRole('button', { name: /group selfie/i }).click();
   await mate.page.locator('input[data-selfie]').setInputFiles(SELFIE_FILE); // tutorial: the first challenge is a selfie
-  await mate.page.waitForSelector('.reward');
-  check(/level\s*2/i.test((await mate.page.locator('.reward').textContent()) ?? ''), 'the selfie counts straight away and levels the creature up');
-  await mate.page.locator('.reward').click();
+  await mate.page.getByTestId('intro-next').waitFor();
+  check(/level\s*2/i.test((await mate.page.locator('.screen').textContent()) ?? ''), 'the selfie counts straight away and levels the creature up (shown on the step, no pop-up)');
+  check((await mate.page.locator('.reward').count()) === 0, 'no reward pop-up interrupts the intro');
   await finishIntro(mate.page);
   await mate.page.waitForSelector('.bottom-nav');
 

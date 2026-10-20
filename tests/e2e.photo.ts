@@ -20,7 +20,7 @@ async function main() {
   await p.getByRole('button', { name: /create the party/i }).click();
   await p.waitForSelector('.pick-grid'); await p.locator('.pick-card').first().click();
   await p.getByRole('button', { name: /adopt/i }).click(); await p.waitForTimeout(2000);
-  await p.getByRole('button', { name: /first challenge/i }).click(); await finishIntro(p);
+  await p.getByRole('button', { name: /group selfie/i }).click(); await finishIntro(p);
   await p.getByRole('button', { name: /host controls/i }).click();
   await p.locator('.list-row', { hasText: 'The Big Cheers' }).getByRole('button', { name: /reveal/i }).click();
   await p.waitForTimeout(400);

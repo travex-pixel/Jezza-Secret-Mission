@@ -2,6 +2,10 @@
 // memory ("Unable to complete previous operation due to low memory") and the photo never arrives. A live camera
 // inside the page never leaves it. If the camera can't start (no permission, old phone), one tap opens the
 // phone's own camera app instead.
+//
+// Three states a first-timer can tell apart at a glance: LIVE (shutter), TAKEN (framed still, "Use this photo"),
+// SENDING. Tapping the shutter flashes and clicks, and the still is framed, so nobody keeps re-taking a photo
+// they've already got.
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { sfx } from '../audio';
@@ -10,9 +14,14 @@ export const canUseLiveCamera = () => typeof navigator !== 'undefined' && !!navi
 
 const MAX_SIDE = 1600;
 
-export default function CameraSheet({ facing: initial, onPhoto, onFallback, onClose }: {
+export default function CameraSheet({ facing: initial, hint, useLabel = 'Use this photo', onPhoto, onFallback, onClose }: {
   facing: 'user' | 'environment';
-  onPhoto: (dataUrl: string) => void;
+  /** one line over the live view: what to get in the shot */
+  hint?: string;
+  /** what the primary button on the taken photo says */
+  useLabel?: string;
+  /** sends the photo; the sheet stays open ("Sending…") until this resolves, and shows the error if it throws */
+  onPhoto: (dataUrl: string) => Promise<void> | void;
   onFallback: () => void;
   onClose: () => void;
 }) {
@@ -21,7 +30,11 @@ export default function CameraSheet({ facing: initial, onPhoto, onFallback, onCl
   const [facing, setFacing] = useState(initial);
   const [ready, setReady] = useState(false);
   const [shot, setShot] = useState<string | null>(null);
+  const [flash, setFlash] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
+  const capturing = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -40,23 +53,42 @@ export default function CameraSheet({ facing: initial, onPhoto, onFallback, onCl
   }, [facing]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const snap = () => {
-    const v = video.current; if (!v || !v.videoWidth) return;
-    const scale = Math.min(1, MAX_SIDE / Math.max(v.videoWidth, v.videoHeight));
-    const c = document.createElement('canvas');
-    c.width = Math.round(v.videoWidth * scale); c.height = Math.round(v.videoHeight * scale);
-    const g = c.getContext('2d')!;
-    if (facing === 'user') { g.translate(c.width, 0); g.scale(-1, 1); } // keep the selfie the way you saw it
-    g.drawImage(v, 0, 0, c.width, c.height);
-    sfx.tap();
-    setShot(c.toDataURL('image/jpeg', 0.85));
+    const v = video.current;
+    if (!v || !v.videoWidth || capturing.current) return; // one photo per tap, however fast they hit it
+    capturing.current = true;
+    setFlash(true); sfx.select();
+    // let the flash paint first: encoding a 1600px JPEG blocks the thread for a moment on a phone
+    setTimeout(() => {
+      try {
+        const scale = Math.min(1, MAX_SIDE / Math.max(v.videoWidth, v.videoHeight));
+        const c = document.createElement('canvas');
+        c.width = Math.round(v.videoWidth * scale); c.height = Math.round(v.videoHeight * scale);
+        const g = c.getContext('2d')!;
+        if (facing === 'user') { g.translate(c.width, 0); g.scale(-1, 1); } // keep the selfie the way you saw it
+        g.drawImage(v, 0, 0, c.width, c.height);
+        setShot(c.toDataURL('image/jpeg', 0.85));
+      } finally { setFlash(false); capturing.current = false; }
+    }, 40);
+  };
+  const retake = () => { setShot(null); setErr(null); };
+  const use = async () => {
+    if (!shot || sending) return;
+    setSending(true); setErr(null);
+    try { await onPhoto(shot); }
+    catch (e) { setErr((e as Error).message || 'Could not send that. Try again.'); setSending(false); }
   };
 
   return createPortal(
-    <div className="camera" role="dialog" aria-label="Camera">
+    <div className={`camera ${shot ? 'taken' : 'live'}`} role="dialog" aria-label="Camera">
+      <div className="camera-top">
+        {shot ? <span className="camera-tag taken">📸 Photo taken</span> : hint ? <span className="camera-tag">{hint}</span> : null}
+      </div>
       {/* the video stays mounted under the preview so Retake picks up the same live stream */}
       <video ref={video} className={`camera-view ${facing === 'user' ? 'mirror' : ''}`} style={shot ? { display: 'none' } : undefined} playsInline muted autoPlay />
-      {shot && <img className="camera-view" src={shot} alt="Your photo" />}
+      {shot && <div className="camera-frame"><img className="camera-still" src={shot} alt="Your photo" /></div>}
+      {flash && <div className="camera-flash" />}
       {!ready && !shot && !failed && <div className="camera-wait">Starting the camera…</div>}
+      {sending && <div className="camera-wait"><div className="camera-sending">Sending your photo…</div></div>}
       {failed && (
         <div className="camera-wait"><div className="center stack-10" style={{ padding: 24 }}>
           <div className="bold">Couldn't open the camera here.</div>
@@ -65,11 +97,12 @@ export default function CameraSheet({ facing: initial, onPhoto, onFallback, onCl
           <button className="camera-use" onClick={() => { onFallback(); onClose(); }}>📸 Use phone camera</button>
         </div></div>
       )}
+      {err && <div className="camera-err">{err}</div>}
       <div className="camera-bar">
         {shot ? (
           <>
-            <button className="camera-text" onClick={() => setShot(null)}>Retake</button>
-            <button className="camera-use" onClick={() => onPhoto(shot)}>✅ Use it</button>
+            <button className="camera-retake" onClick={retake} disabled={sending}>↺ Retake</button>
+            <button className="camera-use grow" onClick={() => void use()} disabled={sending} data-testid="use-photo">{sending ? 'Sending…' : `✅ ${useLabel}`}</button>
           </>
         ) : (
           <>
@@ -79,6 +112,7 @@ export default function CameraSheet({ facing: initial, onPhoto, onFallback, onCl
           </>
         )}
       </div>
+      {!shot && ready && <div className="camera-foot">Tap the button to take the photo</div>}
     </div>,
     document.body,
   );
