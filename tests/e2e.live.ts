@@ -38,10 +38,13 @@ async function main() {
   check(/^[A-Z0-9]{4}$/.test(code), `host sees party code ${code}`);
 
   await mate.page.goto(`${BASE}/?p=${code}`, { waitUntil: 'networkidle' });
-  await mate.page.getByRole('button', { name: /enter the vineyard/i }).click();
-  check((await mate.page.getByText(`Joining party ${code}`).count()) === 1 && (await mate.page.locator('.input-code').count()) === 0, 'join link carries the party code (no code box to fill)');
+  // the invite link lands straight on one screen: whose party, who's in, your name, I'm in
+  await mate.page.getByTestId('invite-line').waitFor();
+  check((await mate.page.getByRole('button', { name: /enter the vineyard/i }).count()) === 0 && (await mate.page.locator('.input-code').count()) === 0, 'invite link skips the opening screen and the code box');
+  await mate.page.waitForFunction(() => /already in/.test(document.querySelector('[data-testid=invite-line]')?.textContent ?? ''), undefined, { timeout: 5000 }).catch(() => undefined);
+  check(/Jezza's Bucks Weekend.*1 lad already in/.test((await mate.page.getByTestId('invite-line').textContent()) ?? ''), `invite shows whose party and who's in (${(await mate.page.getByTestId('invite-line').textContent())?.trim()})`);
   await mate.page.getByPlaceholder(/big dave/i).fill('Tommo');
-  await mate.page.getByRole('button', { name: /join the legends/i }).click();
+  await mate.page.getByRole('button', { name: /i'm in/i }).click();
   await mate.page.waitForSelector('.pick-grid');
   await mate.page.locator('.pick-card').nth(2).click();
   await mate.page.getByRole('button', { name: /adopt/i }).click();
@@ -80,7 +83,7 @@ async function main() {
   await mate.page.screenshot({ path: path.join(OUT, 'mate-plan.png') });
   // Refresh mid-battle survives
   await mate.page.reload({ waitUntil: 'networkidle' });
-  await mate.page.getByRole('button', { name: /enter the vineyard/i }).click();
+  // (the invite link in the address bar: no opening screen, the game remembers the mate and lands him back in)
   await mate.page.waitForSelector('.bottom-nav', { timeout: 8000 });
   check(true, 'mate refreshes and lands straight back in the game (identity + party persisted)');
   await mate.page.locator('.bottom-nav').getByRole('button', { name: 'Battle' }).click();

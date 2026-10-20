@@ -217,7 +217,7 @@ export function missionAvailableInPhase(mission: Mission, phase: 'friday' | 'sat
 }
 
 export const METHOD_META: Record<CompletionMethod, { label: string; cta: string; hint: string }> = {
-  self:    { label: 'Honour system', cta: 'I DID IT', hint: 'Tap when it\'s done. The lads will know if you\'re lying.' },
+  self:    { label: 'Just tap it', cta: 'I DID IT', hint: 'Tap when it\'s done. The lads will know if you\'re lying.' },
   photo:   { label: 'Needs a photo', cta: 'SNAP IT', hint: 'Take a photo or pick one from your library. The lads vote it in (or the host checks it, if they\'ve set that).' },
   witness: { label: 'A mate confirms', cta: 'I DID IT', hint: 'Pick a mate who was there. They tap yes on their phone.' },
   host:    { label: 'Host checks it', cta: 'I DID IT', hint: 'The host decides.' },

@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { VineyardFallback } from '../components/VineyardScene';
 import { Button, ConnectionPill } from '../components/ui';
 import { useStore } from '../store';
 import { request, isDemo } from '../net';
 import { loadPref, savePref } from '../identity';
-import { sfx } from '../audio';
+import { sfx, unlockAudio } from '../audio';
 
 export default function Join() {
   const setFlow = useStore((s) => s.setFlow);
@@ -18,6 +19,15 @@ export default function Join() {
   const [viaLink, setViaLink] = useState(() => !isDemo() && !!new URLSearchParams(location.search).get('p'));
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // The invite screen shows whose party it is and how many lads are already in (and catches a dead link early)
+  const [invite, setInvite] = useState<{ name: string; lads: number } | null>(null);
+  useEffect(() => {
+    if (!viaLink || !code) return;
+    fetch(`/api/party/${encodeURIComponent(code)}/exists`).then((r) => r.json()).then((j) => {
+      if (j?.exists) setInvite({ name: String(j.name ?? ''), lads: Number(j.lads ?? 0) });
+      else { setViaLink(false); setErr('That invite link isn\'t live any more. Ask the host for the party code.'); }
+    }).catch(() => undefined);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const afterJoin = () => {
     savePref('nick', nick.trim());
@@ -27,7 +37,7 @@ export default function Join() {
   };
 
   const submit = async () => {
-    setErr(null); setBusy(true); clearKicked();
+    unlockAudio(); setErr(null); setBusy(true); clearKicked();
     try {
       if (mode === 'host') {
         if (pin && !/^\d{4,6}$/.test(pin)) throw new Error('Host PIN must be 4 to 6 digits.');
@@ -46,6 +56,28 @@ export default function Join() {
 
   const title = mode === 'host' ? 'Host the weekend' : mode === 'reclaim' ? 'Take back host' : viaLink ? "You're invited" : 'Who are you, legend?';
   const eyebrow = mode === 'host' ? 'Open the cellar' : mode === 'reclaim' ? 'Lost your phone?' : 'Join the party';
+
+  if (mode === 'join' && viaLink) {
+    const nameLine = invite?.name || "Jezza's bucks weekend";
+    return (
+      <div className="screen invite">
+        <VineyardFallback /><div className="hero-vignette" />
+        <div className="invite-body">
+          <div className="hero-tag fade-up">YOU'RE INVITED</div>
+          <h1 className="hero-title gold-text fade-up delay-1">PROJECT<br />JEZZA</h1>
+          <p className="hero-sub fade-up delay-2" data-testid="invite-line">{nameLine}{invite && invite.lads > 0 ? <> · <b>{invite.lads} lad{invite.lads === 1 ? '' : 's'} already in</b></> : null}</p>
+          {kicked && <div className="panel pad small bold" style={{ borderColor: 'rgba(240,120,66,.6)' }}>🚪 {kicked}</div>}
+          <div className="panel pad stack-10 fade-up delay-3" style={{ width: '100%', maxWidth: 380 }}>
+            <input className="input" value={nick} onChange={(e) => setNick(e.target.value)} placeholder="Your name, e.g. Big Dave" maxLength={16} autoComplete="off" autoCapitalize="words" enterKeyHint="go" aria-label="Your nickname" onKeyDown={(e) => e.key === 'Enter' && nick.trim().length >= 2 && submit()} />
+            {err && <div className="field-error">{err}</div>}
+            <Button onClick={submit} disabled={busy || nick.trim().length < 2}>{busy ? 'Entering…' : "I'm in →"}</Button>
+          </div>
+          <div className="faint tiny fade-up delay-4">No sign-up. No app. About 30 seconds.</div>
+          <button className="tiny bold dim" onClick={() => setViaLink(false)}>Got a different code?</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="screen">

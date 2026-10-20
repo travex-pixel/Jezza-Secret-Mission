@@ -7,7 +7,7 @@ export type Flow = 'opening' | 'join' | 'choose' | 'reveal' | 'firstMission' | '
 export type ConnStatus = 'connecting' | 'online' | 'offline' | 'demo';
 
 export interface Toast { id: number; text: string; emoji?: string; tone?: 'info' | 'success' | 'warn' }
-export interface Reward { points: number; xp: number; levelUp?: number; unlocked?: string[]; achievements?: string[]; title: string; evolved?: { from: number; to: number }; capped?: boolean; bonus?: string; battleId?: string }
+export interface Reward { points: number; xp: number; levelUp?: number; unlocked?: string[]; achievements?: string[]; title: string; evolved?: { from: number; to: number }; capped?: boolean; bonus?: string; battleId?: string; quiet?: boolean }
 
 interface State {
   identity: { playerId: string; secret: string };
@@ -58,7 +58,7 @@ function loadDoneBattles(): string[] {
 export const useStore = create<State>((set, get) => ({
   identity: loadIdentity(),
   conn: 'connecting',
-  flow: 'opening',
+  flow: (() => { const q = new URLSearchParams(location.search); const demo = q.get('demo') === '1' || import.meta.env.VITE_STATIC_DEMO === '1' || /\.github\.io$/i.test(location.hostname); return q.get('p') && !demo ? 'join' : 'opening'; })() as Flow,
   tab: 'home',
   party: null,
   priv: null,
@@ -97,9 +97,13 @@ export const useStore = create<State>((set, get) => ({
       }
       case 'private': set({ priv: m.priv, hostView: m.hostView ?? null }); break;
       case 'reward': {
-        const r: Reward = { points: m.points, xp: m.xp, levelUp: m.levelUp, unlocked: m.unlocked, achievements: m.achievements, title: m.title, evolved: m.evolved, capped: m.capped, bonus: m.bonus, battleId: m.battleId };
+        const r: Reward = { points: m.points, xp: m.xp, levelUp: m.levelUp, unlocked: m.unlocked, achievements: m.achievements, title: m.title, evolved: m.evolved, capped: m.capped, bonus: m.bonus, battleId: m.battleId, quiet: m.quiet };
         if (r.battleId && r.battleId === get().watchingBattle) { set({ heldRewards: [...get().heldRewards, r] }); break; } // don't spoil the fight
         if (get().flow === 'firstMission' && !r.evolved) { set({ introRewards: [...get().introRewards, r] }); break; } // the intro shows it in place
+        if (r.quiet && !r.evolved) { // it landed later (a mate confirmed, a vote passed): a toast, never a pop-up over whatever you're doing
+          get().toast(`${r.title}: +${r.points} pts · +${r.xp} XP${r.levelUp ? ` · Level ${r.levelUp}!` : ''}${r.unlocked?.length ? ` · 🎁 ${r.unlocked.length} item${r.unlocked.length === 1 ? '' : 's'}` : ''}`, '✅', 'success');
+          break;
+        }
         if (get().reward) set({ rewardQueue: [...get().rewardQueue, r] }); else set({ reward: r });
         break;
       }

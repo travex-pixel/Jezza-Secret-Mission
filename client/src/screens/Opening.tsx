@@ -19,6 +19,7 @@ export default function Opening() {
   const [use3d, setUse3d] = useState(() => webglOk() && new URLSearchParams(location.search).get('no3d') !== '1');
   const onFail = useCallback(() => setUse3d(false), []);
   const [hero] = useState(() => CREATURE_IDS[Math.floor(Math.random() * CREATURE_IDS.length)]);
+  const conn = useStore((s) => s.conn);
   const [ready, setReady] = useState(false);
   useEffect(() => { const t = setTimeout(() => setReady(true), 150); return () => clearTimeout(t); }, []);
 
@@ -34,7 +35,7 @@ export default function Opening() {
       {use3d ? <Suspense fallback={<VineyardFallback />}><VineyardScene onFail={onFail} /></Suspense> : <VineyardFallback />}
       <div className="hero-vignette" />
       <MuteButton />
-      <div style={{ position: 'absolute', top: 'calc(var(--sat) + 18px)', left: 16 }}><ConnectionPill /></div>
+      {conn !== 'online' && <div style={{ position: 'absolute', top: 'calc(var(--sat) + 18px)', left: 16 }}><ConnectionPill /></div>}
       <div className="hero-creature" style={{ filter: 'brightness(0.22) contrast(1.3) drop-shadow(0 0 28px rgba(229,173,72,.45))', opacity: ready ? 1 : 0, transition: 'opacity 900ms ease' }}>
         <Creature creature={hero} bare />
       </div>

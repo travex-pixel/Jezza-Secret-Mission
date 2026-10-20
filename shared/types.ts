@@ -411,7 +411,7 @@ export type ServerMessage =
   | { type: 'private'; priv: PlayerPrivate | null; hostView?: HostView }
   | { type: 'ack'; reqId: string; ok: true; data?: unknown }
   | { type: 'ack'; reqId: string; ok: false; error: string }
-  | { type: 'reward'; points: number; xp: number; levelUp?: number; unlocked?: string[]; achievements?: string[]; title: string; evolved?: { from: number; to: number }; capped?: boolean; bonus?: string; battleId?: string }
+  | { type: 'reward'; points: number; xp: number; levelUp?: number; unlocked?: string[]; achievements?: string[]; title: string; evolved?: { from: number; to: number }; capped?: boolean; bonus?: string; battleId?: string; quiet?: boolean } // quiet: it landed later (a mate confirmed, a vote passed), so a toast, not a takeover
   | { type: 'toast'; text: string; emoji?: string; tone?: 'info' | 'success' | 'warn' }
   | { type: 'kicked'; reason: string }
   | { type: 'pong'; t: number; serverTime: number };

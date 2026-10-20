@@ -32,7 +32,6 @@ export default function ChooseCreature() {
   return (
     <div className="screen">
       <div className="center" style={{ marginTop: 2 }}>
-        <div className="eyebrow">Step 2 of 3</div>
         <h2 className="display title-lg" style={{ marginTop: 4 }}>{isGroom ? 'Your legend awaits' : 'Choose your legend'}</h2>
       </div>
       <div className="screen-body" style={{ gap: 10 }}>
@@ -55,12 +54,7 @@ export default function ChooseCreature() {
             </button>
           ))}
         </div>}
-        <div className="seg" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
-          <div className="stat"><b>{def.stats.hp}</b><span>HP</span></div>
-          <div className="stat"><b>{def.stats.atk}</b><span>ATK</span></div>
-          <div className="stat"><b>{def.stats.def}</b><span>DEF</span></div>
-          <div className="stat"><b>{def.stats.spd}</b><span>SPD</span></div>
-        </div>
+        <div className="tiny faint center">Special move: <b>{def.special.name}</b> · {def.special.blurb}</div>
         {err && <div className="field-error center">{err}</div>}
         <div className="row" style={{ gap: 8 }}>
           {!isGroom && <Button variant="secondary" size="sm" onClick={() => setOffset((o) => (o + 1) % 3)} style={{ minHeight: 56, flex: '0 0 auto' }}>↻ Others</Button>}

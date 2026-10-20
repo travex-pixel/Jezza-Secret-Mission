@@ -27,7 +27,7 @@ export default function Gallery() {
   };
   return (
     <div className="screen with-nav">
-      <div className="topbar"><button className="display title-md" onClick={() => setTab('home')}>‹ Camera roll</button><span className="pill">{party.gallery.length} photos</span></div>
+      <div className="topbar"><button className="display title-md" onClick={() => setTab('home')}>‹ Camera roll</button><span className="pill">{party.gallery.length} photo{party.gallery.length === 1 ? '' : 's'}</span></div>
       <div className="tiny faint" style={{ marginBottom: 8 }}>Only people in this party can see these. Yours you can delete any time. In one you don't love? Tap it and ask the host to take it down.</div>
       <div className="screen-body scroll-y">
         {!party.gallery.length && <div className="panel pad center dim bold">No photos yet. The Cooked Photos challenges are calling.</div>}

@@ -3,6 +3,7 @@ import { Button, timeAgo } from '../components/ui';
 import { useStore, useMe, useIsGroom } from '../store';
 import { request } from '../net';
 import { sfx } from '../audio';
+import { WALL_PER_PHASE } from '@shared/engine';
 
 export default function Wall() {
   const party = useStore((s) => s.party);
@@ -22,7 +23,7 @@ export default function Wall() {
   const post = () => run(() => request({ type: 'wallPost', kind, text }), () => setText(''));
   return (
     <div className="screen with-nav">
-      <div className="topbar"><button className="display title-md" onClick={() => setTab('home')}>‹ The Jezza Wall</button><span className="pill">{mineToday}/3 today</span></div>
+      <div className="topbar"><button className="display title-md" onClick={() => setTab('home')}>‹ The Jezza Wall</button><span className="pill">{mineToday}/{WALL_PER_PHASE} today</span></div>
       {!isGroom && (
         <div className="panel pad stack-6" style={{ marginBottom: 8 }}>
           <div className="tabs"><button className={`tab ${kind === 'roast' ? 'on' : ''}`} onClick={() => setKind('roast')}>🔥 Roast</button><button className={`tab ${kind === 'toast' ? 'on' : ''}`} onClick={() => setKind('toast')}>🥂 Toast</button></div>

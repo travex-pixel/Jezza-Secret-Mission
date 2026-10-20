@@ -118,7 +118,7 @@ const GROUP_EVERY_MS = 40 * 60_000;             // a new group challenge goes li
 const FIRST_GROUP_DELAY_MS = 20 * 60_000;
 export const FRESH_LEGS = 6;                    // Saturday arrivals: double points on their first 6 challenges
 const VARIETY_BONUS = 5;                        // first challenge in a new category
-const WALL_PER_PHASE = 5;
+export const WALL_PER_PHASE = 5;
 const PHOTO_VOTES_NEEDED = 2;                   // 👍 or 👎 from two mates settles a photo
 const PHOTO_VOTE_TIMEOUT_MS = 20 * 60_000;      // unsettled votes resolve after 20 min (ties go to the snapper)
 const PHOTO_HOST_TIMEOUT_MS = 45 * 60_000;      // a photo the host never looks at is approved after 45 min
@@ -631,7 +631,7 @@ export class Engine {
         direct.push({ to: 'party', msg: { type: 'toast', text: `${p.nickname} posted a photo. Vote it in 👍 or bin it 👎`, emoji: '🗳️', tone: 'info' } });
       } else direct.push({ to: party.hostId, msg: { type: 'toast', text: `${p.nickname} sent a photo for "${mission.title}". Check your queue.`, emoji: '📥', tone: 'info' } });
     } else if (mission.method === 'self' || mission.method === 'photo') {
-      this.approveClaim(party, claim, direct); // self-service: points land straight away, mates can call BS
+      this.approveClaim(party, claim, direct, true); // self-service: points land straight away, mates can call BS
     } else {
       if (!isGroup) { const h = p.hand.find((x) => x.missionId === missionId)!; h.status = 'pending'; h.claimId = claimId; }
       if (mission.method === 'witness') direct.push({ to: witnessId!, msg: { type: 'toast', text: `${p.nickname} reckons you saw "${mission.title}". Check your Missions tab.`, emoji: '👀', tone: 'info' } });
@@ -640,7 +640,9 @@ export class Engine {
     return this.ok(party, { status: claim.status }, direct);
   }
 
-  private approveClaim(party: PartyState, claim: Claim, direct: Outbound[]) {
+  /** `immediate`: the player just did this themselves (tapped I did it, snapped it), so the reward can take over the screen.
+   *  Anything that lands later (a mate confirmed, the lads voted, the host upheld) is `quiet`: a toast, never a pop-up mid-task. */
+  private approveClaim(party: PartyState, claim: Claim, direct: Outbound[], immediate = false) {
     const p = party.players[claim.playerId];
     const mission = MISSION_BY_ID[claim.missionId];
     if (!p || !mission) return;
@@ -660,7 +662,7 @@ export class Engine {
     const reward = this.grant(party, p, points, xp, direct);
     const label = mission.secret ? 'a sneaky one' : `"${mission.title}"`;
     this.feed(party, { kind: 'mission', text: `${p.nickname} did ${label} (+${points})`, playerId: p.id, photoUrl: claim.photoUrl, emoji: mission.secret ? '🕵️' : CATEGORY_EMOJI[mission.category], claimId: claim.id, flags: 0 });
-    direct.push({ to: p.id, msg: { type: 'reward', points, xp, ...reward, title: mission.title, bonus } });
+    direct.push({ to: p.id, msg: { type: 'reward', points, xp, ...reward, title: mission.title, bonus, quiet: !immediate || undefined } });
     // Raid + phase progress
     const phase = this.activePhase(party);
     if (phase && !mission.tutorial) party.phaseMissions[phase] += 1;
@@ -796,7 +798,7 @@ export class Engine {
           owner.missionsCompleted += 1; owner.categoryCounts[mission.category] = (owner.categoryCounts[mission.category] ?? 0) + 1;
           if (!owner.completedMissionIds.includes(mission.id)) owner.completedMissionIds.push(mission.id);
           this.feed(party, { kind: 'host', text: by === 'mates' ? `The lads backed ${owner.nickname}'s "${mission.title}". Points restored. Apologies owed.` : `The host upheld ${owner.nickname}'s "${mission.title}". Points restored. Apologies owed.`, emoji: '⚖️' });
-          direct.push({ to: owner.id, msg: { type: 'reward', points: mission.points, xp: mission.xp, ...r, title: `${mission.title} (upheld by the host)` } });
+          direct.push({ to: owner.id, msg: { type: 'reward', points: mission.points, xp: mission.xp, ...r, title: `${mission.title} (upheld by the host)`, quiet: true } });
         } else {
           owner.hand = owner.hand.filter((h) => h.missionId !== mission.id);
           this.refillHand(party, owner);
@@ -925,7 +927,7 @@ export class Engine {
     if (intro) {
       const claim: Claim = { id: `wall_${post.id}`, playerId, missionId: intro.missionId, method: 'self', status: 'pending', createdAt: now, group: false, note: text };
       party.claims[claim.id] = claim;
-      this.approveClaim(party, claim, direct);
+      this.approveClaim(party, claim, direct, true);
     } else this.feed(party, { kind: 'wall', text: `${p.nickname} ${kind === 'roast' ? 'roasted' : 'toasted'} Jezza on the Wall`, emoji: kind === 'roast' ? '🎤' : '🥂' });
     if (party.groomId && party.groomId !== playerId) direct.push({ to: party.groomId, msg: { type: 'toast', text: kind === 'roast' ? 'Someone just roasted you on the Jezza Wall 👀' : 'Someone just toasted you on the Jezza Wall 🥂', emoji: '🎤', tone: 'info' } });
     return this.ok(party, { id: post.id }, direct);
@@ -1299,7 +1301,7 @@ export class Engine {
       const fresh = !p.unlocked.includes(raid.cosmetic);
       if (fresh) p.unlocked.push(raid.cosmetic);
       const r = this.grant(party, p, base.points + mvp, base.xp, direct);
-      direct.push({ to: pid, msg: { type: 'reward', points: base.points + mvp, xp: base.xp, ...r, unlocked: [...(fresh ? [raid.cosmetic] : []), ...r.unlocked], title: outcome === 'won' ? `${boss.name} defeated!` : `${boss.name} got away`, bonus: mvp ? `#${i + 1} damage: +${mvp} MVP bonus` : undefined } });
+      direct.push({ to: pid, msg: { type: 'reward', points: base.points + mvp, xp: base.xp, ...r, unlocked: [...(fresh ? [raid.cosmetic] : []), ...r.unlocked], title: outcome === 'won' ? `${boss.name} defeated!` : `${boss.name} got away`, quiet: true, bonus: mvp ? `#${i + 1} damage: +${mvp} MVP bonus` : undefined } });
     });
     const top = ranking[0] ? party.players[ranking[0][0]]?.nickname : null;
     this.feed(party, { kind: 'raid', text: `${outcome === 'won' ? boss.defeat : boss.escape}${top ? ` Top damage: ${top}.` : ''} ${ranking.length} legend${ranking.length === 1 ? '' : 's'} get loot.`, emoji: outcome === 'won' ? '🏆' : '💨' });

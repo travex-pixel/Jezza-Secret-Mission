@@ -34,7 +34,7 @@ export default function Reveal() {
   return (
     <div className="screen">
       <div className="center" style={{ marginTop: 2 }}>
-        <div className="eyebrow">Step 3 of 3</div>
+        <div className="eyebrow">Your creature</div>
         <h2 className="display title-lg gold-text" style={{ marginTop: 4 }}>A legend is born</h2>
       </div>
       <div className="screen-body" style={{ gap: 10 }}>
@@ -55,7 +55,7 @@ export default function Reveal() {
             <input className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={16} placeholder={def.defaultName} enterKeyHint="done" onKeyDown={(e) => e.key === 'Enter' && go()} />
           </label>
           {err && <div className="field-error">{err}</div>}
-          <Button onClick={go} disabled={busy || stage < 2}>{busy ? '…' : 'Next: the group selfie →'}</Button>
+          <Button onClick={go} disabled={busy}>{busy ? '…' : 'Next: the group selfie →'}</Button>
         </div>
       </div>
     </div>

@@ -54,10 +54,10 @@ async function main() {
 
   // Phone B opens the share link: no code box
   await phoneB.goto(`${BASE}/?p=${code}`, { waitUntil: 'networkidle' });
-  await phoneB.getByRole('button', { name: /enter the vineyard/i }).click();
-  check((await phoneB.locator('.input-code').count()) === 0 && (await phoneB.getByText(`Joining party ${code}`).count()) === 1, 'share link shows "Joining party" with no code box');
+  await phoneB.getByTestId('invite-line').waitFor();
+  check((await phoneB.locator('.input-code').count()) === 0 && (await phoneB.getByRole('button', { name: /enter the vineyard/i }).count()) === 0, 'share link opens the invite screen straight away, no code box');
   await phoneB.getByPlaceholder(/big dave/i).fill('Tommo');
-  await phoneB.getByRole('button', { name: /join the legends/i }).click();
+  await phoneB.getByRole('button', { name: /i'm in/i }).click();
   await onboard(phoneB);
   check(true, 'mate joined from the link by typing only a nickname');
 

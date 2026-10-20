@@ -73,7 +73,12 @@ for (const party of Object.values(engine.state.parties)) for (const p of Object.
 const app = express();
 app.disable('x-powered-by');
 app.get('/api/health', (_req, res) => res.json({ ok: true, parties: Object.keys(engine.state.parties).length, uptime: process.uptime() }));
-app.get('/api/party/:code/exists', (req, res) => res.json({ exists: !!engine.state.parties[String(req.params.code).toUpperCase()] }));
+app.get('/api/party/:code/exists', (req, res) => {
+  const party = engine.state.parties[String(req.params.code).toUpperCase()];
+  if (!party) return res.json({ exists: false });
+  // what the invite screen shows: the party's name and how many lads are already in
+  res.json({ exists: true, name: party.name, lads: Object.values(party.players).filter((p) => !p.removed && p.creature).length });
+});
 app.use('/photos', express.static(PHOTO_DIR, { maxAge: '7d', immutable: true, fallthrough: false }));
 if (fs.existsSync(CLIENT_DIR)) {
   app.use(express.static(CLIENT_DIR, { maxAge: '1h', index: false }));
