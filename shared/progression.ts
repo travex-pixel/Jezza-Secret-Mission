@@ -132,6 +132,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'groom_whisperer', name: 'Groom Whisperer', blurb: 'Got Jezza involved three times.', xp: 40, points: 10, cosmetic: 'cape_groomsman', check: (p) => cat(p, 'jezza') >= 3 },
   { id: 'toastmaster', name: 'Toastmaster', blurb: 'Three cheers challenges.', xp: 40, points: 10, cosmetic: 'face_monocle', check: (p) => cat(p, 'cheers') >= 3 },
   { id: 'secret_agent', name: 'Secret Agent', blurb: 'Pulled off a sneaky one. Nobody suspected a thing.', xp: 30, points: 10, check: (p) => cat(p, 'sneaky') >= 1 },
+  { id: 'lore_keeper', name: 'Lore Keeper', blurb: 'Dug up three bits of Jezza lore.', xp: 40, points: 10, check: (p) => cat(p, 'lore') >= 3 },
   { id: 'team_player', name: 'Team Player', blurb: 'Three group challenges.', xp: 40, points: 10, check: (p) => cat(p, 'group') >= 3 },
   { id: 'reliable_witness', name: 'Reliable Witness', blurb: 'Confirmed three challenges for mates.', xp: 30, points: 5, check: (p) => p.witnessed >= 3 },
   { id: 'first_battle', name: 'Into the Arena', blurb: 'First creature battle.', xp: 15, points: 0, check: (p) => p.wins + p.losses >= 1 },

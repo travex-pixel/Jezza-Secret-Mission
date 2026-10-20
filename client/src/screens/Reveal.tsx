@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { CREATURES } from '@shared/creatures';
+import { MISSION_BY_ID } from '@shared/missions';
 import { Creature } from '../components/Creature';
 import { Button, Sparkles } from '../components/ui';
 import { useStore, useMe } from '../store';
@@ -25,8 +26,8 @@ export default function Reveal() {
       const trimmed = name.trim();
       if (trimmed && trimmed !== me.creatureName) await request({ type: 'renameCreature', creatureName: trimmed });
       sfx.mission();
-      const hasStarter = priv?.hand.some((h) => h.status === 'active' && h.missionId === 'm001');
-      setFlow(hasStarter ? 'firstMission' : 'main');
+      const intro = priv?.hand.some((h) => h.status === 'active' && MISSION_BY_ID[h.missionId]?.tutorial);
+      setFlow(intro ? 'firstMission' : 'main');
     } catch (e) { setErr((e as Error).message); setBusy(false); }
   };
 

@@ -29,12 +29,13 @@ export default function Missions() {
     try { await request({ type: 'confirmWitness', claimId, approve }); sfx.select(); } catch { sfx.error(); }
   };
 
-  const rookie = rookieLeft(me?.missionsCompleted ?? 99);
+  const rookie = rookieLeft(priv?.completedMissionIds ?? Array(9).fill('x'));
+  const isGroom = party?.groomId === me?.id;
   return (
     <div className="screen with-nav">
       <div className="topbar">
         <h2 className="display title-md">Challenges</h2>
-        <span className="pill">{priv?.rerollsLeft ?? 0}/3 swaps{refill > 0 ? ` · +1 in ${Math.ceil(refill / 60)}m` : ''}</span>
+        <span className="pill">{isGroom ? '🤵 Unlimited vetoes' : `${priv?.rerollsLeft ?? 0}/3 skips${refill > 0 ? ` · +1 in ${Math.ceil(refill / 60)}m` : ''}`}</span>
       </div>
       <div className="tabs" style={{ marginBottom: 10 }}>
         <button className={`tab ${tab === 'mine' ? 'on' : ''}`} onClick={() => setTab('mine')}>Mine ({hand.length})</button>

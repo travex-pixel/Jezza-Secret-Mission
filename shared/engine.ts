@@ -8,7 +8,7 @@ import type {
 } from './types';
 import { EPIC_CUSTOM_ITEM, EPIC_MAX_CREW, EPIC_PRESET_BY_ID, EPIC_TIERS, isEpicTier } from './epics';
 import { CREATURES, CREATURE_IDS, FORMS, GROOM_CREATURE, starterTrio } from './creatures';
-import { MISSIONS, MISSION_BY_ID, STARTER_MISSION, GROUP_MISSIONS, missionAvailableInPhase, rookieLeft, type Mission } from './missions';
+import { MISSIONS, MISSION_BY_ID, STARTER_MISSION, TUTORIAL_MISSIONS, GROUP_MISSIONS, missionAvailableInPhase, rookieLeft, type Mission } from './missions';
 import {
   ACHIEVEMENTS, COSMETIC_BY_ID, colorwaysUnlocked, computeAwards, cosmeticsForLevel, levelForXp, titleForLevel,
   xpCapFor, stageForLevel, eloUpdate, START_RATING, sortLeaderboard,
@@ -118,7 +118,7 @@ const GROUP_EVERY_MS = 40 * 60_000;             // a new group challenge goes li
 const FIRST_GROUP_DELAY_MS = 20 * 60_000;
 export const FRESH_LEGS = 6;                    // Saturday arrivals: double points on their first 6 challenges
 const VARIETY_BONUS = 5;                        // first challenge in a new category
-const WALL_PER_PHASE = 3;
+const WALL_PER_PHASE = 5;
 const PHOTO_VOTES_NEEDED = 2;                   // 👍 or 👎 from two mates settles a photo
 const PHOTO_VOTE_TIMEOUT_MS = 20 * 60_000;      // unsettled votes resolve after 20 min (ties go to the snapper)
 const PHOTO_HOST_TIMEOUT_MS = 45 * 60_000;      // a photo the host never looks at is approved after 45 min
@@ -190,6 +190,9 @@ export class Engine {
         p.rerollRefillAt ??= 0;
         p.h2h ??= {}; p.upsetLosses ??= 0; p.reactionsGiven ??= 0; p.autoBattles ??= true;
         p.away ??= []; p.lastAutoAt ??= 0; p.recentAuto ??= []; p.epicsDone ??= 0; p.codeTries ??= [];
+        // Challenges retired (or missing) since the save leave the hand; anything already sent for checking finishes as normal.
+        const keep = (p.hand ?? []).filter((h) => h.status !== 'active' || (MISSION_BY_ID[h.missionId] && !MISSION_BY_ID[h.missionId].retired));
+        if (keep.length !== (p.hand ?? []).length) { p.hand = keep; if (p.creature) this.refillHand(party, p); }
       }
     }
   }
@@ -229,9 +232,9 @@ export class Engine {
     const eventByClaim = new Map(party.feed.filter((f) => f.claimId).map((f) => [f.claimId!, f.id]));
     const gallery: GalleryPhoto[] = [
       ...Object.values(party.claims).filter((c) => c.photoUrl && (c.status === 'approved' || c.status === 'disputed'))
-        .map((c) => ({ id: c.id, url: c.photoUrl!, at: c.resolvedAt ?? c.createdAt, playerId: c.playerId, caption: MISSION_BY_ID[c.missionId]?.secret ? 'A sneaky one' : MISSION_BY_ID[c.missionId]?.title ?? 'Challenge', source: 'mission' as const, eventId: eventByClaim.get(c.id) })),
+        .map((c) => ({ id: c.id, url: c.photoUrl!, at: c.resolvedAt ?? c.createdAt, playerId: c.playerId, caption: MISSION_BY_ID[c.missionId]?.secret ? 'A sneaky one' : MISSION_BY_ID[c.missionId]?.title ?? 'Challenge', note: MISSION_BY_ID[c.missionId]?.secret ? undefined : c.note, source: 'mission' as const, eventId: eventByClaim.get(c.id) })),
       ...party.cellar.filter((e) => e.photoUrl).map((e) => ({ id: e.id, url: e.photoUrl!, at: e.at, playerId: e.playerId, caption: e.drink, source: 'cellar' as const })),
-    ].sort((a, b) => b.at - a.at).slice(0, 80);
+    ].sort((a, b) => b.at - a.at).slice(0, 400); // the whole weekend, not just the latest few
     return {
       code: party.code,
       name: party.name,
@@ -480,8 +483,8 @@ export class Engine {
     p.unlocked = unique([...p.unlocked, ...cosmeticsForLevel(1)]);
     p.equipped = { colorway: 0, hat: 'hat_party' };
     p.title = titleForLevel(1);
-    // Starter mission straight away, regardless of phase.
-    p.hand = [{ missionId: STARTER_MISSION.id, assignedAt: this.now(), status: 'active' }];
+    // The intro straight away, regardless of phase: group selfie, roast Jezza, toast Jezza. The groom just gets the selfie.
+    p.hand = (isGroom ? [STARTER_MISSION] : TUTORIAL_MISSIONS).map((m) => ({ missionId: m.id, assignedAt: this.now(), status: 'active' as const }));
     this.refillHand(party, p);
     this.feed(party, { kind: 'join', text: `${p.nickname} adopted ${nm.name} the ${CREATURES[creature].name}. ${CREATURES[creature].cry}!`, playerId, emoji: '✨' });
     const direct: Outbound[] = [];
@@ -532,7 +535,7 @@ export class Engine {
     const inHand = new Set(p.hand.map((h) => h.missionId));
     const secretInHand = p.hand.some((h) => MISSION_BY_ID[h.missionId]?.secret && h.status !== 'done');
     return MISSIONS.filter((m) =>
-      m.scope === 'private' && !m.starter && m.method !== 'host' && missionAvailableInPhase(m, phase)
+      m.scope === 'private' && !m.tutorial && !m.retired && m.method !== 'host' && missionAvailableInPhase(m, phase)
       && !inHand.has(m.id) && !p.completedMissionIds.includes(m.id)
       && !(m.secret && secretInHand) && !(p.lowKey && m.loud),
     );
@@ -547,10 +550,13 @@ export class Engine {
       // Prefer categories not already in hand. A swap returns the same difficulty, so swapping never farms easy ones.
       const inHandCats = new Set(p.hand.map((h) => MISSION_BY_ID[h.missionId]?.category));
       const varied = pool.filter((m) => !inHandCats.has(m.category));
-      let src = varied.length ? varied : pool;
-      if (rookieLeft(p.missionsCompleted) > 0) { const easy = src.filter((m) => m.difficulty === 1); if (easy.length) src = easy; }
-      // keep a photo one in every hand: they're quick and they fill the gallery
-      if (!p.hand.some((h) => MISSION_BY_ID[h.missionId]?.method === 'photo')) { const snaps = src.filter((m) => m.method === 'photo'); if (snaps.length) src = snaps; }
+      // ...and not the category you've just done, so it never feels like the same challenge twice in a row
+      const lastCat = MISSION_BY_ID[p.completedMissionIds[p.completedMissionIds.length - 1]]?.category;
+      const fresh = varied.filter((m) => m.category !== lastCat);
+      let src = fresh.length ? fresh : varied.length ? varied : pool;
+      if (rookieLeft(p.completedMissionIds) > 0) { const easy = src.filter((m) => m.difficulty === 1); if (easy.length) src = easy; }
+      // keep a photo one in every hand (the pinned selfie doesn't count): they're quick and they fill the gallery
+      if (!p.hand.some((h) => MISSION_BY_ID[h.missionId]?.method === 'photo' && !MISSION_BY_ID[h.missionId]?.tutorial)) { const snaps = src.filter((m) => m.method === 'photo'); if (snaps.length) src = snaps; }
       if (sameDifficultyAs) { const same = src.filter((m) => m.difficulty === sameDifficultyAs); if (same.length) src = same; sameDifficultyAs = undefined; }
       const m = src[Math.floor(this.rng() * src.length)];
       p.hand.push({ missionId: m.id, assignedAt: this.now(), status: 'active' });
@@ -569,6 +575,7 @@ export class Engine {
     }
     const mission = MISSION_BY_ID[missionId];
     if (!mission) return this.fail('Unknown challenge.');
+    if (mission.wall) return this.fail(`Write your ${mission.wall} and it posts to the Jezza Wall.`);
     if (p.completedMissionIds.includes(missionId)) return this.fail('Already done that one. No double dipping.');
     const now = this.now();
     const isGroup = mission.scope === 'group';
@@ -592,7 +599,7 @@ export class Engine {
     }
     if (Object.values(party.claims).some((c) => c.playerId === playerId && c.missionId === missionId && c.status === 'pending')) return this.fail('Already sent.');
 
-    const rookie = !isGroup && rookieLeft(p.missionsCompleted) > 0;
+    const rookie = !isGroup && !mission.tutorial && rookieLeft(p.completedMissionIds) > 0;
     if (mission.method === 'self' && !mission.starter && !isGroup && !rookie) {
       const wait = (p.lastHonourClaimAt ?? 0) + HONOUR_COOLDOWN_MS - now;
       if (wait > 0) return this.fail(`Easy, legend. Next honour-system claim in ${Math.floor(wait / 60000)}:${String(Math.ceil((wait % 60000) / 1000)).padStart(2, '0')}. Photo and mate-confirm ones are still open.`);
@@ -638,11 +645,11 @@ export class Engine {
     const mission = MISSION_BY_ID[claim.missionId];
     if (!p || !mission) return;
     claim.status = 'approved'; claim.resolvedAt = this.now();
+    const rookie = !mission.tutorial && mission.scope === 'private' && rookieLeft(p.completedMissionIds) > 0 && p.joinedPhase !== 'saturday'; // Saturday arrivals have Fresh Legs instead
     if (!p.completedMissionIds.includes(mission.id)) p.completedMissionIds.push(mission.id);
     const h = p.hand.find((x) => x.missionId === mission.id);
     if (h) { h.status = 'done'; h.claimId = claim.id; }
     const newCategory = (p.categoryCounts[mission.category] ?? 0) === 0;
-    const rookie = !mission.starter && mission.scope === 'private' && rookieLeft(p.missionsCompleted) > 0 && p.joinedPhase !== 'saturday'; // Saturday arrivals have Fresh Legs instead
     p.missionsCompleted += 1;
     p.categoryCounts[mission.category] = (p.categoryCounts[mission.category] ?? 0) + 1;
     const fresh = p.freshLegs > 0;
@@ -656,7 +663,7 @@ export class Engine {
     direct.push({ to: p.id, msg: { type: 'reward', points, xp, ...reward, title: mission.title, bonus } });
     // Raid + phase progress
     const phase = this.activePhase(party);
-    if (phase && !mission.starter) party.phaseMissions[phase] += 1;
+    if (phase && !mission.tutorial) party.phaseMissions[phase] += 1;
     const raid = this.liveRaid(party);
     if (raid) this.damageRaid(party, raid, p, mission.points * RAID_MISSION_DMG_MULT, false, 'mission', direct);
     else this.maybeSpawnRaid(party, direct);
@@ -729,7 +736,12 @@ export class Engine {
     const h = p.hand.find((x) => x.missionId === missionId);
     if (!h || h.status !== 'active') return this.fail('That one can\'t be swapped.');
     const m = MISSION_BY_ID[missionId];
-    if (m?.starter) return this.fail('The first one is sacred. Do it.');
+    if (m?.starter) return this.fail('The group selfie stays pinned. Grab it when you\'re with the boys.');
+    if (m?.tutorial || playerId === party.groomId) { // skipping the intro is free; Jezza can veto anything, any time
+      p.hand = p.hand.filter((x) => x !== h);
+      this.refillHand(party, p, m?.tutorial ? undefined : m?.difficulty);
+      return this.ok(party, { rerollsLeft: p.rerollsLeft, free: true });
+    }
     this.refillRerolls(p);
     if (p.rerollsLeft <= 0) return this.fail(`No swaps left. Next one in ${Math.max(1, Math.ceil((p.rerollRefillAt - this.now()) / 60000))} min.`);
     if (p.rerollsLeft >= REROLLS_PER_PHASE) p.rerollRefillAt = this.now() + REROLL_REFILL_MS;
@@ -907,8 +919,14 @@ export class Engine {
     if (party.wall.length > 200) party.wall = party.wall.slice(-200);
     const direct: Outbound[] = [];
     const r = this.grant(party, p, 5, 10, direct);
-    direct.push({ to: playerId, msg: { type: 'toast', text: `Posted (+5). ${r.achievements.length ? '' : 'Now get the lads to vote it up.'}`, emoji: kind === 'roast' ? '🔥' : '🥂', tone: 'success' } });
-    this.feed(party, { kind: 'wall', text: `${p.nickname} ${kind === 'roast' ? 'roasted' : 'toasted'} Jezza on the Wall`, emoji: kind === 'roast' ? '🎤' : '🥂' });
+    // The intro "Roast Jezza" / "Toast Jezza" is done by posting one (its reward pop-up says it all, so no extra toast)
+    const intro = p.hand.find((h) => h.status === 'active' && MISSION_BY_ID[h.missionId]?.wall === kind);
+    if (!intro) direct.push({ to: playerId, msg: { type: 'toast', text: `Posted (+5). ${r.achievements.length ? '' : 'Now get the lads to vote it up.'}`, emoji: kind === 'roast' ? '🔥' : '🥂', tone: 'success' } });
+    if (intro) {
+      const claim: Claim = { id: `wall_${post.id}`, playerId, missionId: intro.missionId, method: 'self', status: 'pending', createdAt: now, group: false, note: text };
+      party.claims[claim.id] = claim;
+      this.approveClaim(party, claim, direct);
+    } else this.feed(party, { kind: 'wall', text: `${p.nickname} ${kind === 'roast' ? 'roasted' : 'toasted'} Jezza on the Wall`, emoji: kind === 'roast' ? '🎤' : '🥂' });
     if (party.groomId && party.groomId !== playerId) direct.push({ to: party.groomId, msg: { type: 'toast', text: kind === 'roast' ? 'Someone just roasted you on the Jezza Wall 👀' : 'Someone just toasted you on the Jezza Wall 🥂', emoji: '🎤', tone: 'info' } });
     return this.ok(party, { id: post.id }, direct);
   }

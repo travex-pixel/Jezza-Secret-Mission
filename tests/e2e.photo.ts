@@ -2,6 +2,7 @@
 // and a full-size 12MP phone photo arrives as a sharp 1600px copy.
 import { chromium } from 'playwright-core';
 import fs from 'node:fs';
+import { finishIntro } from './fixtures';
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:8790';
 const findChrome = () => ['/opt/pw-browsers/chromium-1194/chrome-linux/chrome', ...(fs.existsSync('/opt/pw-browsers') ? fs.readdirSync('/opt/pw-browsers').map((d) => `/opt/pw-browsers/${d}/chrome-linux/chrome`) : [])].find((p) => fs.existsSync(p));
@@ -19,7 +20,7 @@ async function main() {
   await p.getByRole('button', { name: /create the party/i }).click();
   await p.waitForSelector('.pick-grid'); await p.locator('.pick-card').first().click();
   await p.getByRole('button', { name: /adopt/i }).click(); await p.waitForTimeout(2000);
-  await p.getByRole('button', { name: /first challenge/i }).click(); await p.getByRole('button', { name: /do it later/i }).click(); await p.getByRole('button', { name: /let's go/i }).click();
+  await p.getByRole('button', { name: /first challenge/i }).click(); await finishIntro(p);
   await p.getByRole('button', { name: /host controls/i }).click();
   await p.locator('.list-row', { hasText: 'The Big Cheers' }).getByRole('button', { name: /reveal/i }).click();
   await p.waitForTimeout(400);

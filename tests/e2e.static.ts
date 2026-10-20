@@ -4,7 +4,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright-core';
-import { SELFIE_FILE } from './fixtures';
+import { SELFIE_FILE, finishIntro } from './fixtures';
 
 const BASE_PATH = '/Jezza-Secret-Mission/';
 const ROOT = path.resolve('dist/client');
@@ -39,7 +39,7 @@ server.listen(PORT, async () => {
   await page.getByRole('button', { name: /first challenge/i }).click();
   await page.locator('input[data-selfie]').setInputFiles(SELFIE_FILE);
   await page.waitForSelector('.reward'); await page.locator('.reward').click();
-  await page.getByRole('button', { name: /let's go/i }).click();
+  await finishIntro(page);
   await page.waitForSelector('.bottom-nav');
   check((await page.getByRole('button', { name: /host controls/i }).count()) === 1, 'hosting in demo gives you the host controls');
   await page.waitForTimeout(500);

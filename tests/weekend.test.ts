@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { Engine, FRESH_LEGS, nextSaturdayMorning } from '../shared/engine';
 import { seededRng } from '../shared/battle';
-import { MISSIONS, STARTER_MISSION, GROUP_MISSIONS } from '../shared/missions';
+import { MISSIONS, MISSION_BY_ID, STARTER_MISSION, GROUP_MISSIONS } from '../shared/missions';
 import { LEVEL_XP, FRIDAY_MAX_LEVEL, stageForLevel } from '../shared/progression';
 import { RAID_THRESHOLD, RAID_HIT_COOLDOWN_MS, BOSSES } from '../shared/raid';
 
@@ -141,10 +141,10 @@ describe('self-running weekend', () => {
     expect(party().players[ids[3]].unlocked).toContain(raid.cosmetic);
     expect(party().players[ids[4]].unlocked).not.toContain(raid.cosmetic);
   });
-  it('Jezza Wall: 3 posts a day, mates vote, Jezza hearts, filter blocks nasty stuff', () => {
+  it('Jezza Wall: 5 posts a day, mates vote, Jezza hearts, filter blocks nasty stuff', () => {
     const { eng, ids, party } = setup();
     expect(eng.handle(ids[2], { type: 'wallPost', reqId: 'w', kind: 'roast', text: 'hi' }).ack?.ok).toBe(false);
-    for (let i = 0; i < 3; i++) expect(eng.handle(ids[2], { type: 'wallPost', reqId: 'w', kind: 'roast', text: `Jezza parallel parks like it's a group project ${i}` }).ack?.ok).toBe(true);
+    for (let i = 0; i < 5; i++) expect(eng.handle(ids[2], { type: 'wallPost', reqId: 'w', kind: 'roast', text: `Jezza parallel parks like it's a group project ${i}` }).ack?.ok).toBe(true);
     expect(eng.handle(ids[2], { type: 'wallPost', reqId: 'w', kind: 'toast', text: 'One more for the road mate' }).ack?.ok).toBe(false);
     const post = party().wall[0];
     expect(eng.handle(ids[2], { type: 'wallVote', reqId: 'v', postId: post.id }).ack?.ok).toBe(false);
@@ -310,6 +310,8 @@ describe('self-running weekend', () => {
     const { eng, ids, party, advance } = setup();
     eng.handle(ids[4], { type: 'setPrefs', reqId: 'p', lowKey: true });
     const p = party().players[ids[4]];
+    for (const intro of ['m002', 'm003']) eng.handle(ids[4], { type: 'rerollMission', reqId: 'r', missionId: intro }); // skipping the intro is free
+    expect(p.rerollsLeft).toBe(3);
     for (let i = 0; i < 3; i++) {
       for (const h of p.hand) expect(MISSIONS.find((m) => m.id === h.missionId)!.loud).toBeFalsy();
       const h = p.hand.find((x) => x.missionId !== STARTER_MISSION.id)!;
@@ -328,5 +330,76 @@ describe('self-running weekend', () => {
     advance(21 * 60_000); eng.tick();
     expect(party().revealedGroupMissions.length).toBe(1);
     expect(GROUP_MISSIONS.map((g) => g.id)).toContain(party().revealedGroupMissions[0]);
+  });
+});
+
+describe('the intro, skips and the challenge library', () => {
+  it('new players get the intro: group selfie, roast, toast (the groom just the selfie); roast and toast are done on the Wall, once', () => {
+    const { eng, ids, party } = setup();
+    const mate = party().players[ids[2]];
+    expect(mate.hand.map((h) => h.missionId)).toEqual(['m001', 'm002', 'm003']);
+    expect(party().players[ids[1]].hand[0].missionId).toBe('m001'); // Jezza
+    expect(party().players[ids[1]].hand.some((h) => h.missionId === 'm002' || h.missionId === 'm003')).toBe(false);
+    expect(eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: 'm002', claimId: 'intro-roast-1' }).ack?.ok).toBe(false); // has to be written
+    const before = mate.points;
+    expect(eng.handle(ids[2], { type: 'wallPost', reqId: 'w', kind: 'roast', text: 'Jezza\'s Year 9 haircut had its own postcode' }).ack?.ok).toBe(true);
+    expect(mate.completedMissionIds).toContain('m002');
+    expect(mate.points).toBe(before + 5 + MISSION_BY_ID.m002.points + 5); // wall post + the roast + first in a new category
+    const after = mate.points;
+    eng.handle(ids[2], { type: 'wallPost', reqId: 'w', kind: 'roast', text: 'Jezza still owes me twenty bucks from 2014' });
+    expect(mate.points).toBe(after + 5); // a second roast is just a Wall post: the challenge only pays once
+    eng.handle(ids[2], { type: 'wallPost', reqId: 'w', kind: 'toast', text: 'Best bloke I know, worst at parallel parking' });
+    expect(mate.completedMissionIds).toContain('m003');
+    expect(mate.hand.some((h) => MISSION_BY_ID[h.missionId]?.tutorial && h.missionId !== 'm001')).toBe(false);
+  });
+  it('skipping the intro is free, the selfie stays pinned, and Jezza can veto anything without running out', () => {
+    const { eng, ids, party } = setup();
+    const mate = party().players[ids[3]];
+    expect(eng.handle(ids[3], { type: 'rerollMission', reqId: 'r', missionId: 'm002' }).ack?.ok).toBe(true);
+    expect(mate.rerollsLeft).toBe(3);
+    expect(mate.points).toBe(0);
+    expect(eng.handle(ids[3], { type: 'rerollMission', reqId: 'r', missionId: 'm001' }).ack?.ok).toBe(false);
+    const jezza = party().players[ids[1]];
+    for (let i = 0; i < 6; i++) {
+      const h = jezza.hand.find((x) => x.status === 'active' && x.missionId !== 'm001')!;
+      expect(eng.handle(ids[1], { type: 'rerollMission', reqId: 'r', missionId: h.missionId }).ack?.ok).toBe(true);
+    }
+    expect(jezza.rerollsLeft).toBe(3);
+  });
+  it('never deals retired or intro challenges, keeps a photo in every hand and avoids repeating a category', () => {
+    const { eng, ids, party } = setup();
+    const p = party().players[ids[4]];
+    for (const intro of ['m002', 'm003']) eng.handle(ids[4], { type: 'rerollMission', reqId: 'r', missionId: intro });
+    for (let round = 0; round < 25; round++) {
+      const active = p.hand.filter((h) => h.status === 'active');
+      for (const h of active) { const m = MISSION_BY_ID[h.missionId]; expect(m, h.missionId).toBeTruthy(); expect(m.retired, h.missionId).toBeFalsy(); }
+      expect(active.filter((h) => h.missionId !== 'm001').some((h) => MISSION_BY_ID[h.missionId].method === 'photo')).toBe(true);
+      const h = active.find((x) => x.missionId !== 'm001')!;
+      const cat = MISSION_BY_ID[h.missionId].category;
+      p.hand = p.hand.filter((x) => x !== h);
+      p.completedMissionIds.push(h.missionId);
+      (eng as any).refillHand(party(), p);
+      const fresh = p.hand[p.hand.length - 1];
+      if (fresh) expect(MISSION_BY_ID[fresh.missionId].category === cat && round < 10).toBe(false);
+    }
+  });
+  it('an old save with retired or unknown challenges in hand loads cleanly; progress is kept', () => {
+    const { eng, ids, party } = setup();
+    const p = party().players[ids[2]];
+    p.hand = [{ missionId: 'm001', assignedAt: 0, status: 'active' }, { missionId: 'd01', assignedAt: 0, status: 'active' }, { missionId: 'zz99', assignedAt: 0, status: 'active' }];
+    p.completedMissionIds.push('q06', 'x05'); // retired ones they did before
+    const pts = p.points = 77;
+    const again = new Engine({ now: () => 2_000_000 }, JSON.parse(JSON.stringify(eng.state)));
+    const q = again.state.parties[party().code].players[ids[2]];
+    expect(q.hand.map((h) => h.missionId)).toContain('m001');
+    expect(q.hand.every((h) => MISSION_BY_ID[h.missionId] && !MISSION_BY_ID[h.missionId].retired)).toBe(true);
+    expect(q.hand.length).toBe(3);
+    expect(q.points).toBe(pts);
+    expect(q.completedMissionIds).toEqual(expect.arrayContaining(['q06', 'x05']));
+    expect(() => again.publicView(again.state.parties[party().code], ids[2])).not.toThrow();
+  });
+  it('no chores or errands in the challenge pool', () => {
+    const active = MISSIONS.filter((m) => !m.retired);
+    for (const m of active) expect(`${m.title} ${m.instruction}`, m.id).not.toMatch(/\b(pick up|buy|shop|clean|tidy|carry|fetch|wash|dishes|the bins|rubbish|grab (the )?(snacks|ice))\b/i);
   });
 });

@@ -123,7 +123,7 @@ async function main() {
     // A rookie's first photos count straight away (no vote). Use the boost up, then the next one goes to the vote.
     const done = () => host.party!.players.find((p) => p.id === photoC.id)!.missionsCompleted;
     let rookieShots = 0;
-    for (let i = 0; i < 6 && rookieLeft(done()) > 0; i++) {
+    for (let i = 0; i < 6 && rookieLeft(photoC.priv!.completedMissionIds) > 0; i++) {
       const pid = photoC.priv!.hand.find((h) => h.status === 'active' && PHOTO_IDS.includes(h.missionId))?.missionId;
       if (!pid) break;
       const n = done();

@@ -2,7 +2,7 @@
 
 export type CreatureId = 'dragon' | 'wombat' | 'possum' | 'owl' | 'goblin' | 'sprite' | 'barrel' | 'fox' | 'stag'; // stag: the groom's only
 export type Phase = 'lobby' | 'friday' | 'saturday' | 'finale' | 'ended';
-export type MissionCategory = 'laugh' | 'dance' | 'sing' | 'photo' | 'jezza' | 'cheers' | 'sneaky' | 'chill' | 'group';
+export type MissionCategory = 'laugh' | 'dance' | 'sing' | 'photo' | 'jezza' | 'cheers' | 'sneaky' | 'chill' | 'group' | 'lore';
 export type Reaction = '😂' | '🔥' | '❤️';
 export type BossId = 'ibis' | 'hydra';
 export type PhotoMode = 'vote' | 'host' | 'instant';
@@ -221,6 +221,7 @@ export interface GalleryPhoto {
   at: number;
   playerId: string;
   caption: string;   // mission title or drink
+  note?: string;     // the snapper's caption, if they wrote one
   source: 'mission' | 'cellar';
   eventId?: string;  // feed event to react on
 }

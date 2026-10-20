@@ -18,8 +18,9 @@ More screenshots at every tested viewport live in [`docs/screenshots/`](docs/scr
 | Area | Status |
 | --- | --- |
 | Cinematic Three.js opening (moonlit vineyard, fog, gold particles, cellar) with CSS/SVG fallback | ✅ |
-| 30-second onboarding: enter → nickname (code comes from the share link) → creature → reveal → 2-step tutorial (a selfie that counts straight away and hits Level 2, then the game in three lines) | ✅ |
-| Rookie boost: the next 3 challenges are easy, give double XP, count straight away (photos skip the vote) and skip the honour cooldown. Every hand always has a photo challenge | ✅ |
+| 30-second onboarding: enter → nickname (code comes from the share link) → creature → reveal → the intro: **Get the Boys Online** (selfie with Jezza and two lads, in-game camera; stays pinned if you're not together yet) → **Roast Jezza** → **Toast Jezza** (one line each, posted to the Jezza Wall) → straight into a real challenge. Every step scores once, can be passed without penalty, and can be replayed from ❓ (done steps are skipped). The groom just gets the selfie | ✅ |
+| Rookie boost: the next 3 challenges are easy, give double XP, count straight away (photos skip the vote) and skip the honour cooldown. Every hand always has a photo challenge, and never the same category twice in a row | ✅ |
+| **Jezza Lore**: 16 challenges for childhood, UNSW and newer mates to compare notes (old nicknames, hidden lore, first impressions, then-and-now photos, two truths and a lie). Jezza can veto any topic | ✅ |
 | **Runs itself, no host needed**: Friday starts on creation, Saturday at 5am Sydney, group challenges every 40 min | ✅ |
 | 92 quick challenges in Aussie English (make Jezza laugh, dance, sing, cooked photos, get Jezza in, cheers, sneaky, low-key, group) | ✅ |
 | Self-service checks: honour system (8-min cooldown), photo (the lads vote 👍/👎 by default; host can switch to *I approve* or *Instant*), a mate confirms. 🚩 Call BS, settled by the lads or the host | ✅ |
@@ -119,7 +120,7 @@ shared/   The game. Pure TypeScript shared by server and client:
             types.ts        protocol + domain types
             engine.ts       authoritative rules engine (parties, missions, claims, battles, host actions)
             battle.ts       deterministic combat resolution (seedable RNG)
-            missions.ts     108 missions · creatures.ts 8 creatures + the groom's Golden Stag · progression.ts XP/levels/cosmetics/achievements/awards
+            missions.ts     98 active missions (+32 retired, kept so old progress resolves) · creatures.ts 8 creatures + the groom's Golden Stag · progression.ts XP/levels/cosmetics/achievements/awards
             names.ts        nickname moderation
 server/   Node 22 + express + ws. Wraps the engine: WebSocket fan-out, per-viewer redaction, rate limiting,
           heartbeat presence, JSON persistence (debounced, atomic rename), photo storage.
@@ -139,7 +140,8 @@ this event; if you ever need multi-instance scale, the engine is already pure an
 ### How the weekend runs (no host required)
 
 * **Friday** starts the moment the party is created. Everyone gets 3 challenges; finish one and a new one lands.
-  Swaps: hold up to 3, one comes back every 20 minutes, and a swap gives you the same difficulty (no farming easy ones).
+  Skips: hold up to 3, one comes back every 20 minutes, and a skip gives you the same difficulty (no farming easy ones).
+  Skipping the intro is free, and **Jezza's skips are unlimited** (his veto). Nobody loses points for skipping.
   Challenges nobody touches for 2 hours rotate out.
 * **Group challenges** go live on their own every 40 minutes. They're optional; everyone who's in claims their own.
 * **Boss raid**: once the party has done 18 challenges on Friday (25 on Saturday) a boss turns up for 15 minutes.

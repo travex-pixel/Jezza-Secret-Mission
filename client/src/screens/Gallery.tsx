@@ -36,7 +36,7 @@ export default function Gallery() {
         </div>
       </div>
       {open && (
-        <PhotoViewer src={open.url} caption={`${open.source === 'cellar' ? '🍷' : '📸'} ${open.caption}`} sub={`${nick(open.playerId)} · ${timeAgo(open.at)}`} onClose={() => { setOpen(null); setConfirm(false); }}>
+        <PhotoViewer src={open.url} caption={`${open.source === 'cellar' ? '🍷' : '📸'} ${open.caption}`} sub={`${open.note ? `“${open.note}” · ` : ''}${nick(open.playerId)} · ${timeAgo(open.at)}`} onClose={() => { setOpen(null); setConfirm(false); }}>
           {confirm
             ? <div className="stack-6"><div className="tiny faint center">{canDelete ? 'This deletes the photo from the server for good.' : 'The host gets a request and decides. The photo stays up until then.'}</div><div className="btn-row"><Button variant="secondary" size="sm" onClick={() => setConfirm(false)}>Keep it</Button><Button variant="danger" size="sm" onClick={remove}>{canDelete ? 'Delete it' : 'Ask the host'}</Button></div></div>
             : <Button variant="ghost" size="sm" onClick={() => setConfirm(true)}>{canDelete ? '🗑️ Delete this photo' : '🗑️ Ask the host to take it down'}</Button>}

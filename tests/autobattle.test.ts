@@ -160,7 +160,7 @@ describe('auto-battles', () => {
 describe('photo checks', () => {
   const photoM = MISSIONS.filter((m) => m.method === 'photo' && m.scope === 'private' && !m.starter);
   // a seasoned player: rookies' first few photos skip the vote (tested below)
-  const give = (s: ReturnType<typeof setup>, id: string, missionId: string) => { const p = s.party().players[id]; p.hand = [{ missionId, assignedAt: s.now(), status: 'active' }]; p.missionsCompleted = Math.max(p.missionsCompleted, 10); };
+  const give = (s: ReturnType<typeof setup>, id: string, missionId: string) => { const p = s.party().players[id]; p.hand = [{ missionId, assignedAt: s.now(), status: 'active' }]; if (!p.completedMissionIds.includes('l01')) p.completedMissionIds.push('l01', 'l02', 'l05'); };
 
   it('the first-challenge selfie and a rookie\'s first photos count straight away, with double XP for rookies', () => {
     const s = setup(5);
@@ -176,7 +176,7 @@ describe('photo checks', () => {
     expect((r.ack as any).data.status).toBe('approved');
     expect(p.xp - xpBefore).toBeGreaterThanOrEqual(photoM[0].xp * 2);
     // the boost runs out after three
-    p.missionsCompleted = 4;
+    p.completedMissionIds.push('l01', 'l02'); // three normal challenges done: boost over
     p.hand = [{ missionId: photoM[1].id, assignedAt: s.now(), status: 'active' }];
     expect((eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: photoM[1].id, claimId: 'rookie-0002', photo: PHOTO }).ack as any).data.status).toBe('pending');
   });

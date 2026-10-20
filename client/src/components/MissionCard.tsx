@@ -31,11 +31,14 @@ export function MissionCard({ mission, assignment, compact, onDone, showReroll, 
   const [err, setErr] = useState<string | null>(null);
   const [pickWitness, setPickWitness] = useState(false);
   const [camera, setCamera] = useState(false);
+  const [writing, setWriting] = useState(false);
   const [note, setNote] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);  // camera
   const libRef = useRef<HTMLInputElement>(null);   // photo library
   const party = useStore((s) => s.party);
   const myId = useStore((s) => s.identity.playerId);
+  const isGroom = !!party && party.groomId === myId;
+  const freeSkip = !!mission.tutorial || isGroom; // the intro is free to skip; Jezza vetoes anything
   const priv = useStore((s) => s.priv);
   const toast = useStore((s) => s.toast);
   const completed = group ? !!priv?.completedMissionIds.includes(mission.id) : status === 'done';
@@ -76,6 +79,7 @@ export function MissionCard({ mission, assignment, compact, onDone, showReroll, 
   };
 
   const cta = () => {
+    if (mission.wall) return <Button size="sm" onClick={() => setWriting(true)} disabled={busy}>✍️ WRITE IT</Button>;
     if (completed) return <span className="pill pill-ok">✓ Done</span>;
     if (status === 'pending') {
       return witnessStale
@@ -115,9 +119,10 @@ export function MissionCard({ mission, assignment, compact, onDone, showReroll, 
       {mission.method === 'photo' && !compact && status === 'active' && <div className="tiny faint" style={{ padding: '0 14px' }}>📸 opens the camera · 🖼️ picks from your photos. Want the full-quality original? Take it in your normal camera app, then tap 🖼️.</div>}
       {err && <div className="field-error" style={{ padding: '0 14px' }}>{err}</div>}
       <div className="mc-foot">
-        <span className="tiny faint" style={{ maxWidth: '45%', lineHeight: 1.2 }}>{method.label}{showReroll && status === 'active' && !mission.starter ? <><br /><button className="bold" style={{ color: 'var(--rose)', textDecoration: 'underline' }} onClick={reroll} disabled={busy || (priv?.rerollsLeft ?? 0) <= 0}>Swap ({priv?.rerollsLeft ?? 0} left)</button></> : null}</span>
+        <span className="tiny faint" style={{ maxWidth: '45%', lineHeight: 1.2 }}>{mission.wall ? 'Posts to the Jezza Wall' : method.label}{showReroll && status === 'active' && !mission.starter ? <><br /><button className="bold" style={{ color: 'var(--rose)', textDecoration: 'underline' }} onClick={reroll} disabled={busy || (!freeSkip && (priv?.rerollsLeft ?? 0) <= 0)}>{isGroom ? 'Veto' : freeSkip ? 'Skip' : `Skip (${priv?.rerollsLeft ?? 0} left)`}</button></> : null}</span>
         <span className="row" style={{ gap: 6 }}>{cta()}</span>
       </div>
+      {writing && mission.wall && <WallSheet kind={mission.wall} title={mission.title} hint={mission.instruction} onClose={() => setWriting(false)} />}
       {camera && <CameraSheet facing={mission.selfie ? 'user' : 'environment'} onClose={() => setCamera(false)} onFallback={() => fileRef.current?.click()} onPhoto={(photo) => { setCamera(false); void submit({ photo }); }} />}
       {pickWitness && (
         <Sheet onClose={() => setPickWitness(false)}>
@@ -141,3 +146,26 @@ export function MissionCard({ mission, assignment, compact, onDone, showReroll, 
 }
 
 export function missionOf(id: string): Mission | undefined { return MISSION_BY_ID[id]; }
+
+/** "Roast Jezza" / "Toast Jezza": write one line, it goes on the Jezza Wall and counts the challenge. */
+function WallSheet({ kind, title, hint, onClose }: { kind: 'roast' | 'toast'; title: string; hint: string; onClose: () => void }) {
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const post = async () => {
+    setBusy(true); setErr(null);
+    try { await request({ type: 'wallPost', kind, text }); sfx.mission(); onClose(); }
+    catch (e) { setErr((e as Error).message); sfx.error(); setBusy(false); }
+  };
+  return (
+    <Sheet onClose={onClose}>
+      <div className="stack-10">
+        <div className="display title-md center">{title}</div>
+        <div className="small dim center">{hint}</div>
+        <textarea className="input" style={{ minHeight: 84, padding: 12, fontSize: 16, resize: 'none' }} maxLength={140} value={text} onChange={(e) => setText(e.target.value)} autoFocus />
+        {err && <div className="field-error center">{err}</div>}
+        <Button onClick={() => void post()} disabled={busy || text.trim().length < 6}>{kind === 'roast' ? '🔥 Post the roast' : '🥂 Post the toast'}</Button>
+      </div>
+    </Sheet>
+  );
+}

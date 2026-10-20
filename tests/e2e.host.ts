@@ -5,6 +5,7 @@ import WebSocket from 'ws';
 import fs from 'node:fs';
 import path from 'node:path';
 import { MISSIONS } from '../shared/missions';
+import { finishIntro } from './fixtures';
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:8790';
 const WSURL = BASE.replace(/^http/, 'ws') + '/ws';
@@ -38,7 +39,7 @@ async function main() {
   await page.getByRole('button', { name: /adopt/i }).click();
   await page.waitForTimeout(2000);
   await page.getByRole('button', { name: /first challenge/i }).click();
-  await page.getByRole('button', { name: /do it later/i }).click(); await page.getByRole('button', { name: /let's go/i }).click();
+  await finishIntro(page);
   await page.waitForSelector('.bottom-nav');
   await page.locator('.quick-btn', { hasText: 'Party' }).click();
   const code = (await page.locator('.code-display').textContent())!.trim();

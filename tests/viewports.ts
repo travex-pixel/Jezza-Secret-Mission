@@ -10,7 +10,7 @@ import { SELFIE_FILE } from './fixtures';
 const BASE = process.env.BASE_URL ?? 'http://localhost:5173';
 const OUT = process.env.SHOT_DIR ?? path.resolve('test-results/screenshots');
 const VIEWPORTS = [[320, 568], [360, 640], [390, 844], [412, 915]] as const;
-const CORE_NO_SCROLL = new Set(['01-opening', '03-choose', '04-reveal', '05-first-mission', '06b-tutorial-done', '07-lobby', '09-battle-arena', '14-raid', '14b-raid-lobby']);
+const CORE_NO_SCROLL = new Set(['01-opening', '03-choose', '04-reveal', '05-first-mission', '06b-intro-roast', '06c-intro-go', '07-lobby', '09-battle-arena', '14-raid', '14b-raid-lobby']);
 
 const findChrome = () => {
   const roots = [process.env.CHROME_PATH, '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', '/opt/pw-browsers/chromium/chrome-linux/chrome'];
@@ -69,8 +69,16 @@ async function run() {
     await page.waitForSelector('.reward');
     await shot(page, vp, '06-reward');
     await page.locator('.reward').click();
+    // intro 2: roast Jezza (posts to the Wall and counts the challenge)
+    await page.locator('textarea[data-intro=roast]').waitFor();
+    await shot(page, vp, '06b-intro-roast');
+    await page.locator('textarea[data-intro=roast]').fill('Jezza\'s Year 9 haircut had its own postcode');
+    await page.getByRole('button', { name: /post the roast/i }).click();
+    await page.waitForSelector('.reward'); await page.locator('.reward').click();
+    // intro 3: toast (passed here), then straight into a real challenge
+    await page.getByRole('button', { name: /pass for now/i }).click();
     await page.getByRole('button', { name: /let's go/i }).waitFor();
-    await shot(page, vp, '06b-tutorial-done');
+    await shot(page, vp, '06c-intro-go');
     await page.getByRole('button', { name: /let's go/i }).click();
     await page.waitForSelector('.bottom-nav');
     await shot(page, vp, '07-lobby');

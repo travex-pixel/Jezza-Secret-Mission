@@ -3,9 +3,9 @@ import { Engine, HONOUR_COOLDOWN_MS } from '../shared/engine';
 import { seededRng } from '../shared/battle';
 import { STARTER_MISSION, MISSIONS } from '../shared/missions';
 const SELFIE = 'data:image/jpeg;base64,c2VsZmll'; // the first challenge is a selfie
-const SELF = MISSIONS.filter((m) => m.method === 'self' && !m.starter && m.scope === 'private');
-const PHOTO_M = MISSIONS.filter((m) => m.method === 'photo' && m.scope === 'private' && !m.starter);
-const WIT = MISSIONS.filter((m) => m.method === 'witness');
+const SELF = MISSIONS.filter((m) => m.method === 'self' && !m.tutorial && !m.retired && m.scope === 'private');
+const PHOTO_M = MISSIONS.filter((m) => m.method === 'photo' && m.scope === 'private' && !m.tutorial && !m.retired);
+const WIT = MISSIONS.filter((m) => m.method === 'witness' && !m.retired);
 
 function setup(n = 15) {
   let t = 1_000_000;
@@ -156,7 +156,7 @@ describe('engine', () => {
     const p = party().players[ids[2]];
     p.hand = [{ missionId: STARTER_MISSION.id, assignedAt: 0, status: 'active' }, { missionId: SELF[0].id, assignedAt: 0, status: 'active' }, { missionId: SELF[1].id, assignedAt: 0, status: 'active' }, { missionId: PHOTO_M[0].id, assignedAt: 0, status: 'active' }];
     expect(eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: STARTER_MISSION.id, photo: SELFIE, claimId: 'cd-starter-01' }).ack?.ok).toBe(true);
-    p.missionsCompleted = 10; // past the rookie boost: rookies skip the cooldown
+    p.completedMissionIds.push('l01', 'l02', 'l05'); // past the rookie boost: rookies skip the cooldown
     expect(eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: SELF[0].id, claimId: 'cd-self-01' }).ack?.ok).toBe(true);
     const second = eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: SELF[1].id, claimId: 'cd-self-02' });
     expect(second.ack?.ok).toBe(false);

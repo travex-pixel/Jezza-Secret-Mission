@@ -114,10 +114,11 @@ describe('progression', () => {
 });
 
 describe('content', () => {
-  it('has at least 60 unique, short, self-service challenges across all 9 categories', () => {
-    expect(MISSIONS.length).toBeGreaterThanOrEqual(60);
-    expect(new Set(MISSIONS.map((m) => m.id)).size).toBe(MISSIONS.length);
-    expect(new Set(MISSIONS.map((m) => m.category)).size).toBe(9);
+  it('has at least 60 unique, short, self-service challenges across all 10 categories', () => {
+    const active = MISSIONS.filter((m) => !m.retired);
+    expect(active.length).toBeGreaterThanOrEqual(60);
+    expect(new Set(MISSIONS.map((m) => m.id)).size).toBe(MISSIONS.length); // retired ids stay reserved
+    expect(new Set(active.map((m) => m.category)).size).toBe(10);
     for (const m of MISSIONS) {
       expect(m.method, m.id).not.toBe('host');                    // no host bottleneck
       expect(m.instruction.length, m.id).toBeLessThanOrEqual(130); // readable at a glance

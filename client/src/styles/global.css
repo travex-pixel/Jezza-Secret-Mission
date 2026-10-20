@@ -446,6 +446,10 @@ img, svg { display: block; max-width: 100%; }
 .tut-dots { display: flex; justify-content: center; gap: 6px; margin-bottom: 6px; }
 .tut-dots span { width: 7px; height: 7px; border-radius: 50%; background: var(--line); }
 .tut-dots span.on { width: 20px; border-radius: 4px; background: var(--gold-2); }
+.tut-dots span.done { background: var(--gold-2); opacity: .5; }
+.tut .tut-body { gap: 12px; justify-content: flex-start; padding-top: 12px; }
+.tut .tut-done { margin-top: 6px; }
+.tut .tut-done .title-lg { line-height: 1.05; }
 .tab.on { background: var(--panel-2); color: var(--gold-2); box-shadow: inset 0 1px 0 rgba(255,255,255,.08); }
 
 /* ===== Misc ===== */

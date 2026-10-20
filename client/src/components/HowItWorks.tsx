@@ -1,6 +1,7 @@
 // Plain-English "how does this work" for new (or confused) players. Short on the first-challenge screen,
 // fuller in the ❓ sheet on the Lobby.
 import { Button, Sheet } from './ui';
+import { useStore } from '../store';
 
 const BASICS = [
   { ico: '🎯', text: <><b>Do challenges in real life</b>, then tap the button on them. You always have 3 on the Challenges tab.</> },
@@ -9,6 +10,7 @@ const BASICS = [
 ];
 const MORE = [
   { ico: '✅', text: <>Some challenges just need a tap. Some need a <b>photo</b> (the lads vote it in) or <b>a mate who saw it</b> to confirm.</> },
+  { ico: '📜', text: <><b>Jezza Lore</b> challenges dig up old stories: school, UNSW, first impressions. Jezza can veto any topic, and anyone can skip anything.</> },
   { ico: '🟣', text: <><b>EPIC jobs</b> are real chores (cooking, food runs, the esky). Tap "I'm on it" to grab one for big points.</> },
   { ico: '⚔️', text: <><b>Battles are optional.</b> Fight a mate for bonus points: pick a plan, one tap, watch 10 seconds. Your creature also fights on its own while you're away.</> },
   { ico: '👹', text: <><b>Boss raids</b> pop up now and then. Tap the banner and hit it: everyone who hits gets loot.</> },
@@ -25,12 +27,14 @@ export function HowItWorksBasics() {
 }
 
 export default function HowItWorksSheet({ onClose }: { onClose: () => void }) {
+  const setFlow = useStore((s) => s.setFlow);
   return (
     <Sheet onClose={onClose}>
       <div className="stack-10" data-testid="how-it-works">
         <div className="display title-md center">How it works</div>
         <div className="stack-10" style={{ maxHeight: '62vh', overflowY: 'auto' }}>{[...BASICS, ...MORE].map((r) => <Row key={r.ico} {...r} />)}</div>
         <Button onClick={onClose}>Got it</Button>
+        <button className="small bold dim center" onClick={() => { onClose(); setFlow('firstMission'); }}>▶ Replay the intro</button>
       </div>
     </Sheet>
   );
