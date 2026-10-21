@@ -91,7 +91,8 @@ export const useStore = create<State>((set, get) => ({
         if (prev.flow !== 'opening') {
           if (!me) set({ flow: 'join' });
           else if (!me.creature && prev.flow === 'main') set({ flow: 'choose' });
-          else if (me.creature && prev.flow === 'join') set({ flow: 'main' });
+          // ...unless they opened an invite to a different party: then the invite wins over the party they're still in
+          else if (me.creature && prev.flow === 'join' && (!prev.pendingCode || prev.pendingCode === m.party.code)) set({ flow: 'main' });
         }
         break;
       }

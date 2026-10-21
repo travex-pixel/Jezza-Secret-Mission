@@ -11,6 +11,8 @@ export default function Join() {
   const pendingCode = useStore((s) => s.pendingCode);
   const kicked = useStore((s) => s.kicked);
   const clearKicked = useStore((s) => s.clearKicked);
+  // Still in another party (a tester opening the real party's link): say so, and offer to stay put
+  const current = useStore((s) => { const me = s.party?.players.find((p) => p.id === s.identity.playerId); return me?.creature ? s.party : null; });
   const [nick, setNick] = useState(() => loadPref('nick', ''));
   const [code, setCode] = useState(pendingCode ?? '');
   const [mode, setMode] = useState<'join' | 'host' | 'reclaim'>('join');
@@ -29,6 +31,13 @@ export default function Join() {
     }).catch(() => undefined);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Remember which party this phone is in, so a refresh (or an old link in the address bar) lands in the right one
+  const settle = (joined: string) => {
+    useStore.setState({ pendingCode: joined });
+    const q = new URLSearchParams(location.search);
+    if (!isDemo() && q.get('p') && q.get('p')!.toUpperCase() !== joined) { q.set('p', joined); history.replaceState(null, '', `${location.pathname}?${q}`); }
+  };
+  const stay = () => { if (!current) return; settle(current.code); setFlow('main'); };
   const afterJoin = () => {
     savePref('nick', nick.trim());
     const s = useStore.getState();
@@ -41,11 +50,13 @@ export default function Join() {
     try {
       if (mode === 'host') {
         if (pin && !/^\d{4,6}$/.test(pin)) throw new Error('Host PIN must be 4 to 6 digits.');
-        await request<{ code: string }>({ type: 'createParty', nickname: nick, partyName: "Jezza's Bucks Weekend", hostPin: pin || undefined });
+        const r = await request<{ code: string }>({ type: 'createParty', nickname: nick, partyName: "Jezza's Bucks Weekend", hostPin: pin || undefined });
+        if (r?.code) settle(r.code);
       } else {
         if (!code.trim() && !isDemo()) throw new Error('Enter the party code from your host.');
         if (mode === 'reclaim' && !/^\d{4,6}$/.test(pin)) throw new Error('Enter your 4 to 6 digit host PIN.');
         await request<{ code: string }>({ type: 'joinParty', code: code.trim().toUpperCase(), nickname: nick });
+        settle(code.trim().toUpperCase());
         if (mode === 'reclaim') await request({ type: 'claimHost', pin });
       }
       sfx.select();
@@ -72,7 +83,12 @@ export default function Join() {
             {err && <div className="field-error">{err}</div>}
             <Button onClick={submit} disabled={busy || nick.trim().length < 2}>{busy ? 'Entering…' : "I'm in →"}</Button>
           </div>
-          <div className="faint tiny fade-up delay-4">No sign-up. No app. About 30 seconds.</div>
+          {current && current.code !== code.toUpperCase() ? (
+            <div className="panel pad stack-6 small center fade-up delay-4" style={{ width: '100%', maxWidth: 380 }} data-testid="invite-old">
+              <div>You're still in party <b>{current.code}</b>. Tapping <b>I'm in</b> moves you to this one with a fresh creature.</div>
+              <button className="tiny bold dim" onClick={stay}>Stay in {current.code} instead</button>
+            </div>
+          ) : <div className="faint tiny fade-up delay-4">No sign-up. No app. About 30 seconds.</div>}
           <button className="tiny bold dim" onClick={() => setViaLink(false)}>Got a different code?</button>
         </div>
       </div>

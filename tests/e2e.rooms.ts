@@ -78,6 +78,37 @@ async function main() {
   await phoneA.locator('.bottom-nav').getByRole('button', { name: 'Lobby' }).click();
   check((await phoneA.getByRole('button', { name: /host controls/i }).count()) === 0, 'old phone no longer has host controls');
 
+  // The real party: a new host makes a brand-new room, and a tester still in the old room opens its link
+  const phoneC = await mk(); phoneC.on('pageerror', (e) => errors.push(e.message));
+  await phoneC.goto(BASE, { waitUntil: 'networkidle' });
+  await phoneC.getByRole('button', { name: /enter the vineyard/i }).click();
+  await phoneC.getByRole('button', { name: /i'm the host/i }).click();
+  await phoneC.getByPlaceholder(/big dave/i).fill('Nath');
+  await phoneC.getByRole('button', { name: /create the party/i }).click();
+  await onboard(phoneC);
+  const realCode = await partyCode(phoneC);
+  await phoneB.goto(`${BASE}/?p=${realCode}`, { waitUntil: 'networkidle' });
+  await phoneB.getByTestId('invite-line').waitFor({ timeout: 6000 }).catch(() => undefined);
+  await phoneB.waitForTimeout(800); // give the old party's update time to arrive and (wrongly) win
+  check((await phoneB.getByTestId('invite-line').count()) === 1, 'a tester still in an old party who opens the new link gets the new invite, not the old party');
+  check(new RegExp(code).test((await phoneB.getByTestId('invite-old').textContent().catch(() => '')) ?? ''), 'the invite says which party they are leaving');
+  await phoneB.getByPlaceholder(/big dave/i).fill('Tommo');
+  await phoneB.getByRole('button', { name: /i'm in/i }).click().catch(() => undefined);
+  await onboard(phoneB).catch(() => undefined);
+  check((await partyCode(phoneB).catch(() => '')) === realCode, `the tester is now in the new party ${realCode} with a fresh creature`);
+  await phoneC.locator('.bottom-nav').getByRole('button', { name: 'Lobby' }).click();
+  await phoneC.locator('.quick-btn', { hasText: 'Party' }).click();
+  check((await phoneC.locator('.list-row', { hasText: 'Tommo' }).count()) > 0, 'the new host sees the tester arrive');
+  // ...and if they later tap the old test link in the group chat, they can stay where they are
+  await phoneB.goto(`${BASE}/?p=${code}`, { waitUntil: 'networkidle' });
+  await phoneB.getByTestId('invite-old').waitFor({ timeout: 6000 });
+  await phoneB.getByRole('button', { name: new RegExp(`stay in ${realCode}`, 'i') }).click();
+  await phoneB.waitForSelector('.bottom-nav');
+  check((await partyCode(phoneB)) === realCode && phoneB.url().includes(`p=${realCode}`), 'an old link offers "Stay in" and keeps them in the real party');
+  await phoneB.reload({ waitUntil: 'networkidle' });
+  await phoneB.waitForSelector('.bottom-nav', { timeout: 8000 });
+  check((await phoneB.getByTestId('invite-line').count()) === 0, 'a refresh after that stays in the real party');
+
   check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
   await browser.close();
   console.log(failures ? `\n${failures} CHECK(S) FAILED` : '\nROOMS E2E PASSED');
