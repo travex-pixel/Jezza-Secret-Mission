@@ -5,6 +5,7 @@ import { BOSSES } from '@shared/raid';
 import { Creature } from '../components/Creature';
 import { MissionCard } from '../components/MissionCard';
 import { EpicCard } from '../components/EpicCard';
+import { GiveawayCard } from '../components/GiveawayCard';
 import HowItWorksSheet from '../components/HowItWorks';
 import { Button, ConnectionPill, FeedItem, XPBar, useCountdown } from '../components/ui';
 import { useStore, useMe, useIsHost } from '../store';
@@ -38,6 +39,8 @@ export default function Home() {
   const witnessReq = priv?.pendingWitness?.[0];
   // An EPIC job you're on (to tick off), else one with spots still open
   const epic = party?.epics?.find((e) => e.status === 'open' && e.crew.includes(me?.id ?? '')) ?? party?.epics?.find((e) => e.status === 'open' && e.crew.length < e.max);
+  // Something up for grabs you haven't got yet, newest first: it's the one the host just announced (stock runs out, so it sits near the top)
+  const grab = [...(party?.giveaways ?? [])].reverse().find((g) => g.status === 'active' && g.claims.length < g.qty && (!g.endsAt || (party?.serverTime ?? 0) < g.endsAt) && !g.claims.some((c) => c.playerId === me?.id) && !me?.unlocked.includes(g.item));
   const slots = useSlots();
   if (!party || !me?.creature) return null;
   const board = sortLeaderboard(party.players);
@@ -48,7 +51,7 @@ export default function Home() {
   const nextMission = next ? MISSION_BY_ID[next.missionId] : undefined;
   const pinnedSelfie = next?.missionId !== 'm001' && activeHand.some((h) => h.missionId === 'm001');
   // One alert at a time, most urgent first. Everything else is a tab away.
-  const alert = fighting ? 'fight' : incoming ? 'incoming' : raid ? 'raid' : witnessReq ? 'witness' : voteEv ? 'vote' : epic?.crew.includes(me.id) ? 'epic' : awayN > 0 ? 'away' : epic ? 'epic' : null;
+  const alert = fighting ? 'fight' : incoming ? 'incoming' : raid ? 'raid' : witnessReq ? 'witness' : voteEv ? 'vote' : grab ? 'grab' : epic?.crew.includes(me.id) ? 'epic' : awayN > 0 ? 'away' : epic ? 'epic' : null;
   const feed = [...party.feed].reverse().filter((f) => f.kind !== 'achievement' && f.kind !== 'levelup' && f.id !== voteEv?.id).slice(0, Math.max(0, slots - (alert ? 1 : 0)));
   // Evolution nudge, only when it's close
   const evoAt = nextEvolveLevel(me.level);
@@ -93,6 +96,7 @@ export default function Home() {
         )}
         {alert === 'witness' && witnessReq && <button className="panel panel-gold pad row alert" onClick={() => setTab('missions')}><span style={{ fontSize: 22 }}>👀</span><span className="grow bold ellipsis">{witnessReq.fromNickname} reckons you saw “{MISSION_BY_ID[witnessReq.missionId]?.title}”</span><span className="pill pill-ember pill-xs">DID YOU?</span></button>}
         {alert === 'vote' && voteEv && <FeedItem f={voteEv} compact />}
+        {alert === 'grab' && grab && <GiveawayCard g={grab} />}
         {alert === 'epic' && epic && <EpicCard epic={epic} compact />}
         {alert === 'away' && <button className="panel pad row alert" onClick={() => setAwayOpen(true)}><span style={{ fontSize: 22 }}>🤖</span><span className="grow bold">{me.creatureName} auto-battled {awayN} time{awayN === 1 ? '' : 's'} while you were away</span><span className="pill pill-xs">SEE</span></button>}
 

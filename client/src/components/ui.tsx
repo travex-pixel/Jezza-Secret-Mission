@@ -82,6 +82,7 @@ export function RewardOverlay() {
   const quip = useMemo(() => REWARD_QUIPS[Math.floor(Math.random() * REWARD_QUIPS.length)], [reward]);
   const bursts = useMemo(() => Array.from({ length: 16 }, (_, i) => ({ dx: `${Math.cos((i / 16) * Math.PI * 2) * (120 + (i % 3) * 40)}px`, dy: `${Math.sin((i / 16) * Math.PI * 2) * (120 + (i % 3) * 40)}px` })), [reward]);
   if (!reward) return null;
+  const itemOnly = !reward.points && !reward.xp && !reward.levelUp && !!reward.unlocked?.length;
   if (reward.evolved && me?.creature) {
     const to = reward.evolved.to as 1 | 2 | 3;
     return createPortal(
@@ -106,13 +107,23 @@ export function RewardOverlay() {
     <div className="reward" onClick={next}>
       {bursts.map((b, i) => <i key={i} className="burst" style={{ ['--dx' as any]: b.dx, ['--dy' as any]: b.dy, background: i % 2 ? 'var(--ember)' : 'var(--gold)' }} />)}
       <div className="eyebrow fade-up">{reward.levelUp ? 'LEVEL UP!' : quip}</div>
-      <div className="big gold-text">+{reward.points}</div>
-      <div className="display title-md fade-up delay-1">points</div>
-      <div className="pill pill-gold fade-up delay-2">+{reward.xp} XP {reward.levelUp ? `· now level ${reward.levelUp}` : ''}</div>
+      {itemOnly ? (
+        <>{/* a code or a giveaway: the item is the prize, not "+0 points" */}
+          <div className="big">🎁</div>
+          <div className="display title-md fade-up delay-1 gold-text">{reward.unlocked!.map((u) => COSMETIC_BY_ID[u]?.name ?? u).join(' · ')}</div>
+        </>
+      ) : (
+        <>
+          <div className="big gold-text">+{reward.points}</div>
+          <div className="display title-md fade-up delay-1">points</div>
+          <div className="pill pill-gold fade-up delay-2">+{reward.xp} XP {reward.levelUp ? `· now level ${reward.levelUp}` : ''}</div>
+        </>
+      )}
       {reward.bonus && <div className="pill pill-ember fade-up delay-2">{reward.bonus}</div>}
       <div className="dim bold fade-up delay-2" style={{ maxWidth: '30ch' }}>{reward.title}</div>
       {reward.capped && <div className="tiny faint fade-up delay-3" style={{ maxWidth: '30ch' }}>Friday XP cap reached: your creature's final form unlocks Saturday. Points still count.</div>}
-      {!!reward.unlocked?.length && <div className="row fade-up delay-3" style={{ flexWrap: 'wrap', justifyContent: 'center' }}>{reward.unlocked.map((u) => <span key={u} className="pill pill-ember">🎁 {COSMETIC_BY_ID[u]?.name ?? u}</span>)}</div>}
+      {!!reward.unlocked?.length && !itemOnly && <div className="row fade-up delay-3" style={{ flexWrap: 'wrap', justifyContent: 'center' }}>{reward.unlocked.map((u) => <span key={u} className="pill pill-ember">🎁 {COSMETIC_BY_ID[u]?.name ?? u}</span>)}</div>}
+      {itemOnly && <div className="tiny faint fade-up delay-3">Wear it on the Me screen → Hats and friends</div>}
       {!!reward.achievements?.length && <div className="row fade-up delay-3" style={{ flexWrap: 'wrap', justifyContent: 'center' }}>{reward.achievements.map((a) => <span key={a} className="pill pill-ok">🏅 {ACHIEVEMENT_BY_ID[a]?.name ?? a}</span>)}</div>}
       <div className="faint tiny fade-up delay-4" style={{ marginTop: 10 }}>tap to continue</div>
     </div>,

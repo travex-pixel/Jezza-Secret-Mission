@@ -4,7 +4,7 @@
 import type {
   Battle, BattleAction, Claim, TapQuality, ClientMessage, CreatureId, Equipped, FeedEvent, HostAction, HostView,
   MissionAssignment, PartyPublic, Phase, PlayerPrivate, PlayerPublic, ServerMessage, WitnessRequest,
-  Raid, Reaction, WallPost, CellarEntry, GalleryPhoto, PhotoMode, AwayEvent, Keepsake, Epic, RewardCode,
+  Raid, Reaction, WallPost, CellarEntry, GalleryPhoto, PhotoMode, AwayEvent, Keepsake, Epic, RewardCode, Giveaway,
 } from './types';
 import { EPIC_CUSTOM_ITEM, EPIC_MAX_CREW, EPIC_PRESET_BY_ID, EPIC_TIERS, isEpicTier } from './epics';
 import { CREATURES, CREATURE_IDS, FORMS, GROOM_CREATURE, starterTrio } from './creatures';
@@ -66,6 +66,7 @@ export interface PartyState {
   nextAutoAt: number | null;
   epics: Epic[];
   codes: RewardCode[];
+  giveaways: Giveaway[];
 }
 
 export interface EngineState {
@@ -134,6 +135,7 @@ const UPSET_GAP = 40;                           // losing to someone rated this 
 const AWAY_LIMIT = 20;
 const CODE_WINDOW_MS = 10 * 60_000;            // wrong reward-code guesses: 6 per 10 minutes
 const CODE_MAX_TRIES = 6;
+export const GIVEAWAY_MAX_QTY = 30;
 const CELLAR_REWARDED_PER_PHASE = 3;
 
 /** Next Saturday 5:00am in Sydney after `from` (the party goes to Saturday on its own then). */
@@ -180,7 +182,7 @@ export class Engine {
       party.raids ??= []; party.wall ??= []; party.cellar ??= [];
       party.phaseMissions ??= { friday: 0, saturday: 0 };
       party.photoMode ??= 'vote';
-      party.epics ??= []; party.codes ??= [];
+      party.epics ??= []; party.codes ??= []; party.giveaways ??= [];
       for (const e of party.epics) { e.tier ??= 'medium'; e.points ??= EPIC_TIERS[e.tier].points; e.xp ??= EPIC_TIERS[e.tier].xp; }
       for (const b of Object.values(party.battles)) if (b.status === 'active' && !b.quick && !b.auto) { b.quick = true; b.roundDeadline = Math.min(b.roundDeadline ?? Infinity, this.now() + PLAN_SECONDS * 1000); }
       party.nextAutoAt ??= this.now() + FIRST_AUTO_DELAY_MS;
@@ -191,6 +193,8 @@ export class Engine {
         p.rerollRefillAt ??= 0;
         p.h2h ??= {}; p.upsetLosses ??= 0; p.reactionsGiven ??= 0; p.autoBattles ??= true;
         p.away ??= []; p.lastAutoAt ??= 0; p.recentAuto ??= []; p.epicsDone ??= 0; p.codeTries ??= [];
+        // Starter kit added after the save: back-fill it (a set, so running this again changes nothing)
+        if (p.creature) p.unlocked = unique([...p.unlocked, ...cosmeticsForLevel(1)]);
         // Challenges retired (or missing) since the save leave the hand; anything already sent for checking finishes as normal.
         const keep = (p.hand ?? []).filter((h) => h.status !== 'active' || (MISSION_BY_ID[h.missionId] && !MISSION_BY_ID[h.missionId].retired));
         if (keep.length !== (p.hand ?? []).length) { p.hand = keep; if (p.creature) this.refillHand(party, p); }
@@ -261,6 +265,7 @@ export class Engine {
       epics: party.epics.filter((e) => e.status === 'open' || (e.status === 'done' && now - (e.doneAt ?? 0) < 3 * 3600_000)).slice(-20),
       pendingPhotos: Object.values(party.claims).filter((c) => c.status === 'pending' && c.review === 'vote' && c.photoUrl)
         .map((c) => ({ claimId: c.id, playerId: c.playerId, missionId: c.missionId, url: c.photoUrl!, at: c.createdAt, up: c.votesUp ?? [], down: c.votesDown ?? [] })),
+      giveaways: party.giveaways.filter((g) => g.status === 'active' || now - (g.closedAt ?? 0) < 2 * 3600_000).slice(-10),
       autoSaturdayAt: party.autoSaturdayAt,
       nextGroupAt: party.nextGroupAt,
       phaseMissions: party.phaseMissions,
@@ -334,6 +339,7 @@ export class Engine {
         case 'setAutoBattles': return this.setAutoBattles(playerId, !!msg.on);
         case 'joinEpic': return this.joinEpic(playerId, msg.epicId);
         case 'redeemCode': return this.redeemCode(playerId, msg.code);
+        case 'claimGiveaway': return this.claimGiveaway(playerId, msg.giveawayId);
         case 'leaveEpic': return this.leaveEpic(playerId, msg.epicId);
         case 'finishEpic': return this.finishEpic(playerId, msg.epicId);
         case 'surrender': return this.surrender(playerId, msg.battleId);
@@ -374,7 +380,7 @@ export class Engine {
       code, name: (partyName ?? '').trim().slice(0, 40) || "Jezza's Bucks Weekend", hostId: playerId, phase: 'friday', missionsOpen: true,
       createdAt: now, players: {}, feed: [], claims: {}, revealedGroupMissions: [], battles: {}, awardOverrides: {}, finalized: false, fridayPoints: null, seq: 0,
       groomId: isJezza(v.name) ? playerId : null, autoSaturdayAt: nextSaturdayMorning(now), nextGroupAt: now + FIRST_GROUP_DELAY_MS,
-      raids: [], wall: [], cellar: [], phaseMissions: { friday: 0, saturday: 0 }, photoMode: 'vote', nextAutoAt: now + FIRST_AUTO_DELAY_MS, epics: [], codes: [],
+      raids: [], wall: [], cellar: [], phaseMissions: { friday: 0, saturday: 0 }, photoMode: 'vote', nextAutoAt: now + FIRST_AUTO_DELAY_MS, epics: [], codes: [], giveaways: [],
     };
     party.players[playerId] = newPlayer(playerId, v.name, now, true, 'friday');
     if (pin) party.hostPinHash = hashPin(code, pin);
@@ -1141,11 +1147,44 @@ export class Engine {
     if (c.redeemedBy.includes(playerId)) return this.fail('You\'ve already used that one.');
     if (c.redeemedBy.length >= c.uses) return this.fail('Someone beat you to it. That code is used up.');
     const cos = COSMETIC_BY_ID[c.item];
-    if (p.unlocked.includes(c.item)) return this.fail(`You already have the ${cos?.name ?? 'item'}. Save it for a mate.`);
+    if (p.unlocked.includes(c.item)) return this.fail(`You already have ${theItem(cos)}. Save it for a mate.`);
     c.redeemedBy.push(playerId);
     p.unlocked.push(c.item);
-    this.feed(party, { kind: 'unlock', text: `🎁 ${p.nickname} redeemed a reward code and unlocked the ${cos?.name ?? 'mystery item'}`, playerId: p.id, emoji: '🎁' });
+    this.feed(party, { kind: 'unlock', text: `🎁 ${p.nickname} redeemed a reward code and unlocked ${theItem(cos)}`, playerId: p.id, emoji: '🎁' });
     return this.ok(party, { item: c.item }, [{ to: playerId, msg: { type: 'reward', points: 0, xp: 0, unlocked: [c.item], title: 'Reward code unlocked!', bonus: '🎁 Straight from the host' } }]);
+  }
+
+  // ---------- giveaways (items up for grabs) ----------
+  /** A giveaway whose window has passed closes the moment anyone looks at it, so a late tap can't sneak through. */
+  private settleGiveaway(party: PartyState, g: Giveaway, now: number) {
+    if (g.status === 'active' && g.endsAt && now >= g.endsAt) {
+      g.status = 'ended'; g.closedAt = now;
+      this.feed(party, { kind: 'unlock', text: `🎁 Time's up on "${g.title}": ${g.claims.length} of ${g.qty} claimed`, emoji: '🎁' });
+    }
+  }
+
+  private claimGiveaway(playerId: string, giveawayId: string): HandleResult {
+    const party = this.partyOf(playerId); const p = party?.players[playerId];
+    if (!party || !p || p.removed || !p.creature) return this.fail('Adopt a creature first.');
+    const g = party.giveaways.find((x) => x.id === giveawayId);
+    if (!g) return this.fail('That giveaway isn\'t a thing any more.');
+    const now = this.now();
+    this.settleGiveaway(party, g, now);
+    // Same tap twice (slow network, retry): you already have it, nothing more happens
+    if (g.claims.some((c) => c.playerId === playerId)) return { ack: { ok: true, data: { item: g.item, already: true } }, changed: false, direct: [] };
+    const cos = COSMETIC_BY_ID[g.item];
+    if (g.status === 'exhausted') return this.fail('All gone. The lads were quick.');
+    if (g.status === 'ended') return this.fail('That one has closed. Keep an eye out for the next.');
+    if (g.status === 'cancelled') return this.fail('The host pulled that one.');
+    if (p.unlocked.includes(g.item)) return this.fail(`You already have ${theItem(cos)}. Leave it for a mate.`);
+    if (g.claims.length >= g.qty) { g.status = 'exhausted'; g.closedAt = now; return this.fail('All gone. The lads were quick.'); }
+    // Stock and item move together: the engine runs one message at a time, so two lads can't both get the last one
+    g.claims.push({ playerId, at: now });
+    p.unlocked.push(g.item);
+    const left = g.qty - g.claims.length;
+    if (left <= 0) { g.status = 'exhausted'; g.closedAt = now; }
+    this.feed(party, { kind: 'unlock', text: `🎁 ${p.nickname} grabbed ${theItem(cos)}${left > 0 ? ` (${left} left)` : ' — all gone!'}`, playerId: p.id, emoji: '🎁' });
+    return this.ok(party, { item: g.item, left }, [{ to: playerId, msg: { type: 'reward', points: 0, xp: 0, unlocked: [g.item], title: 'Got it!', bonus: '🎁 Up for grabs, and you were quick' } }]);
   }
 
   // ---------- auto-battles ----------
@@ -1516,6 +1555,8 @@ export class Engine {
         }
       }
       for (const [id, b] of Object.entries(party.battles)) if (b.finishedAt && now - b.finishedAt > 6 * 3600_000 && Object.keys(party.battles).length > 60) delete party.battles[id];
+      // Giveaway windows
+      for (const g of party.giveaways) if (g.status === 'active' && g.endsAt && now >= g.endsAt) { this.settleGiveaway(party, g, now); dirty = true; }
       // Raid timer
       const raid = party.raids[party.raids.length - 1];
       if (raid && raid.status === 'active' && now >= raid.endsAt) { this.endRaid(party, raid, 'escaped', direct); dirty = true; }
@@ -1779,6 +1820,32 @@ export class Engine {
         if (party.codes.length === before) return this.fail('No such code.');
         return this.ok(party);
       }
+      case 'makeGiveaway': {
+        const cos = COSMETIC_BY_ID[action.item];
+        if (!cos) return this.fail('Pick an accessory.');
+        const qty = Math.max(1, Math.min(GIVEAWAY_MAX_QTY, Math.round(Number(action.qty ?? 1)) || 1));
+        const title = String(action.title ?? '').trim().slice(0, 60) || `${cos.name} up for grabs`;
+        const minutes = Math.round(Number(action.minutes ?? 0)) || 0;
+        const now = this.now();
+        // A double tap (or a retry after a slow ack) must not release the same thing twice
+        const dup = party.giveaways.find((g) => g.status === 'active' && g.item === action.item && now - g.createdAt < 15_000);
+        if (dup) return this.ok(party, { id: dup.id, duplicate: true });
+        const g: Giveaway = { id: `ga_${now.toString(36)}_${Math.floor(this.rng() * 1e6).toString(36)}`, item: action.item, title, qty, claims: [], status: 'active', createdAt: now, endsAt: minutes > 0 ? now + Math.min(minutes, 24 * 60) * 60_000 : null };
+        party.giveaways.push(g);
+        if (party.giveaways.length > 50) party.giveaways = party.giveaways.slice(-50);
+        this.feed(party, { kind: 'unlock', text: `🎁 UP FOR GRABS: ${qty}× ${cos.name}. First in, first served.`, emoji: '🎁' });
+        direct.push({ to: 'party', msg: { type: 'toast', text: action.title?.trim() ? `🎁 ${title}: ${qty}× ${cos.name} up for grabs. Quick!` : `🎁 ${qty}× ${cos.name} up for grabs. Quick!`, emoji: '🎁', tone: 'info' } });
+        return this.ok(party, { id: g.id }, direct);
+      }
+      case 'endGiveaway': {
+        const g = party.giveaways.find((x) => x.id === action.giveawayId);
+        if (!g) return this.fail('No such giveaway.');
+        this.settleGiveaway(party, g, this.now());
+        if (g.status !== 'active') return this.fail('That one is already closed.');
+        g.status = 'cancelled'; g.closedAt = this.now(); // whoever already claimed keeps theirs
+        this.feed(party, { kind: 'unlock', text: `🎁 "${g.title}" closed by the host: ${g.claims.length} of ${g.qty} claimed`, emoji: '🎁' });
+        return this.ok(party);
+      }
       case 'cancelEpic': {
         const e = party.epics.find((x) => x.id === action.epicId);
         if (!e || e.status !== 'open') return this.fail('Nothing to cancel.');
@@ -1848,4 +1915,6 @@ function toPublic(p: PlayerState): PlayerPublic {
 }
 
 function unique<T>(xs: T[]): T[] { return [...new Set(xs)]; }
+/** "the Viking Helmet", but "The Mo" (no "the The"). */
+function theItem(cos: { name: string } | undefined): string { const n = cos?.name ?? 'mystery item'; return /^the /i.test(n) ? n : `the ${n}`; }
 const needsHost = (c: Claim) => (c.status === 'pending' && (c.method === 'host' || c.review === 'host')) || c.status === 'disputed';

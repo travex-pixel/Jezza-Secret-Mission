@@ -306,6 +306,7 @@ export interface PartyPublic {
   photoMode: PhotoMode;
   epics: Epic[];
   pendingPhotos: { claimId: string; playerId: string; missionId: string; url: string; at: number; up: string[]; down: string[] }[];
+  giveaways: Giveaway[];      // live ones, plus any that closed in the last couple of hours
   autoSaturdayAt: number | null;
   nextGroupAt: number | null;
   phaseMissions: { friday: number; saturday: number };
@@ -320,6 +321,24 @@ export interface HostView {
 
 /** Host-made code that unlocks one accessory for whoever types it in (host's eyes only). */
 export interface RewardCode { code: string; item: string; uses: number; redeemedBy: string[]; createdAt: number }
+
+/**
+ * Host-released accessories up for grabs: a fixed stock, one each, first in first served. Everyone sees it and taps
+ * Claim; the engine hands out the item and the claim record together, so stock can't be oversubscribed. Lives beside
+ * reward codes (which are whispered to one lad) rather than replacing them.
+ */
+export type GiveawayStatus = 'active' | 'exhausted' | 'ended' | 'cancelled';
+export interface Giveaway {
+  id: string;
+  item: string;                                   // cosmetic id
+  title: string;
+  qty: number;                                    // stock released
+  claims: { playerId: string; at: number }[];     // who got one, in order
+  status: GiveawayStatus;                         // exhausted = all claimed · ended = time ran out · cancelled = host pulled it
+  createdAt: number;
+  endsAt: number | null;                          // optional claim window
+  closedAt?: number;
+}
 
 /** Everything worth keeping from the weekend, for the host's keepsake download. */
 export interface Keepsake {
@@ -371,6 +390,7 @@ export type ClientMessage =
   | { type: 'ackAway'; reqId: string }
   | { type: 'joinEpic'; reqId: string; epicId: string }
   | { type: 'redeemCode'; reqId: string; code: string }
+  | { type: 'claimGiveaway'; reqId: string; giveawayId: string }
   | { type: 'leaveEpic'; reqId: string; epicId: string }
   | { type: 'finishEpic'; reqId: string; epicId: string }
   | { type: 'setAutoBattles'; reqId: string; on: boolean }
@@ -405,7 +425,9 @@ export type HostAction =
   | { kind: 'postEpic'; presetId?: string; title?: string; instruction?: string; min?: number; max?: number; tier?: 'small' | 'medium' | 'big' | 'legend' }
   | { kind: 'cancelEpic'; epicId: string }
   | { kind: 'makeCode'; item: string; uses?: number }
-  | { kind: 'deleteCode'; code: string };
+  | { kind: 'deleteCode'; code: string }
+  | { kind: 'makeGiveaway'; item: string; qty?: number; title?: string; minutes?: number }
+  | { kind: 'endGiveaway'; giveawayId: string };
 
 export type ServerMessage =
   | { type: 'welcome'; playerId: string; serverTime: number; inParty: boolean }

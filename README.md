@@ -40,6 +40,8 @@ More screenshots at every tested viewport live in [`docs/screenshots/`](docs/scr
 | Host keepsake download (every roast, toast, review, award and the final board) and a scan-to-join QR code | ✅ |
 | **🟣 EPIC jobs**: the host posts real jobs (dinner, brekkie, food runs, designated driver, Chief Hydration Officers, clean-up…); first in fill the crew; everyone on it gets points, XP and a themed item. Bigger jobs pay more | ✅ |
 | **🎁 Reward codes**: the host makes a code for any accessory (plus three code-only items) and gives it to whoever deserves it | ✅ |
+| **🎁 Up for grabs**: the host releases a few of any accessory for everyone; first in, first served, one each, stock enforced by the server | ✅ |
+| **Starter kit**: every creature starts with eight hats (gold cone, five coloured party hats, Santa hat, bunny ears) | ✅ |
 | 14 data-driven awards (The Jezza Legend, The Weekend Menace, Best Hype Man, Biggest Choke…) + live "Award race" tab; animated finale ceremony with podium and weekend recap | ✅ |
 | Host PIN, leave/new room, join-by-link, link previews, persistence, keepsake photo export | ✅ |
 
@@ -181,6 +183,22 @@ choose who can use it (1 lad, 3, or everyone) and tap *Make a code*. Tell someon
 they type it on their Me screen to unlock the item. Only the host can see codes. Six wrong guesses lock a player
 out for ten minutes.
 
+### Up for grabs (giveaways)
+
+Host → Event → Up for grabs: pick an accessory, how many (1, 3, 5 or one for everyone), optionally a time limit and a
+title, tap *Release…* and confirm. A card appears on every lad's Lobby and Me screen with one button: **Claim**. The
+server hands out the item and records the claim in the same step, so two lads tapping at once can't both get the last
+one, a second tap never grants twice, and someone who already owns the item is told to leave it for a mate. When the
+last one goes the card says *All gone*; the host sees who got what and can *Close* a giveaway early (whoever already
+claimed keeps theirs). This sits beside reward codes: a code is for one lad you pick; a giveaway is for whoever's quick.
+
+### Starter kit
+
+Every creature owns eight hats from the moment it's adopted: the gold Party Cone, Blue / Purple / White / Yellow /
+Green Party Hats, a Santa Hat and Bunny Ears. Players from before the kit existed get it the next time the server
+loads their party (a set-union, so it can run any number of times without duplicates and never touches what they
+already own). Everything else is still earned: levels, badges, EPIC jobs, raids, codes and giveaways.
+
 ### Being the host (optional, but you can run a lot of it)
 
 Host → Event: pause/resume, summon a raid, reveal group challenges, and **Photo checks**:
@@ -207,7 +225,7 @@ a counter stance. It's tuned to win about 55% of fights: a groom's edge, but the
   group's median level. When Saturday starts, anyone already in the party with fewer than **3** real challenges done
   (the selfie/roast/toast intro doesn't count) gets it too, so lads who joined from home on Friday aren't left behind.
   The host can switch it on or off for anyone: Host → tap the lad → 🦵 Fresh Legs (🦵 shows in the roster).
-* Cosmetics are earned, never bought: by level, by achievements (jester hat, karaoke mic for getting Jezza to sing, disco aura for Jezza Lore,
+* Cosmetics are earned, never bought (the starter kit of hats aside): by level, by achievements (jester hat, karaoke mic for getting Jezza to sing, disco aura for Jezza Lore,
   groomsman sash…), and by raids (Bin Chicken Plume, Hydra Slayer Cape).
 
 ### Keeping it honest (anti-spam)
@@ -325,6 +343,7 @@ Skipping jumps straight to the engine's final state.
 | `npm run test:viewports` | Playwright walkthrough at 4 phone viewports → `test-results/screenshots/` (curated copies live in `docs/screenshots/`), fails on overflow/scroll/console errors |
 | `npx tsx tests/e2e.live.ts` | Two separate browser sessions playing together against a built server (`BASE_URL`) |
 | `npx tsx tests/e2e.static.ts` | (build first with `VITE_BASE=/Jezza-Secret-Mission/ VITE_STATIC_DEMO=1 npm run build:client`) Serves the GitHub Pages demo build under its base path and plays it headless (no server) |
+| `npx tsx tests/e2e.giveaway.ts` | Starter kit and giveaways against a built server: host release with confirm, a claim race over the last item, the Lobby claim card, every starter hat drawn and persisted |
 | `npx tsx tests/e2e.host.ts` | Host UI against a built server: phases, group reveal, photo vote → gallery, BS dispute, witness confirmation, finale ceremony |
 | `npx tsx tests/persistence.sim.ts` | Boots a server, creates a party, restarts it, verifies the party is restored |
 | `npx tsx tests/handover.sim.ts` | Two server copies on one data folder (a redeploy): the old one hands its players to the new one and stops saving |

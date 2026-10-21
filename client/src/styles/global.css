@@ -378,6 +378,12 @@ img, svg { display: block; max-width: 100%; }
 .viewer-foot > * { pointer-events: auto; }
 .viewer-caption { font-size: 14px; }
 .tap-photo { cursor: zoom-in; }
+/* ===== Up for grabs (host giveaways) ===== */
+.grab-card { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 16px; border: 1px solid rgba(229,173,72,.6); background: linear-gradient(160deg, rgba(229,173,72,.22), rgba(118,36,58,.35) 70%); box-shadow: var(--glow-gold); }
+.grab-card .btn { flex: 0 0 auto; white-space: nowrap; }
+.grab-card.closed { box-shadow: none; opacity: .85; }
+.hat-icon { flex: 0 0 auto; display: inline-block; overflow: visible; vertical-align: middle; }
+.chip .ico .hat-icon { margin: -5px 0 -3px; }
 /* ===== EPIC tier (purple) ===== */
 .epic-card { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 18px; border: 1px solid rgba(166,107,255,.65); background: linear-gradient(160deg, rgba(120,60,220,.38), rgba(52,24,92,.55) 60%, rgba(30,18,44,.7)); box-shadow: 0 0 22px rgba(155,92,255,.25), inset 0 1px 0 rgba(255,255,255,.08); color: #f3eaff; }
 .epic-card.compact { padding: 10px 12px; gap: 6px; }

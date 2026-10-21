@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { HostAction, Phase, PlayerPublic } from '@shared/types';
 import { GROUP_MISSIONS, MISSION_BY_ID } from '@shared/missions';
 import { AWARDS } from '@shared/progression';
-import { Creature } from '../components/Creature';
+import { Creature, ItemIcon } from '../components/Creature';
 import { Button, Sheet, timeAgo } from '../components/ui';
 import { useStore, useIsHost } from '../store';
 import { request } from '../net';
@@ -39,6 +39,22 @@ export default function Host() {
   const [epicTier, setEpicTier] = useState<EpicTier>('medium');
   const [codeItem, setCodeItem] = useState('face_mo');
   const [codeUses, setCodeUses] = useState(1);
+  const [grabItem, setGrabItem] = useState('hat_viking');
+  const [grabQty, setGrabQty] = useState(3);
+  const [grabMins, setGrabMins] = useState(0);
+  const [grabTitle, setGrabTitle] = useState('');
+  const [confirmGrab, setConfirmGrab] = useState(false);
+  const [grabBusy, setGrabBusy] = useState(false);
+  const [closing, setClosing] = useState<string | null>(null);
+  const releaseGiveaway = async () => {
+    if (grabBusy) return; setGrabBusy(true); // one release per confirm, however many times the button is hit
+    try {
+      const r = await request<{ id: string; duplicate?: boolean }>({ type: 'host', action: { kind: 'makeGiveaway', item: grabItem, qty: grabQty, title: grabTitle, minutes: grabMins } });
+      sfx.reward(); if (r.duplicate) toast('That one is already out there.', '🎁', 'info'); // otherwise the party-wide announcement is the confirmation
+      setConfirmGrab(false); setGrabTitle('');
+    } catch (e) { toast((e as Error).message, '⚠️', 'warn'); }
+    finally { setGrabBusy(false); }
+  };
   const hostCodes = hostView?.codes ?? [];
   const makeCode = async () => {
     try { const r = await request<{ code: string }>({ type: 'host', action: { kind: 'makeCode', item: codeItem, uses: codeUses } }); sfx.reward(); toast(`Code ${r.code} ready. Whisper it to a legend.`, '🎁', 'success'); }
@@ -106,6 +122,30 @@ export default function Host() {
               <div className="row-between"><span className="small">How big a job?</span><span className="row" style={{ gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' }}>{(Object.keys(EPIC_TIERS) as EpicTier[]).map((t) => <button key={t} className={`pill pill-xs ${epicTier === t ? 'pill-epic' : ''}`} onClick={() => setEpicTier(t)}>{EPIC_TIERS[t].label} +{EPIC_TIERS[t].points}</button>)}</span></div>
               <Button size="sm" disabled={epicTitle.trim().length < 3} onClick={() => { host({ kind: 'postEpic', title: epicTitle, instruction: epicWhat, min: epicMax, max: epicMax, tier: epicTier }); setEpicTitle(''); setEpicWhat(''); }}>🟣 Post EPIC job</Button>
             </div>
+            <div className="divider" />
+            <div className="eyebrow">🎁 Up for grabs</div>
+            <div className="tiny faint">Release a few of an accessory for everyone to grab. First in, first served, one each. It shows on every lad's Lobby and Me screen.</div>
+            <div className="panel pad stack-6">
+              <div className="row" style={{ gap: 8 }}>
+                <ItemIcon id={grabItem} size={40} />
+                <select className="input grow" style={{ minHeight: 44, fontSize: 16 }} value={grabItem} onChange={(e) => setGrabItem(e.target.value)} aria-label="Item to release">
+                  {COSMETICS.map((c) => <option key={c.id} value={c.id}>{/Reward code only/.test(c.description) ? '⭐ ' : ''}{c.name}</option>)}
+                </select>
+              </div>
+              <div className="row-between"><span className="small">How many</span><span className="row" style={{ gap: 6 }}>{[...new Set([1, 3, 5, Math.max(1, party.players.length)])].sort((x, y) => x - y).map((n) => <button key={n} className={`pill ${grabQty === n ? 'pill-gold' : ''}`} onClick={() => setGrabQty(n)}>{n === party.players.length ? `all ${n}` : n}</button>)}</span></div>
+              <div className="row-between"><span className="small">Open for</span><span className="row" style={{ gap: 6 }}>{[0, 10, 30, 60].map((m) => <button key={m} className={`pill ${grabMins === m ? 'pill-gold' : ''}`} onClick={() => setGrabMins(m)}>{m === 0 ? 'no limit' : m === 60 ? '1 hr' : `${m} min`}</button>)}</span></div>
+              <input className="input" style={{ minHeight: 44, fontSize: 16 }} value={grabTitle} maxLength={60} onChange={(e) => setGrabTitle(e.target.value)} placeholder="Title (optional), e.g. Santa hats for the speech" aria-label="Giveaway title" />
+              <Button size="sm" onClick={() => setConfirmGrab(true)}>🎁 Release…</Button>
+            </div>
+            {[...(party.giveaways ?? [])].reverse().map((g) => { const live = g.status === 'active'; return (
+              <div key={g.id} className="list-row" data-testid="host-giveaway">
+                <ItemIcon id={g.item} size={30} />
+                <span className="grow" style={{ minWidth: 0 }}>
+                  <div className="bold ellipsis">{g.title} <span className={`pill pill-xs ${live ? 'pill-ok' : ''}`}>{live ? 'live' : g.status === 'exhausted' ? 'all gone' : g.status === 'cancelled' ? 'closed by you' : 'time up'}</span></div>
+                  <div className="tiny faint ellipsis">{COSMETIC_BY_ID[g.item]?.name} · claimed {g.claims.length}/{g.qty}{g.claims.length ? ` by ${g.claims.map((c) => nickOf(c.playerId)).join(', ')}` : ''}</div>
+                </span>
+                {live && <Button size="xs" variant={closing === g.id ? 'danger' : 'ghost'} onClick={() => { if (closing === g.id) { host({ kind: 'endGiveaway', giveawayId: g.id }); setClosing(null); } else setClosing(g.id); }}>{closing === g.id ? 'Sure? Close' : 'Close'}</Button>}
+              </div>); })}
             <div className="divider" />
             <div className="eyebrow">🎁 Reward codes</div>
             <div className="tiny faint">Make a code for an accessory and give it to whoever you reckon deserves it. They type it in on their Me screen. Only you can see these.</div>
@@ -186,6 +226,7 @@ export default function Host() {
       </div>
 
       {confirmPurge && <Sheet center onClose={() => setConfirmPurge(false)}><div className="center stack-10"><div className="eyebrow">Delete photos</div><div className="display title-md">Wipe every party photo?</div><div className="small dim">Files are deleted from the server and removed from the feed. Points already awarded stay. This cannot be undone, so download your keepsake copy first (see README → Photos).</div><div className="btn-row"><Button variant="secondary" size="sm" onClick={() => setConfirmPurge(false)}>Keep them</Button><Button variant="danger" size="sm" onClick={() => { host({ kind: 'purgePhotos' }); setConfirmPurge(false); }}>Delete all</Button></div></div></Sheet>}
+      {confirmGrab && <Sheet center onClose={() => !grabBusy && setConfirmGrab(false)}><div className="center stack-10"><div className="eyebrow">Up for grabs</div><ItemIcon id={grabItem} size={64} /><div className="display title-md">Release {grabQty}× {COSMETIC_BY_ID[grabItem]?.name}?</div><div className="small dim">Every lad in {party.code} can grab one{grabMins ? `, for the next ${grabMins === 60 ? 'hour' : `${grabMins} minutes`}` : ''}. First in, first served, one each. You can close it early.</div><div className="btn-row"><Button variant="secondary" size="sm" disabled={grabBusy} onClick={() => setConfirmGrab(false)}>Cancel</Button><Button size="sm" disabled={grabBusy} onClick={() => void releaseGiveaway()} data-testid="confirm-release">{grabBusy ? 'Releasing…' : 'Release it'}</Button></div></div></Sheet>}
       {confirmPhase && <Sheet center onClose={() => setConfirmPhase(null)}><div className="center stack-10"><div className="eyebrow">Change phase</div><div className="display title-md">Move to {PHASES.find((p) => p.id === confirmPhase)?.label}?</div><div className="small dim">{PHASES.find((p) => p.id === confirmPhase)?.blurb} Everyone is notified.</div><div className="btn-row"><Button variant="secondary" size="sm" onClick={() => setConfirmPhase(null)}>Cancel</Button><Button size="sm" onClick={() => { host({ kind: 'setPhase', phase: confirmPhase }); setConfirmPhase(null); }}>Do it</Button></div></div></Sheet>}
 
       {target && (

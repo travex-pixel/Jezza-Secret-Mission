@@ -1,7 +1,7 @@
 import { memo, useId } from 'react';
 import type { CreatureId, Equipped } from '@shared/types';
 import { CREATURES, type Colorway } from '@shared/creatures';
-import { stageForLevel } from '@shared/progression';
+import { stageForLevel, COSMETIC_BY_ID } from '@shared/progression';
 
 export type CreatureState = 'idle' | 'happy' | 'victory' | 'defeat' | 'attack' | 'hit' | 'select' | 'enter' | 'guard' | 'evolve';
 
@@ -335,8 +335,20 @@ const BUILDERS: Record<CreatureId, (c: Colorway) => Parts> = { dragon, wombat, p
 // ---------------- cosmetics ----------------
 function Hat({ id, a }: { id: string; a: Anchors }) {
   const { x, y, w } = a.headTop;
+  // a crooked party cone: body, tip, stripe, pom (white needs an outline to show against a pale creature)
+  const cone = (fill: string, tip: string, stripe: string, pom: string, stroke?: string) => (
+    <g transform={`translate(${x + w * 0.22} ${y - 2}) rotate(14)`}><path d="M0 0 L-14 2 L0 -34 L14 2 Z" fill={fill} stroke={stroke} strokeWidth={stroke ? 1.2 : 0} /><path d="M-8 -16 L8 -16 L0 -34 Z" fill={tip} /><path d="M-11 -8 h22" stroke={stripe} strokeWidth="3" /><circle cx="0" cy="-35" r="4" fill={pom} /></g>
+  );
   switch (id) {
-    case 'hat_party': return (<g transform={`translate(${x + w * 0.22} ${y - 2}) rotate(14)`}><path d="M0 0 L-14 2 L0 -34 L14 2 Z" fill="#E5AD48" /><path d="M-8 -16 L8 -16 L0 -34 Z" fill="#76243A" /><path d="M-11 -8 h22" stroke="#F6EBDD" strokeWidth="3" /><circle cx="0" cy="-35" r="4" fill="#F07842" /></g>);
+    case 'hat_party': return cone('#E5AD48', '#76243A', '#F6EBDD', '#F07842');
+    // Starter kit: the same crooked cone in five colours you can tell apart across a table
+    case 'hat_party_blue': return cone('#2F6FD6', '#1B3F8F', '#F6EBDD', '#F3CD7A');
+    case 'hat_party_purple': return cone('#7B3FBF', '#4C2380', '#F6EBDD', '#F07842');
+    case 'hat_party_white': return cone('#FFFAF2', '#E5AD48', '#76243A', '#F07842', '#c9c2c9');
+    case 'hat_party_yellow': return cone('#FFE14D', '#F07842', '#76243A', '#2F6FD6');
+    case 'hat_party_green': return cone('#2E9E5B', '#1D6B3C', '#F6EBDD', '#F3CD7A');
+    case 'hat_santa': return (<g transform={`translate(${x} ${y + 2})`}><path d={`M${-w / 2.4} -3 L${w / 2.4} -3 Q${w / 3} -24 ${w / 1.5} -30 Q${w / 2.6} -20 ${w / 6} -14 Q0 -22 ${-w / 2.4} -3 Z`} fill="#c8102e" stroke="#8e0a21" strokeWidth="1.2" /><circle cx={w / 1.5} cy="-31" r="5" fill="#fffaf2" stroke="#d8cfc6" strokeWidth="1" /><rect x={-w / 2.4 - 2} y="-7" width={w / 1.2 + 4} height="9" rx="4.5" fill="#fffaf2" stroke="#d8cfc6" strokeWidth="1" /></g>);
+    case 'hat_bunny': return (<g transform={`translate(${x} ${y + 2})`}>{[-1, 1].map((d) => <g key={d} transform={`translate(${d * w / 5} -4) rotate(${d * 12})`}><ellipse cx="0" cy="-20" rx="6.5" ry="22" fill="#fffaf2" stroke="#c9c2c9" strokeWidth="1.2" /><ellipse cx="0" cy="-19" rx="3.2" ry="15" fill="#F4A7B9" /></g>)}<rect x={-w / 2.6} y="-5" width={w / 1.3} height="5" rx="2.5" fill="#242127" /></g>);
     case 'hat_cork': return (<g>{[-2, -1, 0, 1, 2].map((i) => <rect key={i} x={x + i * (w / 5.2) - 5} y={y - 14 - (i === 0 ? 4 : Math.abs(i) === 1 ? 2 : 0)} width="10" height="16" rx="3" fill="#c9a97a" stroke="#8a6a46" strokeWidth="1.5" />)}<rect x={x - w / 2 + 2} y={y - 4} width={w - 4} height="6" rx="3" fill="#76243A" /></g>);
     case 'hat_crown': return (<g transform={`translate(${x} ${y})`}><path d={`M${-w / 2.4} 2 L${-w / 2.4} -22 L${-w / 4.8} -10 L0 -28 L${w / 4.8} -10 L${w / 2.4} -22 L${w / 2.4} 2 Z`} fill="#E5AD48" stroke="#c98a2a" strokeWidth="2" /><circle cx={-w / 4.8} cy="-4" r="3" fill="#F07842" /><circle cx="0" cy="-6" r="3.5" fill="#76243A" /><circle cx={w / 4.8} cy="-4" r="3" fill="#F07842" /></g>);
     case 'hat_jester': return (<g transform={`translate(${x} ${y + 2})`}><path d={`M${-w / 2.3} 0 Q${-w / 2} -26 ${-w / 1.4} -22 Q${-w / 4} -14 0 -6 Q${w / 4} -14 ${w / 1.4} -22 Q${w / 2} -26 ${w / 2.3} 0 Z`} fill="#76243A" /><path d={`M0 -6 Q${w / 4} -14 ${w / 1.4} -22 Q${w / 2} -26 ${w / 2.3} 0 Z`} fill="#E5AD48" /><circle cx={-w / 1.4} cy="-22" r="4" fill="#F3CD7A" /><circle cx={w / 1.4} cy="-22" r="4" fill="#F3CD7A" /><rect x={-w / 2.3} y="-3" width={w / 1.15} height="6" rx="3" fill="#F6EBDD" /></g>);
@@ -438,3 +450,17 @@ export const Creature = memo(function Creature({ creature, colorway = 0, equippe
 });
 
 export default Creature;
+
+// ---------------- item previews ----------------
+const SLOT_EMOJI: Record<string, string> = { hat: '🎩', face: '🕶️', cape: '🧣', aura: '✨', pose: '🦸' };
+/** A hat on its own, drawn exactly as the creature wears it: for the accessory list and the "up for grabs" card. */
+export function HatIcon({ id, size = 34 }: { id: string; size?: number }) {
+  const a: Anchors = { headTop: { x: 0, y: 8, w: 40 }, eyes: { lx: 0, rx: 0, y: 0, r: 0 }, shoulders: { y: 0, w: 0 } };
+  return <svg className="hat-icon" width={size} height={size} viewBox="-34 -50 68 64" aria-hidden="true"><Hat id={id} a={a} /></svg>;
+}
+/** Any accessory: hats are drawn, the rest fall back to their slot's emoji. */
+export function ItemIcon({ id, size = 34 }: { id: string; size?: number }) {
+  const slot = COSMETIC_BY_ID[id]?.slot;
+  if (slot === 'hat') return <HatIcon id={id} size={size} />;
+  return <span className="hat-icon" style={{ fontSize: size * 0.7, lineHeight: 1, width: size, textAlign: 'center' }} aria-hidden="true">{SLOT_EMOJI[slot ?? ''] ?? '🎁'}</span>;
+}
