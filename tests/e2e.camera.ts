@@ -21,7 +21,7 @@ async function onboard(b: Browser, name: string, grant: boolean) {
   await p.getByRole('button', { name: /create the party/i }).click();
   await p.waitForSelector('.pick-grid'); await p.locator('.pick-card').first().click();
   await p.getByRole('button', { name: /adopt/i }).click(); await p.waitForTimeout(2000);
-  await p.getByRole('button', { name: /group selfie/i }).click();
+  await p.getByRole('button', { name: /your selfie/i }).click();
   return { p, errors };
 }
 
@@ -30,12 +30,12 @@ async function main() {
   const b = await chromium.launch({ executablePath: findChrome(), args: ['--no-sandbox', '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] });
   const { p, errors } = await onboard(b, 'Snappy', true);
   // Opening the camera and closing it again is harmless
-  await p.getByRole('button', { name: /take the group selfie/i }).click();
+  await p.getByRole('button', { name: /take your selfie/i }).click();
   await p.locator('.camera-shutter:not([disabled])').waitFor({ timeout: 8000 });
   check(/get jezza and the boys/i.test((await p.locator('.camera-top').textContent()) ?? ''), 'the live camera says what to get in the shot');
   await p.getByRole('button', { name: 'Close camera' }).click();
-  check((await p.locator('.camera').count()) === 0 && (await p.getByRole('button', { name: /take the group selfie/i }).count()) === 1, 'closing the camera early just returns to the step, nothing sent');
-  await p.getByRole('button', { name: /take the group selfie/i }).click();
+  check((await p.locator('.camera').count()) === 0 && (await p.getByRole('button', { name: /take your selfie/i }).count()) === 1, 'closing the camera early just returns to the step, nothing sent');
+  await p.getByRole('button', { name: /take your selfie/i }).click();
   await p.locator('.camera').waitFor();
   await p.locator('.camera-shutter:not([disabled])').waitFor({ timeout: 8000 });
   check((await p.locator('.camera video').evaluate((v: HTMLVideoElement) => v.videoWidth)) > 0, 'the selfie opens a live camera inside the game (no app switch)');
@@ -111,7 +111,7 @@ async function main() {
   console.log('camera blocked');
   const b2 = await chromium.launch({ executablePath: findChrome(), args: ['--no-sandbox', '--deny-permission-prompts'] });
   const { p: q } = await onboard(b2, 'NoCam', false);
-  await q.getByRole('button', { name: /take the group selfie/i }).click();
+  await q.getByRole('button', { name: /take your selfie/i }).click();
   const fallback = q.getByRole('button', { name: /use phone camera/i });
   await fallback.waitFor({ timeout: 8000 });
   check(true, 'blocked camera: a clear message instead of a dead end');

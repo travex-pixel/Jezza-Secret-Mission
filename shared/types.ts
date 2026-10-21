@@ -422,6 +422,7 @@ export type HostAction =
   | { kind: 'setPhotoMode'; mode: PhotoMode }
   | { kind: 'resolveTakedown'; photoId: string; remove: boolean }
   | { kind: 'keepsake' }
+  | { kind: 'exportToken' }
   | { kind: 'postEpic'; presetId?: string; title?: string; instruction?: string; min?: number; max?: number; tier?: 'small' | 'medium' | 'big' | 'legend' }
   | { kind: 'cancelEpic'; epicId: string }
   | { kind: 'makeCode'; item: string; uses?: number }

@@ -1,6 +1,6 @@
 # Project Jezza: Challenge List
 
-101 missions. Points go to the weekend leaderboard, XP levels up your creature.
+102 missions. Points go to the weekend leaderboard, XP levels up your creature.
 
 How they're checked: **Just tap it** (honour system) = tap "I did it" (one every 8 minutes) · **Needs a photo** = take a photo or pick one from your library; by default the lads vote it in (two 👍), or the host can switch to approving them or to instant · **A mate confirms** = a mate who was there taps yes on their phone. Mates can 🚩 Call BS on anything. Nobody ever has to drink: any drink counts, water included.
 
@@ -33,15 +33,16 @@ New players start with a 30-second intro: **Get the Boys Online** (selfie with J
 | # | Mission | Instruction | Difficulty | Pts / XP | How | When |
 |---|---|---|---|---|---|---|
 
-## 📸 Cooked Photos (22)
+## 📸 Cooked Photos (23)
 
 | # | Mission | Instruction | Difficulty | Pts / XP | How | When |
 |---|---|---|---|---|---|---|
-| m001 | **Get the Boys Online** (intro) | Selfie with Jezza and at least two other lads. Everyone has to look genuinely fired up for the weekend. | Spicy | 20 / 50 | Needs a photo | Fri + Sat |
+| m001 | **Show Your Face** (intro) | Selfie, right now, wherever you are: couch, car, servo, vineyard. Show the lads your pre-bucks face. | Easy | 20 / 50 | Needs a photo | Fri + Sat |
 | e01 | **Best View** | Snap the best view you can find this weekend. No thumbs in the photo. | Easy | 10 / 20 | Needs a photo | Fri + Sat |
 | e07 | **Mirror Mirror** | Mirror selfie with as many lads in it as you can fit. | Easy | 10 / 20 | Needs a photo | Fri + Sat |
 | e10 | **Creature Cosplay** | Recreate your creature's pose. Get a mate to snap it. | Easy | 10 / 20 | Needs a photo | Fri + Sat |
 | n13 | **No Questions Asked** | Get five people into a group photo without telling them why. | Spicy | 20 / 35 | Needs a photo | Fri + Sat |
+| n14 | **Get the Boys Online** | Selfie with at least three lads in it, everyone looking fired up for the weekend. | Easy | 10 / 20 | Needs a photo | Fri + Sat |
 | p01 | **Most Cooked Selfie** | Convince Jezza to take a selfie with you. The more cooked, the better. | Easy | 10 / 20 | Needs a photo | Fri + Sat |
 | p02 | **Identical Idiots** | Get three mates to pull the exact same face in one photo. | Spicy | 20 / 35 | Needs a photo | Fri + Sat |
 | p03 | **Pyramid of Lads** | Pyramid-shaped group photo: back row standing, middle row squatting, front row sitting. Nobody climbs on anyone. | Legendary | 35 / 60 | Needs a photo | Fri + Sat |

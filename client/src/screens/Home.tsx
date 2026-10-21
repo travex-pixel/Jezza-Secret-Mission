@@ -15,7 +15,7 @@ const PHASE_LABEL: Record<string, string> = { lobby: 'Paused', friday: 'Friday n
 
 /** Room on the Lobby for banners + feed items: 1 on short phones, 2 on most, 3 on tall ones. */
 function useSlots() {
-  const calc = () => (window.innerHeight < 600 ? 1 : window.innerHeight < 760 ? 2 : 3);
+  const calc = () => (window.innerHeight < 600 ? 1 : window.innerHeight < 760 ? 2 : window.innerHeight < 820 ? 3 : 4);
   const [n, setN] = useState(calc);
   useEffect(() => { const f = () => setN(calc()); f(); window.addEventListener('resize', f); return () => window.removeEventListener('resize', f); }, []);
   return n;
@@ -45,7 +45,7 @@ export default function Home() {
   if (!party || !me?.creature) return null;
   const board = sortLeaderboard(party.players);
   const rank = board.findIndex((p) => p.id === me.id) + 1;
-  // The one thing to do now: a real challenge first; the pinned group selfie only if that's all there is
+  // The one thing to do now: a real challenge first; the pinned intro selfie only if that's all there is
   const activeHand = priv?.hand.filter((h) => h.status === 'active') ?? [];
   const next = activeHand.find((h) => !MISSION_BY_ID[h.missionId]?.tutorial) ?? activeHand[0] ?? priv?.hand.find((h) => h.status === 'pending');
   const nextMission = next ? MISSION_BY_ID[next.missionId] : undefined;
@@ -111,7 +111,7 @@ export default function Home() {
           <div className="grow" style={{ minHeight: 0 }}>
             <div className="row-between" style={{ marginBottom: 6 }}><span className="eyebrow">Do this next</span><button className="tiny bold" style={{ color: 'var(--rose)' }} onClick={() => setTab('missions')}>All {activeHand.length} →</button></div>
             <MissionCard mission={nextMission} assignment={next} compact />
-            {pinnedSelfie && <button className="tiny dim bold" style={{ marginTop: 6 }} onClick={() => setTab('missions')}>📸 Group selfie with Jezza still to grab →</button>}
+            {pinnedSelfie && <button className="tiny dim bold" style={{ marginTop: 6 }} onClick={() => setTab('missions')}>📸 Your selfie still to do (ten seconds) →</button>}
           </div>
         ) : (
           <div className="panel pad center stack-6 grow"><div style={{ fontSize: 30 }}>🏁</div><div className="bold">No challenges in hand right now.</div><div className="small dim">{party.phase === 'finale' || party.phase === 'ended' ? 'The weekend is wrapping up. Check the awards.' : 'Fresh ones land shortly.'}</div></div>
@@ -126,7 +126,7 @@ export default function Home() {
 
         {feed.length > 0 && (
           <div className="stack-6" style={{ minHeight: 0, flex: '0 1 auto', overflow: 'hidden' }}>{/* gives way on short phones instead of pushing the page */}
-            <div className="eyebrow">The lads</div>
+            <div className="row-between"><span className="eyebrow"><span className="live-dot" />Live · the lads</span><button className="tiny bold" style={{ color: 'var(--rose)' }} onClick={() => { useStore.setState({ partyView: 'feed' }); setTab('party'); }}>See all →</button></div>
             {feed.map((f) => <FeedItem key={f.id} f={f} compact />)}
           </div>
         )}

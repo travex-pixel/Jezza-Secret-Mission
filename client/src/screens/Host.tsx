@@ -7,9 +7,9 @@ import { Button, Sheet, timeAgo } from '../components/ui';
 import { useStore, useIsHost } from '../store';
 import { request } from '../net';
 import { sfx } from '../audio';
-import { downloadKeepsake } from '../keepsake';
+import { downloadEverything, downloadKeepsake } from '../keepsake';
 import { EPIC_PRESETS, EPIC_TIERS, type EpicTier } from '@shared/epics';
-import { COSMETICS, COSMETIC_BY_ID } from '@shared/progression';
+import { COSMETICS, COSMETIC_BY_ID, STARTER_COSMETICS } from '@shared/progression';
 
 const PHASES: { id: Phase; label: string; blurb: string }[] = [
   { id: 'lobby', label: 'Paused', blurb: 'Everything on hold. Use it for speeches or dinner.' },
@@ -129,12 +129,12 @@ export default function Host() {
               <div className="row" style={{ gap: 8 }}>
                 <ItemIcon id={grabItem} size={40} />
                 <select className="input grow" style={{ minHeight: 44, fontSize: 16 }} value={grabItem} onChange={(e) => setGrabItem(e.target.value)} aria-label="Item to release">
-                  {COSMETICS.map((c) => <option key={c.id} value={c.id}>{/Reward code only/.test(c.description) ? '⭐ ' : ''}{c.name}</option>)}
+                  {COSMETICS.filter((c) => !STARTER_COSMETICS.includes(c.id)).map((c) => <option key={c.id} value={c.id}>{/Reward code only/.test(c.description) ? '⭐ ' : ''}{c.name}</option>)}
                 </select>
               </div>
               <div className="row-between"><span className="small">How many</span><span className="row" style={{ gap: 6 }}>{[...new Set([1, 3, 5, Math.max(1, party.players.length)])].sort((x, y) => x - y).map((n) => <button key={n} className={`pill ${grabQty === n ? 'pill-gold' : ''}`} onClick={() => setGrabQty(n)}>{n === party.players.length ? `all ${n}` : n}</button>)}</span></div>
               <div className="row-between"><span className="small">Open for</span><span className="row" style={{ gap: 6 }}>{[0, 10, 30, 60].map((m) => <button key={m} className={`pill ${grabMins === m ? 'pill-gold' : ''}`} onClick={() => setGrabMins(m)}>{m === 0 ? 'no limit' : m === 60 ? '1 hr' : `${m} min`}</button>)}</span></div>
-              <input className="input" style={{ minHeight: 44, fontSize: 16 }} value={grabTitle} maxLength={60} onChange={(e) => setGrabTitle(e.target.value)} placeholder="Title (optional), e.g. Santa hats for the speech" aria-label="Giveaway title" />
+              <input className="input" style={{ minHeight: 44, fontSize: 16 }} value={grabTitle} maxLength={60} onChange={(e) => setGrabTitle(e.target.value)} placeholder="Title (optional), e.g. Vikings for the speech crew" aria-label="Giveaway title" />
               <Button size="sm" onClick={() => setConfirmGrab(true)}>🎁 Release…</Button>
             </div>
             {[...(party.giveaways ?? [])].reverse().map((g) => { const live = g.status === 'active'; return (
@@ -151,7 +151,7 @@ export default function Host() {
             <div className="tiny faint">Make a code for an accessory and give it to whoever you reckon deserves it. They type it in on their Me screen. Only you can see these.</div>
             <div className="panel pad stack-6">
               <select className="input" style={{ minHeight: 44, fontSize: 16 }} value={codeItem} onChange={(e) => setCodeItem(e.target.value)} aria-label="Accessory">
-                {COSMETICS.map((c) => <option key={c.id} value={c.id}>{/Reward code only/.test(c.description) ? '⭐ ' : ''}{c.name}</option>)}
+                {COSMETICS.filter((c) => !STARTER_COSMETICS.includes(c.id)).map((c) => <option key={c.id} value={c.id}>{/Reward code only/.test(c.description) ? '⭐ ' : ''}{c.name}</option>)}
               </select>
               <div className="tiny faint">{COSMETIC_BY_ID[codeItem]?.description}</div>
               <div className="row-between"><span className="small">Can be used by</span><span className="row" style={{ gap: 6 }}>{[1, 3, 15].map((n) => <button key={n} className={`pill ${codeUses === n ? 'pill-gold' : ''}`} onClick={() => setCodeUses(n)}>{n === 1 ? '1 lad' : n === 15 ? 'everyone' : `${n} lads`}</button>)}</span></div>
@@ -170,8 +170,12 @@ export default function Host() {
             <div className="small dim">{party.hasHostPin ? 'Set. Anyone in the party can use it on Party → Claim host, so keep it to yourself.' : 'Not set. Set one so you can take back host from another phone if yours dies.'}</div>
             <div className="row" style={{ gap: 6 }}><input className="input" style={{ minHeight: 44, fontSize: 16 }} value={newPin} onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="4–6 digits" inputMode="numeric" type="password" /><Button size="sm" variant="secondary" disabled={newPin.length < 4} onClick={() => { host({ kind: 'setHostPin', pin: newPin }); setNewPin(''); toast('Host PIN saved', '🔐', 'success'); }}>{party.hasHostPin ? 'Change' : 'Set PIN'}</Button></div>
             <div className="divider" />
-            <div className="eyebrow">Keepsake</div>
-            <div className="row-between"><div className="small dim">Download every roast, toast, drink review, award and the final board as one page you can keep.</div><Button size="sm" variant="secondary" onClick={() => downloadKeepsake().catch((e) => toast((e as Error).message, '⚠️', 'warn'))}>Download</Button></div>
+            <div className="eyebrow">📦 Keepsake</div>
+            <div className="small dim">One .zip with every photo (named by who and what), every roast and toast, the awards, the final board and the cellar, plus spreadsheets. Best on a laptop; do it before you delete any photos.</div>
+            <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+              <Button size="sm" onClick={() => downloadEverything().catch((e) => toast((e as Error).message, '⚠️', 'warn'))} data-testid="download-everything">📦 Download everything</Button>
+              <Button size="sm" variant="ghost" onClick={() => downloadKeepsake().catch((e) => toast((e as Error).message, '⚠️', 'warn'))}>Just the page</Button>
+            </div>
             <div className="divider" />
             <div className="eyebrow">Photos</div>
             <div className="row-between"><div className="small dim">Mission photos sit on this game's server only, visible to this party. Wipe them when the weekend's done.</div><Button size="sm" variant="danger" onClick={() => setConfirmPurge(true)}>Delete all</Button></div>

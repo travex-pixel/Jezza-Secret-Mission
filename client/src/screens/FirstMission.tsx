@@ -1,4 +1,4 @@
-// The first 30 seconds: group selfie, roast Jezza, toast Jezza, then into the game. Each step is a real mission
+// The first 30 seconds: your selfie, roast Jezza, toast Jezza, then into the game. Each step is a real mission
 // (scored once, passable without penalty). Every screen has one job and one big button; after each step you see
 // what you earned and a button that names the next step, so nobody has to guess the order. Steps already done
 // are skipped, so replaying the intro from ❓ never double-dips. The groom just gets the selfie.
@@ -119,24 +119,24 @@ export default function FirstMission() {
   );
   const backLink = i > 0 && done[steps[i - 1]] === 'passed' && <button className="tiny bold dim" onClick={back}>‹ Back to {STEP_LABEL[steps[i - 1]].toLowerCase()}</button>;
 
-  // ---- 1. the group selfie ----
+  // ---- 1. your selfie (anyone can do it from anywhere, so the lads still at home start level) ----
   if (step === 'selfie') return (
     <div className="screen tut">
-      {head('Get the boys online')}
-      {done.selfie === 'done' ? doneCard('Photo\'s in!', 'The lads can see it in Photos.') : (
+      {head('Show your face')}
+      {done.selfie === 'done' ? doneCard('Photo\'s in!', 'The lads can see it in Photos. Your creature just hit level 2.') : (
         <div className="screen-body tut-body">
           <div className="panel pad center stack-6">
-            <div className="bold" style={{ fontSize: 17 }}>Selfie with Jezza and at least two other lads.</div>
-            <div className="small dim">Everyone looking fired up. Counts straight away: <b className="gold-text" style={{ whiteSpace: 'nowrap' }}>+{STARTER_MISSION.points} pts · +{STARTER_MISSION.xp} XP</b></div>
+            <div className="bold" style={{ fontSize: 17 }}>Selfie. Right now, wherever you are.</div>
+            <div className="small dim">Couch, car, servo, vineyard. Show the lads your pre-bucks face. Counts straight away: <b className="gold-text" style={{ whiteSpace: 'nowrap' }}>+{STARTER_MISSION.points} pts · +{STARTER_MISSION.xp} XP</b></div>
           </div>
           <input ref={cam} type="file" accept="image/*" capture="user" data-selfie hidden onChange={(e) => { void onFile(e.target.files?.[0]); e.target.value = ''; }} />
           <input ref={lib} type="file" accept="image/*" data-selfie-library hidden onChange={(e) => { void onFile(e.target.files?.[0]); e.target.value = ''; }} />
-          {camera && <CameraSheet facing="user" hint="Get Jezza and the boys in the shot" onClose={() => setCamera(false)} onFallback={() => cam.current?.click()} onPhoto={async (photo) => { await sendSelfie(photo); setCamera(false); }} />}
+          {camera && <CameraSheet facing="user" hint="Just you. Best pre-bucks face" onClose={() => setCamera(false)} onFallback={() => cam.current?.click()} onPhoto={async (photo) => { await sendSelfie(photo); setCamera(false); }} />}
           {err && <div className="field-error center">{err}</div>}
-          <Button onClick={() => (canUseLiveCamera() ? setCamera(true) : cam.current?.click())} disabled={busy}>{busy ? 'Sending…' : '📸 Take the group selfie'}</Button>
+          <Button onClick={() => (canUseLiveCamera() ? setCamera(true) : cam.current?.click())} disabled={busy}>{busy ? 'Sending…' : '📸 Take your selfie'}</Button>
           <div className="row" style={{ justifyContent: 'center', gap: 18, flexWrap: 'wrap' }}>
             <button className="small bold dim" disabled={busy} onClick={() => lib.current?.click()}>🖼️ Pick from photos</button>
-            <button className="small bold dim" disabled={busy} onClick={pass}>Not with the boys yet? Skip</button>
+            <button className="small bold dim" disabled={busy} onClick={pass}>Camera shy? Skip for now</button>
           </div>
           <div className="tiny faint center">Skipping is free. It stays in your challenges until you get it.</div>
         </div>

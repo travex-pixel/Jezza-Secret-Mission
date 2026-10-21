@@ -11,7 +11,8 @@ export default function Party() {
   const me = useMe();
   const setTab = useStore((s) => s.setTab);
   const toast = useStore((s) => s.toast);
-  const [view, setView] = useState<'roster' | 'feed'>('roster');
+  const view = useStore((s) => s.partyView);
+  const setView = (v: 'roster' | 'feed') => useStore.setState({ partyView: v });
   const [sheet, setSheet] = useState<'leave' | 'claim' | 'qr' | null>(null);
   const [pin, setPin] = useState('');
   const [err, setErr] = useState<string | null>(null);

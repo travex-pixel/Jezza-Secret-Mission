@@ -77,6 +77,15 @@ describe('giveaways', () => {
     expect(party().giveaways[1].endsAt).toBeNull();
     expect(party().feed.some((f) => /UP FOR GRABS: 1× The Mo/.test(f.text))).toBe(true);
   });
+  it('starter items can\'t be given away or put on a code: everyone already has them', () => {
+    const { host, party } = setup();
+    for (const item of ['hat_santa', 'hat_bunny', 'hat_party_blue', 'hat_party']) {
+      const g = host({ kind: 'makeGiveaway', item, qty: 3 });
+      expect(g.ack?.ok, item).toBe(false); expect((g.ack as any).error).toMatch(/Everyone already has/);
+      expect(host({ kind: 'makeCode', item }).ack?.ok, item).toBe(false);
+    }
+    expect(party().giveaways.length).toBe(0); expect(party().codes.length).toBe(0);
+  });
   it('a double tap on Release does not release twice', () => {
     const { host, party, advance } = setup();
     const a = (host({ kind: 'makeGiveaway', item: 'hat_viking', qty: 2 }).ack as any).data;

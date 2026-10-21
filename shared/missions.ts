@@ -45,7 +45,7 @@ const m = (x: M): Mission => ({ ...REWARD[x.difficulty], scope: 'private', phase
 export const MISSIONS: Mission[] = [
   // ---------- FIRST ONE ----------
   // A selfie: doable anywhere, right now, and it counts straight away. Its XP is exactly Level 2.
-  m({ id: 'm001', starter: true, tutorial: true, selfie: true, title: 'Get the Boys Online', instruction: 'Selfie with Jezza and at least two other lads. Everyone has to look genuinely fired up for the weekend.', category: 'photo', difficulty: 2, method: 'photo', points: 20, xp: 50 }),
+  m({ id: 'm001', starter: true, tutorial: true, selfie: true, title: 'Show Your Face', instruction: 'Selfie, right now, wherever you are: couch, car, servo, vineyard. Show the lads your pre-bucks face.', category: 'photo', difficulty: 1, method: 'photo', points: 20, xp: 50 }),
   m({ id: 'm002', tutorial: true, wall: 'roast', title: 'Roast Jezza', instruction: 'One line. Bring receipts: an old haircut, a school fail, a UNSW moment. Jezza can bin anything.', category: 'laugh', difficulty: 1, method: 'self', points: 15, xp: 20 }),
   m({ id: 'm003', tutorial: true, wall: 'toast', title: 'Toast Jezza', instruction: 'A funny memory, or one thing that makes him a top mate. Funny, heartfelt or both. No speeches.', category: 'cheers', difficulty: 1, method: 'self', points: 15, xp: 20 }),
 
@@ -99,6 +99,7 @@ export const MISSIONS: Mission[] = [
   m({ id: 'n11', title: 'Google That', instruction: 'Get someone to Google something ridiculous. The more ridiculous, the better.', category: 'sneaky', difficulty: 1, method: 'witness' }),
   m({ id: 'n12', title: 'Love You, Mate', instruction: 'Get Jezza to say "I love you" to another lad.', category: 'jezza', difficulty: 2, method: 'witness' }),
   m({ id: 'n13', title: 'No Questions Asked', instruction: 'Get five people into a group photo without telling them why.', category: 'photo', difficulty: 2, method: 'photo' }),
+  m({ id: 'n14', title: 'Get the Boys Online', instruction: 'Selfie with at least three lads in it, everyone looking fired up for the weekend.', category: 'photo', difficulty: 1, method: 'photo' }),
 
   // ---------- MAKE JEZZA LAUGH ----------
   m({ id: 'l01', title: 'Crack Him Up', instruction: 'Make Jezza genuinely crack up. A joke, a face, a story: whatever works, one on one.', category: 'laugh', difficulty: 1, method: 'witness', loud: true }),
@@ -216,7 +217,7 @@ export const MISSIONS: Mission[] = [
 
 export const MISSION_BY_ID: Record<string, Mission> = Object.fromEntries(MISSIONS.map((x) => [x.id, x]));
 export const STARTER_MISSION = MISSIONS.find((x) => x.starter)!;
-/** The intro: group selfie, roast, toast. New players are dealt all three (the groom just the selfie). */
+/** The intro: your selfie, roast, toast. New players are dealt all three (the groom just the selfie). */
 export const TUTORIAL_MISSIONS = MISSIONS.filter((x) => x.tutorial);
 export const TUTORIAL_IDS = new Set(TUTORIAL_MISSIONS.map((x) => x.id));
 /** Everything that can still be dealt. */

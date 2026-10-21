@@ -185,17 +185,37 @@ export function timeAgo(t: number) {
   return `${Math.round(h / 24)}d ago`;
 }
 
-/** A feed row. Challenge completions by other players get reactions and a "Call BS" button. */
+/** Which colour edge a feed line gets, and which ones are big moments worth a glow. */
+const FEED_TONE: Record<FeedEvent['kind'], string> = {
+  mission: 'ember', wall: 'ember', battle: 'rose', raid: 'rose', levelup: 'gold', evolve: 'gold', achievement: 'gold', unlock: 'gold',
+  vote: 'gold', cellar: 'wine', epic: 'epic', join: 'ok', phase: 'cream', host: 'cream', group: 'cream',
+};
+const BIG_MOMENT = new Set<FeedEvent['kind']>(['evolve', 'raid', 'phase', 'epic']);
+const escRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** A feed row: who (their creature), what happened (names in bold), when, and the photo if there is one.
+ *  Challenge completions by other players get reactions and a "Call BS" button. */
 export function FeedItem({ f, compact }: { f: FeedEvent; compact?: boolean }) {
   const me = useStore((s) => s.identity.playerId);
   const priv = useStore((s) => s.priv);
   const groomId = useStore((s) => s.party?.groomId);
+  const players = useStore((s) => s.party?.players);
   const toast = useStore((s) => s.toast);
   const [busy, setBusy] = useState(false);
   const isMission = f.kind === 'mission' && !!f.claimId && !!f.playerId;
   const mine = f.playerId === me;
   const canFlag = isMission && !mine && !f.disputed && Date.now() - f.at < 45 * 60_000;
   const flagged = !!f.claimId && (priv?.flagged ?? []).includes(f.claimId);
+  const who = f.playerId ? players?.find((p) => p.id === f.playerId) : undefined;
+  // The emoji goes on the avatar badge, so drop it from the start of the line; then bold every lad's name
+  const body = useMemo(() => {
+    let text = f.text;
+    if (f.emoji && text.startsWith(f.emoji)) text = text.slice(f.emoji.length).trimStart();
+    const names = (players ?? []).map((p) => p.nickname).filter((n) => n.length >= 2).sort((a, b) => b.length - a.length);
+    if (!names.length) return text;
+    const re = new RegExp(`(${names.map(escRe).join('|')})`, 'g');
+    return text.split(re).map((part, i) => (i % 2 ? <b key={i} className="feed-name">{part}</b> : part));
+  }, [f.text, f.emoji, players]);
   const run = async (fn: () => Promise<unknown>, okText?: string, emoji = '✅') => {
     if (busy) return; setBusy(true);
     try { await fn(); sfx.select(); if (okText) toast(okText, emoji, 'success'); }
@@ -211,11 +231,16 @@ export function FeedItem({ f, compact }: { f: FeedEvent; compact?: boolean }) {
   const setReplay = useStore((s) => s.setReplay);
   const openPhoto = useStore((s) => s.openPhoto);
   const vote = (up: boolean) => run(() => request({ type: 'votePhoto', claimId: f.claimId!, up }), up ? 'Voted it in 👍' : 'Voted it down 👎', up ? '👍' : '👎');
+  const thumb = compact && !pendingVote && f.photoUrl;
+  const fresh = Date.now() - f.at < 10_000;
   return (
-    <div className={`feed-item ${pendingVote ? 'vote-item' : ''}`}>
-      <span className="emoji">{f.emoji ?? '•'}</span>
+    <div className={`feed-item tone-${FEED_TONE[f.kind] ?? 'cream'} ${BIG_MOMENT.has(f.kind) ? 'big' : ''} ${fresh ? 'fresh' : ''} ${pendingVote ? 'vote-item' : ''}`}>
+      <span className="feed-ava">
+        {who?.creature ? <Creature creature={who.creature} level={who.level} colorway={who.equipped.colorway} equipped={who.equipped} bare /> : <span className="feed-ava-emoji">{f.emoji ?? '•'}</span>}
+        {who?.creature && f.emoji && <span className="feed-badge">{f.emoji}</span>}
+      </span>
       <span className="grow" style={{ minWidth: 0 }}>
-        <span className={compact ? 'ellipsis' : ''} style={{ display: 'block' }}>{f.text}</span>
+        <span className={compact ? 'feed-text clamp-2' : 'feed-text'} style={{ display: 'block' }}>{body}</span>
         {(!compact || pendingVote) && f.photoUrl && <img src={f.photoUrl} alt="Challenge photo" loading="lazy" className={`tap-photo ${compact ? 'vote-thumb' : ''}`} onClick={() => openPhoto({ src: f.photoUrl!, caption: f.text })} />}
         <span className="row" style={{ gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
           <time style={{ display: 'inline' }}>{timeAgo(f.at)}</time>
@@ -234,6 +259,7 @@ export function FeedItem({ f, compact }: { f: FeedEvent; compact?: boolean }) {
           {!f.disputed && !!f.flags && <span className="tiny faint">🚩 {f.flags}</span>}
         </span>
       </span>
+      {thumb && <button className="feed-thumb" onClick={() => openPhoto({ src: f.photoUrl!, caption: f.text })} aria-label="Open photo"><img src={f.photoUrl} alt="" loading="lazy" /></button>}
       {canFlag && !compact && <button className="bs-btn" disabled={busy || flagged} onClick={flag} aria-label="Call BS on this">🚩 {flagged ? 'Called' : 'BS'}</button>}
     </div>
   );

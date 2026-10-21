@@ -10,7 +10,7 @@ import { EPIC_CUSTOM_ITEM, EPIC_MAX_CREW, EPIC_PRESET_BY_ID, EPIC_TIERS, isEpicT
 import { CREATURES, CREATURE_IDS, FORMS, GROOM_CREATURE, starterTrio } from './creatures';
 import { MISSIONS, MISSION_BY_ID, STARTER_MISSION, TUTORIAL_MISSIONS, TUTORIAL_IDS, GROUP_MISSIONS, missionAvailableInPhase, rookieLeft, type Mission } from './missions';
 import {
-  ACHIEVEMENTS, COSMETIC_BY_ID, colorwaysUnlocked, computeAwards, cosmeticsForLevel, levelForXp, titleForLevel,
+  ACHIEVEMENTS, COSMETIC_BY_ID, STARTER_COSMETICS, colorwaysUnlocked, computeAwards, cosmeticsForLevel, levelForXp, titleForLevel,
   xpCapFor, stageForLevel, eloUpdate, START_RATING, sortLeaderboard,
 } from './progression';
 import { isClean, validateCreatureName, validateNickname } from './names';
@@ -136,6 +136,7 @@ const AWAY_LIMIT = 20;
 const CODE_WINDOW_MS = 10 * 60_000;            // wrong reward-code guesses: 6 per 10 minutes
 const CODE_MAX_TRIES = 6;
 export const GIVEAWAY_MAX_QTY = 30;
+export const EXPORT_TOKEN_MS = 15 * 60_000;
 const CELLAR_REWARDED_PER_PHASE = 3;
 
 /** Next Saturday 5:00am in Sydney after `from` (the party goes to Saturday on its own then). */
@@ -161,6 +162,7 @@ export class Engine {
   private storePhoto: (dataUrl: string, partyCode: string) => string | null;
   private deletePhotos: (urls: string[]) => void;
   private codeLength: number;
+  private exportTokens = new Map<string, { code: string; exp: number }>();
 
   constructor(opts: EngineOptions = {}, state?: EngineState) {
     this.now = opts.now ?? (() => Date.now());
@@ -490,7 +492,7 @@ export class Engine {
     p.unlocked = unique([...p.unlocked, ...cosmeticsForLevel(1)]);
     p.equipped = { colorway: 0, hat: 'hat_party' };
     p.title = titleForLevel(1);
-    // The intro straight away, regardless of phase: group selfie, roast Jezza, toast Jezza. The groom just gets the selfie.
+    // The intro straight away, regardless of phase: your selfie, roast Jezza, toast Jezza. The groom just gets the selfie.
     p.hand = (isGroom ? [STARTER_MISSION] : TUTORIAL_MISSIONS).map((m) => ({ missionId: m.id, assignedAt: this.now(), status: 'active' as const }));
     this.refillHand(party, p);
     this.feed(party, { kind: 'join', text: `${p.nickname} adopted ${nm.name} the ${CREATURES[creature].name}. ${CREATURES[creature].cry}!`, playerId, emoji: '✨' });
@@ -745,7 +747,7 @@ export class Engine {
     const h = p.hand.find((x) => x.missionId === missionId);
     if (!h || h.status !== 'active') return this.fail('That one can\'t be swapped.');
     const m = MISSION_BY_ID[missionId];
-    if (m?.starter) return this.fail('The group selfie stays pinned. Grab it when you\'re with the boys.');
+    if (m?.starter) return this.fail('Your selfie stays pinned. It takes ten seconds, wherever you are.');
     if (m?.tutorial || playerId === party.groomId) { // skipping the intro is free; Jezza can veto anything, any time
       p.hand = p.hand.filter((x) => x !== h);
       this.refillHand(party, p, m?.tutorial ? undefined : m?.difficulty);
@@ -935,7 +937,7 @@ export class Engine {
       const claim: Claim = { id: `wall_${post.id}`, playerId, missionId: intro.missionId, method: 'self', status: 'pending', createdAt: now, group: false, note: text };
       party.claims[claim.id] = claim;
       this.approveClaim(party, claim, direct, true);
-    } else this.feed(party, { kind: 'wall', text: `${p.nickname} ${kind === 'roast' ? 'roasted' : 'toasted'} Jezza on the Wall`, emoji: kind === 'roast' ? '🎤' : '🥂' });
+    } else this.feed(party, { kind: 'wall', text: `${p.nickname} ${kind === 'roast' ? 'roasted' : 'toasted'} Jezza on the Wall`, playerId: p.id, emoji: kind === 'roast' ? '🎤' : '🥂' });
     if (party.groomId && party.groomId !== playerId) direct.push({ to: party.groomId, msg: { type: 'toast', text: kind === 'roast' ? 'Someone just roasted you on the Jezza Wall 👀' : 'Someone just toasted you on the Jezza Wall 🥂', emoji: '🎤', tone: 'info' } });
     return this.ok(party, { id: post.id }, direct);
   }
@@ -999,7 +1001,7 @@ export class Engine {
     const direct: Outbound[] = [];
     if (rewarded) { this.grant(party, p, 5, 10, direct); direct.push({ to: playerId, msg: { type: 'toast', text: 'Reviewed (+5). Very sophisticated.', emoji: '🍷', tone: 'success' } }); }
     else { this.checkAchievements(party, p, direct); direct.push({ to: playerId, msg: { type: 'toast', text: 'Logged. (Only your first 3 reviews a day score: the game never rewards drinking more.)', emoji: '🍷', tone: 'info' } }); }
-    this.feed(party, { kind: 'cellar', text: `${p.nickname} reviewed ${drink} ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}`, emoji: '🍷' });
+    this.feed(party, { kind: 'cellar', text: `${p.nickname} reviewed ${drink} ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}`, playerId: p.id, emoji: '🍷' });
     return this.ok(party, { id: entry.id }, direct);
   }
 
@@ -1487,7 +1489,7 @@ export class Engine {
       this.checkAchievements(party, w, direct); this.checkAchievements(party, l, direct);
     }
     const how = b.reason === 'ko' ? 'knocked out' : b.reason === 'rounds' ? 'outlasted' : b.reason === 'surrender' ? 'accepted the surrender of' : 'outstayed';
-    this.feed(party, { kind: 'battle', text: `${w.creatureName} (${w.nickname}) ${how} ${l.creatureName} (${l.nickname})${bountyText}${scored ? (w.streak >= 3 ? ` · 🔥${w.streak} streak` : '') : ' (friendly)'}`, emoji: bountyText ? '👑' : '🏆', battleId: b.id });
+    this.feed(party, { kind: 'battle', text: `${w.creatureName} (${w.nickname}) ${how} ${l.creatureName} (${l.nickname})${bountyText}${scored ? (w.streak >= 3 ? ` · 🔥${w.streak} streak` : '') : ' (friendly)'}`, playerId: w.id, emoji: bountyText ? '👑' : '🏆', battleId: b.id });
     if (rivalry) this.feed(party, { kind: 'battle', text: rivalry, emoji: '⚔️' });
   }
 
@@ -1519,7 +1521,7 @@ export class Engine {
       if (p.online) direct.push({ to: p.id, msg: { type: 'toast', text: won ? `Your ${p.creatureName} auto-battled ${o.nickname}'s ${o.creatureName} and WON (+${ev.xp} XP)` : `Your ${p.creatureName} auto-battled ${o.nickname}'s ${o.creatureName} and lost${close ? ' (close one)' : ''} (+${ev.xp} XP)`, emoji: won ? '🤖' : '🩹', tone: won ? 'success' : 'info' } });
     }
     const how = b.reason === 'ko' ? (close ? 'just edged out' : 'flattened') : 'outlasted';
-    this.feed(party, { kind: 'battle', text: `🤖 AUTO-BATTLE: ${w.creatureName} (${w.nickname}) ${how} ${l.creatureName} (${l.nickname})${w.streak >= 3 ? ` · 🔥${w.streak} streak` : ''}`, emoji: '🤖', battleId: b.id });
+    this.feed(party, { kind: 'battle', text: `🤖 AUTO-BATTLE: ${w.creatureName} (${w.nickname}) ${how} ${l.creatureName} (${l.nickname})${w.streak >= 3 ? ` · 🔥${w.streak} streak` : ''}`, playerId: w.id, emoji: '🤖', battleId: b.id });
     if (rivalry) this.feed(party, { kind: 'battle', text: rivalry, emoji: '⚔️' });
   }
 
@@ -1645,6 +1647,30 @@ export class Engine {
   }
 
   // ---------- host ----------
+  /** Everything worth keeping from the weekend. Photos are every one still on the server that wasn't voted out. */
+  keepsake(party: PartyState): Keepsake {
+    const nick = (id: string) => party.players[id]?.nickname ?? 'Someone';
+    const players = Object.values(party.players).filter((x) => !x.removed && x.creature);
+    return {
+      name: party.name, code: party.code,
+      board: sortLeaderboard(players).map((x) => ({ nickname: x.nickname, creatureName: x.creatureName, level: x.level, points: x.points, missions: x.missionsCompleted, wins: x.wins, losses: x.losses })),
+      awards: computeAwards(players.map(toPublic), Object.values(party.battles), party.awardOverrides).map((a) => ({ name: a.name, winner: a.playerId ? nick(a.playerId) : 'Nobody', reason: a.reason })),
+      wall: party.wall.filter((w) => !w.hidden).map((w) => ({ author: nick(w.playerId), kind: w.kind, text: w.text, votes: w.votes.length, groomLove: w.groomLove, at: w.at })).sort((a, b) => b.votes + (b.groomLove ? 3 : 0) - (a.votes + (a.groomLove ? 3 : 0))),
+      cellar: party.cellar.map((e) => ({ author: nick(e.playerId), drink: e.drink, stars: e.stars, note: e.note, fires: e.fires.length, at: e.at })),
+      photos: [
+        ...Object.values(party.claims).filter((c) => c.photoUrl && c.status !== 'rejected').map((c) => ({ url: c.photoUrl!, caption: MISSION_BY_ID[c.missionId]?.title ?? 'Challenge', author: nick(c.playerId), at: c.createdAt })),
+        ...party.cellar.filter((e) => e.photoUrl).map((e) => ({ url: e.photoUrl!, caption: `Cellar - ${e.drink}`, author: nick(e.playerId), at: e.at })),
+      ].sort((a, b) => a.at - b.at),
+    };
+  }
+
+  /** The party a download link was made for, while it's still fresh. */
+  exportCodeFor(token: string): string | null {
+    const v = this.exportTokens.get(String(token ?? ''));
+    if (!v || v.exp < this.now() || !this.state.parties[v.code]) return null;
+    return v.code;
+  }
+
   private hostAction(playerId: string, action: HostAction): HandleResult {
     const party = this.partyOf(playerId);
     if (!party) return this.fail('Join a party first.');
@@ -1804,6 +1830,7 @@ export class Engine {
       }
       case 'makeCode': {
         if (!COSMETIC_BY_ID[action.item]) return this.fail('Pick an accessory.');
+        if (STARTER_COSMETICS.includes(action.item)) return this.fail(`Everyone already has ${theItem(COSMETIC_BY_ID[action.item])}. Pick something they have to earn.`);
         const uses = Math.max(1, Math.min(20, Math.round(Number(action.uses ?? 1)) || 1));
         let code = '';
         for (let i = 0; i < 20; i++) {
@@ -1823,6 +1850,7 @@ export class Engine {
       case 'makeGiveaway': {
         const cos = COSMETIC_BY_ID[action.item];
         if (!cos) return this.fail('Pick an accessory.');
+        if (STARTER_COSMETICS.includes(action.item)) return this.fail(`Everyone already has ${theItem(cos)}. Pick something they have to earn.`);
         const qty = Math.max(1, Math.min(GIVEAWAY_MAX_QTY, Math.round(Number(action.qty ?? 1)) || 1));
         const title = String(action.title ?? '').trim().slice(0, 60) || `${cos.name} up for grabs`;
         const minutes = Math.round(Number(action.minutes ?? 0)) || 0;
@@ -1861,21 +1889,14 @@ export class Engine {
         target.takedown = undefined;
         return this.ok(party);
       }
-      case 'keepsake': {
-        const nick = (id: string) => party.players[id]?.nickname ?? 'Someone';
-        const players = Object.values(party.players).filter((x) => !x.removed && x.creature);
-        const data: Keepsake = {
-          name: party.name, code: party.code,
-          board: sortLeaderboard(players).map((x) => ({ nickname: x.nickname, creatureName: x.creatureName, level: x.level, points: x.points, missions: x.missionsCompleted, wins: x.wins, losses: x.losses })),
-          awards: computeAwards(players.map(toPublic), Object.values(party.battles), party.awardOverrides).map((a) => ({ name: a.name, winner: a.playerId ? nick(a.playerId) : 'Nobody', reason: a.reason })),
-          wall: party.wall.filter((w) => !w.hidden).map((w) => ({ author: nick(w.playerId), kind: w.kind, text: w.text, votes: w.votes.length, groomLove: w.groomLove, at: w.at })).sort((a, b) => b.votes + (b.groomLove ? 3 : 0) - (a.votes + (a.groomLove ? 3 : 0))),
-          cellar: party.cellar.map((e) => ({ author: nick(e.playerId), drink: e.drink, stars: e.stars, note: e.note, fires: e.fires.length, at: e.at })),
-          photos: [
-            ...Object.values(party.claims).filter((c) => c.photoUrl && (c.status === 'approved' || c.status === 'disputed')).map((c) => ({ url: c.photoUrl!, caption: MISSION_BY_ID[c.missionId]?.title ?? 'Challenge', author: nick(c.playerId), at: c.resolvedAt ?? c.createdAt })),
-            ...party.cellar.filter((e) => e.photoUrl).map((e) => ({ url: e.photoUrl!, caption: `🍷 ${e.drink}`, author: nick(e.playerId), at: e.at })),
-          ].sort((a, b) => a.at - b.at),
-        };
-        return { ack: { ok: true, data }, changed: false, direct: [] };
+      case 'keepsake': return { ack: { ok: true, data: this.keepsake(party) }, changed: false, direct: [] };
+      case 'exportToken': {
+        // A short-lived download link for the .zip; held in memory only, so it never lands in state.json
+        const now = this.now();
+        for (const [t, v] of this.exportTokens) if (v.exp < now) this.exportTokens.delete(t);
+        const token = Array.from(globalThis.crypto.getRandomValues(new Uint8Array(24)), (n) => 'abcdefghijkmnpqrstuvwxyz23456789'[n & 31]).join('');
+        this.exportTokens.set(token, { code: party.code, exp: now + EXPORT_TOKEN_MS });
+        return { ack: { ok: true, data: { token, code: party.code } }, changed: false, direct: [] };
       }
       case 'transferHost': {
         const p = party.players[action.playerId];

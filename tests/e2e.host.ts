@@ -4,6 +4,7 @@ import { chromium } from 'playwright-core';
 import WebSocket from 'ws';
 import fs from 'node:fs';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { MISSIONS } from '../shared/missions';
 import { finishIntro } from './fixtures';
 
@@ -38,7 +39,7 @@ async function main() {
   await page.getByText(/groom only/i).waitFor(); // "HostJezza" counts as the groom
   await page.getByRole('button', { name: /adopt/i }).click();
   await page.waitForTimeout(2000);
-  await page.getByRole('button', { name: /group selfie/i }).click();
+  await page.getByRole('button', { name: /your selfie/i }).click();
   await finishIntro(page);
   await page.waitForSelector('.bottom-nav');
   await page.locator('.quick-btn', { hasText: 'Party' }).click();
@@ -55,6 +56,7 @@ async function main() {
   const m2 = mate('host_e2e_mate_02'); await m2.ready;
   await m1.req({ type: 'joinParty', code, nickname: 'Robbo' }); await m1.req({ type: 'chooseCreature', creature: 'goblin' });
   await m2.req({ type: 'joinParty', code, nickname: 'Shorty' }); await m2.req({ type: 'chooseCreature', creature: 'owl' });
+  await m1.req({ type: 'wallPost', kind: 'roast', text: 'Jezza reverse parks like it is a group project, mate.' }); // for the keepsake export
 
   // Host panel: the game already runs itself (Friday is live). Pause + resume via the confirm sheet.
   await page.getByRole('button', { name: /host controls/i }).click();
@@ -148,9 +150,24 @@ async function main() {
   // Summon a raid from the Event tab
   await page.getByRole('button', { name: 'Event', exact: true }).click();
   await page.getByRole('button', { name: /summon/i }).click();
-  const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download', exact: true }).click()]);
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Just the page', exact: true }).click()]);
   const keep = fs.readFileSync((await dl.path())!, 'utf8');
   check(/The final board/.test(keep) && /The Jezza Wall/.test(keep) && /Robbo/.test(keep), `host downloads the keepsake page (${dl.suggestedFilename()})`);
+  // The full export: one zip with the page, the photo files and spreadsheets, readable by a normal unzip tool
+  const [zdl] = await Promise.all([page.waitForEvent('download'), page.getByTestId('download-everything').click()]);
+  const zipPath = path.join(OUT, 'keepsake.zip');
+  await zdl.saveAs(zipPath);
+  const test = execFileSync('unzip', ['-t', zipPath], { encoding: 'utf8' });
+  const list = execFileSync('unzip', ['-Z1', zipPath], { encoding: 'utf8' }).split('\n').filter(Boolean);
+  const photos = list.filter((f) => /\/photos\/\d{3} .+ - .+\.(jpeg|png|webp)$/.test(f));
+  check(/No errors detected/.test(test), `the zip opens cleanly (${zdl.suggestedFilename()}, ${list.length} files)`);
+  check(photos.length >= 1 && list.some((f) => /Open me - keepsake\.html$/.test(f)) && list.some((f) => /roasts-and-toasts\.csv$/.test(f)) && list.some((f) => /leaderboard\.csv$/.test(f)), `zip has the page, ${photos.length} named photo(s) and the spreadsheets`);
+  const page1 = execFileSync('unzip', ['-p', zipPath, list.find((f) => /keepsake\.html$/.test(f))!], { encoding: 'utf8' });
+  check(page1.includes('src="photos/') && /The Jezza Wall/.test(page1), 'the zipped page points at the photos inside the zip, so it works offline');
+  const roasts = execFileSync('unzip', ['-p', zipPath, list.find((f) => /roasts-and-toasts\.csv$/.test(f))!], { encoding: 'utf8' });
+  check(/^\uFEFF?Type,Who,What they said/.test(roasts) && /Robbo/.test(roasts), 'roasts-and-toasts.csv has the posts');
+  const expired = await fetch(`${BASE}/api/export/not-a-real-token`);
+  check(expired.status === 404, 'a made-up download link gets nothing');
   await page.getByText(/‹ Host controls/).click();
   await page.locator('.raid-banner').waitFor({ timeout: 4000 });
   check(true, 'host can summon a boss raid and the banner appears');

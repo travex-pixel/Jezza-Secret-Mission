@@ -155,8 +155,8 @@ function connectDemo(): Transport {
     });
     party.feed.push(
       { id: 'd1', at: t0 - 540000, kind: 'mission', text: 'Big Dave did "Jezza Sings" (+20)', emoji: '🤵', playerId: mateIds[2], claimId: 'demo-c1', reactions: { '😂': [mateIds[1], mateIds[4], mateIds[6]] } },
-      { id: 'd2', at: t0 - 420000, kind: 'battle', text: 'Keg (Big Dave) knocked out Bruce (Tommo) · 🔥3 streak', emoji: '🏆' },
-      { id: 'd3', at: t0 - 300000, kind: 'evolve', text: '🧬 Shorty\'s Professor EVOLVED into a Midnight Owl!', emoji: '🧬' },
+      { id: 'd2', at: t0 - 420000, kind: 'battle', text: 'Keg (Big Dave) knocked out Bruce (Tommo) · 🔥3 streak', emoji: '🏆', playerId: mateIds[2] },
+      { id: 'd3', at: t0 - 300000, kind: 'evolve', text: '🧬 Shorty\'s Professor EVOLVED into a Midnight Owl!', emoji: '🧬', playerId: mateIds[4] },
       { id: 'd4', at: t0 - 120000, kind: 'mission', text: 'Nath did a sneaky one (+20)', emoji: '🕵️', playerId: mateIds[3], claimId: 'demo-c2' },
     );
   };

@@ -14,7 +14,7 @@ async function onboard(page: Page) {
   await page.locator('.pick-card').first().click();
   await page.getByRole('button', { name: /adopt/i }).click();
   await page.waitForTimeout(2000);
-  await page.getByRole('button', { name: /group selfie/i }).click();
+  await page.getByRole('button', { name: /your selfie/i }).click();
   await finishIntro(page);
   await page.waitForSelector('.bottom-nav');
 }

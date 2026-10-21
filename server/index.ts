@@ -6,6 +6,8 @@ import express from 'express';
 import { WebSocketServer, WebSocket } from 'ws';
 import { Engine, type EngineState, type Outbound } from '../shared/engine';
 import type { ClientMessage, ServerMessage } from '../shared/types';
+import { keepsakeCsvs, keepsakeHtml, photoFileNames, safeFileName } from '../shared/keepsake';
+import { ZipStream } from './zip';
 
 const PORT = Number(process.env.PORT ?? 8787);
 const DATA_DIR = path.resolve(process.env.DATA_DIR ?? './data');
@@ -78,6 +80,49 @@ app.get('/api/party/:code/exists', (req, res) => {
   if (!party) return res.json({ exists: false });
   // what the invite screen shows: the party's name and how many lads are already in
   res.json({ exists: true, name: party.name, lads: Object.values(party.players).filter((p) => !p.removed && p.creature).length });
+});
+// End-of-weekend export: one .zip with the keepsake page, every photo and spreadsheets. The link comes from the
+// host's phone (Host → Event → Download everything) and works for 15 minutes.
+app.get('/api/export/:token', async (req, res) => {
+  const code = engine.exportCodeFor(String(req.params.token));
+  const party = code ? engine.state.parties[code] : undefined;
+  if (!party) return res.status(404).type('text').send('That download link has expired. Tap Download everything again in Host controls.');
+  const k = engine.keepsake(party);
+  const names = photoFileNames(k);
+  const top = safeFileName(`${party.name} keepsake (${party.code})`);
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', `attachment; filename="jezza-keepsake-${party.code}.zip"`);
+  res.setHeader('Cache-Control', 'no-store');
+  const zip = new ZipStream(res);
+  let missing = 0;
+  try {
+    const kept: number[] = [];
+    for (let i = 0; i < k.photos.length; i++) {
+      const file = path.basename(k.photos[i].url);
+      if (!/^[A-Z0-9]+_[a-z0-9]+_[a-z0-9]+\.(jpeg|png|webp)$/.test(file)) { missing++; continue; }
+      const data = await fs.promises.readFile(path.join(PHOTO_DIR, file)).catch(() => null);
+      if (!data) { missing++; continue; }
+      await zip.add(`${top}/photos/${names[i]}`, data);
+      kept.push(i);
+    }
+    const shown = { ...k, photos: kept.map((i) => k.photos[i]) };
+    const shownNames = kept.map((i) => names[i]);
+    await zip.add(`${top}/Open me - keepsake.html`, keepsakeHtml(shown, (i) => `photos/${encodeURIComponent(shownNames[i])}`, ''));
+    for (const [name, body] of Object.entries(keepsakeCsvs(shown, shownNames))) await zip.add(`${top}/${name}`, body);
+    await zip.add(`${top}/keepsake.json`, JSON.stringify({ ...shown, photos: shown.photos.map((p, i) => ({ ...p, file: `photos/${shownNames[i]}` })) }, null, 2));
+    await zip.add(`${top}/README.txt`, [
+      `${party.name} (${party.code})`, '',
+      'Open me - keepsake.html  every roast, toast, award, the final board, the cellar and the photos (works offline)',
+      'photos/                  every photo, named "number Who - What", in the order they were taken',
+      '*.csv                    the same in spreadsheets (Excel, Numbers, Google Sheets)',
+      'keepsake.json            all of it as data', '',
+      `${kept.length} photos${missing ? ` (${missing} had already been deleted from the server)` : ''}.`, '',
+      'Unzip first (on iPhone: tap the zip in Files), then open the keepsake page.',
+    ].join('\r\n'));
+    await zip.finish();
+    console.log(`[export] ${party.code}: ${kept.length} photos, ${missing} missing`);
+  } catch (e) { console.error('[export] failed', e); }
+  res.end();
 });
 app.use('/photos', express.static(PHOTO_DIR, { maxAge: '7d', immutable: true, fallthrough: false }));
 if (fs.existsSync(CLIENT_DIR)) {

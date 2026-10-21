@@ -62,7 +62,7 @@ async function run() {
     await page.getByRole('button', { name: /adopt/i }).click();
     await page.waitForTimeout(2200);
     await shot(page, vp, '04-reveal');
-    await page.getByRole('button', { name: /group selfie/i }).click();
+    await page.getByRole('button', { name: /your selfie/i }).click();
     await page.locator('input[data-selfie]').waitFor({ state: 'attached' });
     await shot(page, vp, '05-first-mission');
     await page.locator('input[data-selfie]').setInputFiles(SELFIE_FILE);

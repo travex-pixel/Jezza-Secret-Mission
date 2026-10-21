@@ -366,7 +366,7 @@ describe('self-running weekend', () => {
 });
 
 describe('the intro, skips and the challenge library', () => {
-  it('new players get the intro: group selfie, roast, toast (the groom just the selfie); roast and toast are done on the Wall, once', () => {
+  it('new players get the intro: your selfie, roast, toast (the groom just the selfie); roast and toast are done on the Wall, once', () => {
     const { eng, ids, party } = setup();
     const mate = party().players[ids[2]];
     expect(mate.hand.map((h) => h.missionId)).toEqual(['m001', 'm002', 'm003']);

@@ -55,7 +55,7 @@ export default function Reveal() {
             <input className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={16} placeholder={def.defaultName} enterKeyHint="done" onKeyDown={(e) => e.key === 'Enter' && go()} />
           </label>
           {err && <div className="field-error">{err}</div>}
-          <Button onClick={go} disabled={busy}>{busy ? '…' : 'Next: the group selfie →'}</Button>
+          <Button onClick={go} disabled={busy}>{busy ? '…' : 'Next: your selfie →'}</Button>
         </div>
       </div>
     </div>

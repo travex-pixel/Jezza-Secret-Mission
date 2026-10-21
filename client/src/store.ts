@@ -21,6 +21,7 @@ interface State {
   reward: Reward | null;
   rewardQueue: Reward[];
   focusBattleId: string | null;
+  partyView: 'roster' | 'feed';
   kicked: string | null;
   pendingCode: string | null;
   replay: Battle | null;   // battle being replayed in the overlay
@@ -67,6 +68,7 @@ export const useStore = create<State>((set, get) => ({
   reward: null,
   rewardQueue: [],
   focusBattleId: null,
+  partyView: 'roster',
   kicked: null,
   replay: null,
   awayOpen: false,

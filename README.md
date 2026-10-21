@@ -18,7 +18,7 @@ More screenshots at every tested viewport live in [`docs/screenshots/`](docs/scr
 | Area | Status |
 | --- | --- |
 | Cinematic Three.js opening (moonlit vineyard, fog, gold particles, cellar) with CSS/SVG fallback | ✅ |
-| 30-second onboarding. From the invite link it's one screen (whose party it is, how many lads are already in, your name, **I'm in**), then creature → reveal → the intro: **Get the Boys Online** (selfie with Jezza and two lads, in-game camera; stays pinned if you're not together yet) → **Roast Jezza** → **Toast Jezza** (one line each, posted to the Jezza Wall) → straight into a real challenge. One job and one big button per screen; after each step you see what you earned and a button that names the next step (no pop-ups during the intro). Every step scores once, can be skipped without penalty, and can be replayed from ❓ (done steps are skipped). The groom just gets the selfie | ✅ |
+| 30-second onboarding. From the invite link it's one screen (whose party it is, how many lads are already in, your name, **I'm in**), then creature → reveal → the intro: **Show Your Face** (a solo selfie from wherever you are, in-game camera, so lads who aren't there yet can still play; the group selfie, *Get the Boys Online*, is a normal easy challenge later) → **Roast Jezza** → **Toast Jezza** (one line each, posted to the Jezza Wall) → straight into a real challenge. One job and one big button per screen; after each step you see what you earned and a button that names the next step (no pop-ups during the intro). Every step scores once, can be skipped without penalty, and can be replayed from ❓ (done steps are skipped). The groom just gets the selfie | ✅ |
 | Rookie boost: the next 3 challenges are easy, give double XP, count straight away (photos skip the vote) and skip the honour cooldown. Every hand always has a photo challenge, and never the same category twice in a row | ✅ |
 | **Jezza Lore**: 16 challenges for childhood, UNSW and newer mates to compare notes (old nicknames, hidden lore, first impressions, then-and-now photos, two truths and a lie). Jezza can veto any topic | ✅ |
 | **Runs itself, no host needed**: Friday starts on creation, Saturday at 5am Sydney, group challenges every 40 min | ✅ |
@@ -35,6 +35,7 @@ More screenshots at every tested viewport live in [`docs/screenshots/`](docs/scr
 | The Jezza Wall (roasts and toasts, votes, Jezza's ❤️, Roast Reel at the finale) | ✅ |
 | The Cellar: drink reviews with label photos (any drink counts; only 3 a day score) | ✅ |
 | 😂 🔥 reactions (❤️ for Jezza only) that drive the awards | ✅ |
+| **Live feed**: every line shows the lad's creature with the moment's emoji, names in bold, a colour edge by type (challenges, battles, level-ups, the cellar, EPIC jobs), a glow for big moments (evolutions, raids, phase changes), photo thumbnails, and new lines slide in. Lobby shows the latest few under a pulsing LIVE; *See all* opens the full feed | ✅ |
 | The groom's own creature: the **Golden Stag** (groom only, given automatically) | ✅ |
 | Party camera roll; delete your own photos any time, ask the host to take down anyone else's | ✅ |
 | Host keepsake download (every roast, toast, review, award and the final board) and a scan-to-join QR code | ✅ |
@@ -294,15 +295,19 @@ Skipping jumps straight to the engine's final state.
 * **Taking photos down.** The person who took a photo, or the host, deletes it instantly (the file is gone for good).
   Anyone else taps *Ask the host*: the photo stays up and a request lands in Host → Queue, where the host picks
   *Take it down* or *Keep it up*.
-* **Roasts, toasts and the rest.** Host → Event → Keepsake → *Download* saves one page with every Wall post (author,
-  votes, Jezza's ❤️), every Cellar review, the awards and the final board. The raw data is `state.json` in the bucket.
+* **The end-of-weekend export (do this first).** Host → Event → 📦 Keepsake → **Download everything** saves one
+  `.zip` (best on a laptop): `Open me - keepsake.html` (every roast and toast with votes and Jezza's ❤️, the awards,
+  the final board, the cellar and every photo; works offline), a `photos/` folder with every photo named
+  `001 Nickname - Challenge.jpeg` in the order taken, spreadsheets (`roasts-and-toasts.csv`, `leaderboard.csv`,
+  `awards.csv`, `cellar.csv`, `photos.csv`) and `keepsake.json`. The download link is made on the host's phone and
+  lasts 15 minutes. *Just the page* saves the single page whose photos load from the server while it's running.
 * The host has a **Delete all photos** button (Host → Event → Photos) that removes the files from disk and strips
   them from the feed. Do this at the end of the weekend. Points already awarded are kept.
 * In the GitHub Pages demo nothing leaves the phone: photos live in that browser tab's memory only.
 * **Viewing them**: in the app, Lobby → 📸 Photos. On Google Cloud, the bucket browser at
   `https://console.cloud.google.com/storage/browser/<project-id>-jezza-data/photos` (only the project owner can open it).
-* **Keepsake copy.** On Cloud Run the photos live in the storage bucket `<project-id>-jezza-data`, folder `photos/`.
-  In Cloud Shell:
+* **Backup route (if the app is down).** On Cloud Run the photos live in the storage bucket `<project-id>-jezza-data`,
+  folder `photos/`. In Cloud Shell:
   ```bash
   cd ~/Jezza-Secret-Mission && git pull && npm install
   mkdir -p ~/jezza-data && gcloud storage cp -r "gs://jezza-e9de9-jezza-data/*" ~/jezza-data/

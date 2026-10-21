@@ -36,7 +36,7 @@ server.listen(PORT, async () => {
   await page.locator('.pick-card').first().click();
   await page.getByRole('button', { name: /adopt/i }).click();
   await page.waitForTimeout(2000);
-  await page.getByRole('button', { name: /group selfie/i }).click();
+  await page.getByRole('button', { name: /your selfie/i }).click();
   await page.locator('input[data-selfie]').setInputFiles(SELFIE_FILE);
   await page.getByTestId('intro-next').waitFor();
   await finishIntro(page);

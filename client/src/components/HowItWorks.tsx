@@ -15,6 +15,9 @@ const MORE = [
   { ico: '⚔️', text: <><b>Battles are optional.</b> Fight a mate for bonus points: pick a plan, one tap, watch 10 seconds. Your creature also fights on its own while you're away.</> },
   { ico: '👹', text: <><b>Boss raids</b> pop up now and then. Tap the banner and hit it: everyone who hits gets loot.</> },
   { ico: '🎤', text: <><b>The Jezza Wall</b> is for roasts and toasts. Jezza hearts his favourites.</> },
+  { ico: '🎩', text: <><b>Dress your creature</b> on the Me tab. Everyone starts with eight hats; more come from levels, badges, raids and EPIC jobs.</> },
+  { ico: '🎁', text: <><b>Up for grabs:</b> when the host drops a few items, a card pops up on the Lobby. Tap <b>Claim</b> quick, one each.</> },
+  { ico: '🚩', text: <><b>Reckon someone's lying?</b> Tap 🚩 BS on their post in the live feed. Two calls freeze the points until the host decides.</> },
   { ico: '📵', text: <><b>Phone down.</b> No need to stare at it. Check in when you've done something.</> },
 ];
 
