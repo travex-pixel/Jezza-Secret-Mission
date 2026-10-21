@@ -7,7 +7,7 @@ import { ACHIEVEMENT_BY_ID } from '@shared/progression';
 import { MISSION_BY_ID, STARTER_MISSION, rookieLeft } from '@shared/missions';
 import { Button } from '../components/ui';
 import { useStore, useIsGroom } from '../store';
-import { MissionCard, compressImage } from '../components/MissionCard';
+import { MissionCard, compressImage, faceFromPhoto } from '../components/MissionCard';
 import { newClaimId, request } from '../net';
 import { sfx } from '../audio';
 import CameraSheet, { canUseLiveCamera } from '../components/CameraSheet';
@@ -48,7 +48,8 @@ export default function FirstMission() {
   const finish = () => endIntro();
 
   const sendSelfie = async (photo: string) => {
-    await request({ type: 'claimMission', missionId: STARTER_MISSION.id, claimId: claimId.current, photo });
+    const avatar = await faceFromPhoto(photo); // becomes their face in the feed and the lists
+    await request({ type: 'claimMission', missionId: STARTER_MISSION.id, claimId: claimId.current, photo, avatar });
     sfx.mission(); setDone((d) => ({ ...d, selfie: 'done' }));
   };
   const onFile = async (f: File | undefined) => {
@@ -123,7 +124,7 @@ export default function FirstMission() {
   if (step === 'selfie') return (
     <div className="screen tut">
       {head('Show your face')}
-      {done.selfie === 'done' ? doneCard('Photo\'s in!', 'The lads can see it in Photos. Your creature just hit level 2.') : (
+      {done.selfie === 'done' ? doneCard('Photo\'s in!', 'That\'s your face in the feed now, and your creature just hit level 2.') : (
         <div className="screen-body tut-body">
           <div className="panel pad center stack-6">
             <div className="bold" style={{ fontSize: 17 }}>Selfie. Right now, wherever you are.</div>

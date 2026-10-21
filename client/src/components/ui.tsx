@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { findBattle, useStore, type Tab } from '../store';
-import { Creature } from './Creature';
+import { Creature, LadPic } from './Creature';
 import { FORMS } from '@shared/creatures';
 import { REWARD_QUIPS } from '@shared/missions';
 import type { FeedEvent, Reaction } from '@shared/types';
@@ -236,7 +236,7 @@ export function FeedItem({ f, compact }: { f: FeedEvent; compact?: boolean }) {
   return (
     <div className={`feed-item tone-${FEED_TONE[f.kind] ?? 'cream'} ${BIG_MOMENT.has(f.kind) ? 'big' : ''} ${fresh ? 'fresh' : ''} ${pendingVote ? 'vote-item' : ''}`}>
       <span className="feed-ava">
-        {who?.creature ? <Creature creature={who.creature} level={who.level} colorway={who.equipped.colorway} equipped={who.equipped} bare /> : <span className="feed-ava-emoji">{f.emoji ?? '•'}</span>}
+        {who?.creature ? <LadPic p={who} /> : <span className="feed-ava-emoji">{f.emoji ?? '•'}</span>}
         {who?.creature && f.emoji && <span className="feed-badge">{f.emoji}</span>}
       </span>
       <span className="grow" style={{ minWidth: 0 }}>

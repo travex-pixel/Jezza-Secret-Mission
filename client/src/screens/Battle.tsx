@@ -3,7 +3,7 @@ import type { Battle, PlayerPublic, TapQuality } from '@shared/types';
 import { CREATURES } from '@shared/creatures';
 import { autoPick, makeCreatureState, resolveRound, PLANS, PLAN_SECONDS, powerMult, qualityFor, type GamePlan } from '@shared/battle';
 import { rankFor, sortLeaderboard } from '@shared/progression';
-import { Creature } from '../components/Creature';
+import { Creature, LadPic } from '../components/Creature';
 import { Button, Sheet, useCountdown } from '../components/ui';
 import BattleStage from '../battle/BattleStage';
 import PowerTap from '../components/PowerTap';
@@ -211,7 +211,7 @@ export default function BattleScreen() {
             {mates.length === 0 && <div className="center dim pad">Nobody else here yet.</div>}
             {mates.map((p) => { const busy = party.battles.some((b) => (b.status === 'active' || b.status === 'challenge') && (b.a.playerId === p.id || b.b.playerId === p.id)); return (
               <button key={p.id} className="list-row" style={{ width: '100%', textAlign: 'left', opacity: busy ? 0.5 : 1 }} disabled={busy} onClick={() => challenge(p.id)}>
-                <span className="avatar sm"><Creature creature={p.creature!} level={p.level} colorway={p.equipped.colorway} bare /></span>
+                <span className="avatar sm"><LadPic p={p} /></span>
                 <span className="grow"><div className="bold">{p.id === bountyId ? '👑 ' : ''}{p.nickname}</div><div className="tiny faint">{p.id === bountyId ? 'BOUNTY: beat them for double points · ' : ''}{rankFor(p.rating).emoji} {rankFor(p.rating).name} · {p.wins}W {p.losses}L{p.streak >= 2 ? ` · 🔥${p.streak}` : ''}</div></span>
                 <span className={`pill pill-xs ${busy ? 'pill-ember' : p.online ? 'pill-ok' : ''}`}>{busy ? 'in battle' : p.online ? 'online' : 'away'}</span>
               </button>); })}

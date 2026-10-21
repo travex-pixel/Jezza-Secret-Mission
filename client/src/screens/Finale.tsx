@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { sortLeaderboard } from '@shared/progression';
-import { Creature } from '../components/Creature';
+import { Creature, LadPic } from '../components/Creature';
 import { Button } from '../components/ui';
 import { useStore, useMe } from '../store';
 import { sfx } from '../audio';
@@ -96,7 +96,7 @@ export default function Finale() {
         {view === 'board' && board.map((p, i) => (
           <div key={p.id} className={`list-row ${p.id === me?.id ? 'me' : ''}`}>
             <span className={`rank r${i + 1}`}>{i === 0 ? '👑' : `#${i + 1}`}</span>
-            <span className="avatar sm"><Creature creature={p.creature!} level={p.level} colorway={p.equipped.colorway} bare /></span>
+            <span className="avatar sm"><LadPic p={p} /></span>
             <span className="grow" style={{ minWidth: 0 }}><div className="bold ellipsis">{p.nickname}</div><div className="tiny faint">{p.creatureName} Lv{p.level} · {p.missionsCompleted} missions · {p.wins}W {p.losses}L</div></span>
             <span className="bold gold-text">{p.points}</span>
           </div>

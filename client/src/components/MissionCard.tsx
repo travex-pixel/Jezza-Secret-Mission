@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { CATEGORY_META, METHOD_META, MISSION_BY_ID, type Mission } from '@shared/missions';
 import type { MissionAssignment, PlayerPublic } from '@shared/types';
 import { Button, Sheet, useCountdown } from './ui';
-import { Creature } from './Creature';
+import { Creature, LadPic } from './Creature';
 import { newClaimId, request } from '../net';
 import { useStore } from '../store';
 import { sfx } from '../audio';
@@ -21,6 +21,18 @@ export async function compressImage(file: File, maxSide = 1600, quality = 0.82):
     while (out.length > 1_300_000 && q > 0.4) { q -= 0.08; out = c.toDataURL('image/jpeg', q); }
     return out;
   } finally { URL.revokeObjectURL(url); }
+}
+
+/** A small square cut from the middle-top of a selfie (where the face usually is), for the lad's profile picture. */
+export async function faceFromPhoto(dataUrl: string, side = 160): Promise<string | undefined> {
+  try {
+    const img = await new Promise<HTMLImageElement>((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = dataUrl; });
+    const sq = Math.min(img.width, img.height);
+    const sx = (img.width - sq) / 2, sy = img.height > img.width ? Math.max(0, (img.height - sq) * 0.3) : 0;
+    const c = document.createElement('canvas'); c.width = side; c.height = side;
+    c.getContext('2d')!.drawImage(img, sx, sy, sq, sq, 0, 0, side, side);
+    return c.toDataURL('image/jpeg', 0.8);
+  } catch { return undefined; } // no face picture is fine: the creature stands in
 }
 
 export function MissionCard({ mission, assignment, compact, onDone, showReroll, group, preview }: { mission: Mission; assignment?: MissionAssignment; compact?: boolean; onDone?: () => void; showReroll?: boolean; group?: boolean; preview?: boolean }) {
@@ -52,9 +64,10 @@ export function MissionCard({ mission, assignment, compact, onDone, showReroll, 
   const coolingDown = mission.method === 'self' && !mission.starter && !group && (priv?.honourCooldownUntil ?? 0) > Date.now();
   const coolLeft = useCountdown(coolingDown ? priv?.honourCooldownUntil : undefined);
 
-  const submit = async (extra: { photo?: string; witnessId?: string } = {}) => {
+  const submit = async (extra: { photo?: string; witnessId?: string; avatar?: string } = {}) => {
     setBusy(true); setErr(null);
     try {
+      if (extra.photo && mission.starter && mission.selfie) extra.avatar = await faceFromPhoto(extra.photo);
       const res = await request<{ status: string; duplicate?: boolean }>({ type: 'claimMission', missionId: mission.id, claimId: claimIdRef.current, note: note || undefined, ...extra });
       claimIdRef.current = newClaimId();
       if (res.status === 'pending') { sfx.select(); toast(mission.method === 'witness' ? 'Sent. Go hassle them to tap yes.' : 'Sent to the host.', '📨', 'success'); }
@@ -65,9 +78,10 @@ export function MissionCard({ mission, assignment, compact, onDone, showReroll, 
   };
 
   /** Same as submit, but the error goes back to the caller (the camera shows it on the photo) instead of the card. */
-  const submitOrThrow = async (extra: { photo?: string }) => {
+  const submitOrThrow = async (extra: { photo?: string; avatar?: string }) => {
     setBusy(true); setErr(null);
     try {
+      if (extra.photo && mission.starter && mission.selfie) extra.avatar = await faceFromPhoto(extra.photo);
       const res = await request<{ status: string }>({ type: 'claimMission', missionId: mission.id, claimId: claimIdRef.current, note: note || undefined, ...extra });
       claimIdRef.current = newClaimId();
       if (res.status === 'pending') { sfx.select(); toast('Photo sent. The lads vote it in.', '🗳️', 'success'); } else sfx.mission();
@@ -141,7 +155,7 @@ export function MissionCard({ mission, assignment, compact, onDone, showReroll, 
             {witnesses.length === 0 && <div className="center dim small pad">No mates have joined yet. Lonely.</div>}
             {witnesses.map((w: PlayerPublic) => (
               <button key={w.id} className="list-row" style={{ width: '100%', textAlign: 'left' }} onClick={() => { setPickWitness(false); submit({ witnessId: w.id }); }}>
-                <span className="avatar sm"><Creature creature={w.creature!} level={w.level} colorway={w.equipped.colorway} bare /></span>
+                <span className="avatar sm"><LadPic p={w} /></span>
                 <span className="grow"><div className="bold">{w.id === groomId ? '🤵 ' : ''}{w.nickname}</div><div className="tiny faint">{w.id === groomId ? 'The groom himself' : `${w.creatureName} · Lv ${w.level}`}</div></span>
                 <span className={`pill pill-xs ${w.online ? 'pill-ok' : ''}`}>{w.online ? 'online' : 'away'}</span>
               </button>

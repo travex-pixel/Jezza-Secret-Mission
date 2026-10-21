@@ -29,6 +29,46 @@ describe('first challenge', () => {
   });
 });
 
+describe('profile picture from the first selfie', () => {
+  it('the face square sent with the selfie becomes the lad\'s picture; nothing else sets it', () => {
+    const { eng, ids, party } = setup();
+    const face = 'data:image/jpeg;base64,' + 'F'.repeat(2000);
+    eng.handle(ids[1], { type: 'claimMission', reqId: 'x', missionId: 'm001', claimId: 'face-claim-01', photo: PHOTO, avatar: face });
+    const url = party().players[ids[1]].avatarUrl;
+    expect(url).toMatch(/^\/photos\//);
+    expect(eng.publicView(party()).players.find((p) => p.id === ids[1])!.avatarUrl).toBe(url);
+    // too big to be a thumbnail: ignored, but the selfie still counts
+    const r = eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: 'm001', claimId: 'face-claim-02', photo: PHOTO, avatar: 'data:image/jpeg;base64,' + 'F'.repeat(90_000) });
+    expect(r.ack?.ok).toBe(true); expect(party().players[ids[2]].avatarUrl).toBeUndefined();
+    // any other photo challenge never touches it
+    party().players[ids[2]].hand = [{ missionId: 'n13', assignedAt: 0, status: 'active' }];
+    party().photoMode = 'instant';
+    eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: 'n13', claimId: 'face-claim-03', photo: PHOTO, avatar: face });
+    expect(party().players[ids[2]].avatarUrl).toBeUndefined();
+  });
+  it('taking the selfie down takes the picture with it; so does Delete all photos', () => {
+    const deleted: string[] = [];
+    let n = 0;
+    const eng = new Engine({ now: () => 1_000_000, rng: seededRng(2), storePhoto: (_d, c) => `/photos/${c}_f${(n++).toString(36)}_abc.jpeg`, deletePhotos: (u) => { deleted.push(...u); } });
+    const ids = ['player_face_0001', 'player_face_0002'];
+    ids.forEach((id) => eng.auth(id, 'secret-' + id));
+    const code = (eng.handle(ids[0], { type: 'createParty', reqId: '1', nickname: 'Travis' }).ack as any).data.code as string;
+    eng.handle(ids[1], { type: 'joinParty', reqId: 'j', code, nickname: 'Tommo' });
+    ids.forEach((id) => eng.handle(id, { type: 'chooseCreature', reqId: 'c', creature: 'owl' }));
+    const party = eng.state.parties[code];
+    const face = 'data:image/jpeg;base64,FFFF';
+    ids.forEach((id, i) => eng.handle(id, { type: 'claimMission', reqId: 'x', missionId: 'm001', claimId: `face-del-0${i}`, photo: PHOTO, avatar: face }));
+    const tommoFace = party.players[ids[1]].avatarUrl!;
+    expect(eng.handle(ids[1], { type: 'deletePhoto', reqId: 'd', photoId: 'face-del-01' }).ack?.ok).toBe(true);
+    expect(party.players[ids[1]].avatarUrl).toBeUndefined();
+    expect(deleted).toContain(tommoFace);
+    const hostFace = party.players[ids[0]].avatarUrl!;
+    eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'purgePhotos' } });
+    expect(party.players[ids[0]].avatarUrl).toBeUndefined();
+    expect(deleted).toContain(hostFace);
+  });
+});
+
 describe('keepsake export', () => {
   it('only the host gets a download link, and it stops working after 15 minutes', () => {
     const { eng, ids, code, advance } = setup();

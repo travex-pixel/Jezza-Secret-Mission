@@ -137,6 +137,7 @@ const CODE_WINDOW_MS = 10 * 60_000;            // wrong reward-code guesses: 6 p
 const CODE_MAX_TRIES = 6;
 export const GIVEAWAY_MAX_QTY = 30;
 export const EXPORT_TOKEN_MS = 15 * 60_000;
+export const MAX_AVATAR_CHARS = 80_000; // a 160px face is ~10 KB; anything near this is not a thumbnail
 const CELLAR_REWARDED_PER_PHASE = 3;
 
 /** Next Saturday 5:00am in Sydney after `from` (the party goes to Saturday on its own then). */
@@ -318,7 +319,7 @@ export class Engine {
         case 'chooseCreature': return this.chooseCreature(playerId, msg.creature, msg.creatureName);
         case 'renameCreature': return this.renameCreature(playerId, msg.creatureName);
         case 'equip': return this.equip(playerId, msg.equipped);
-        case 'claimMission': return this.claimMission(playerId, msg.missionId, msg.claimId, msg.photo, msg.witnessId, msg.note);
+        case 'claimMission': return this.claimMission(playerId, msg.missionId, msg.claimId, msg.photo, msg.witnessId, msg.note, msg.avatar);
         case 'rerollMission': return this.rerollMission(playerId, msg.missionId);
         case 'confirmWitness': return this.confirmWitness(playerId, msg.claimId, msg.approve);
         case 'challenge': return this.challenge(playerId, msg.opponentId);
@@ -572,7 +573,7 @@ export class Engine {
     }
   }
 
-  private claimMission(playerId: string, missionId: string, claimId: string, photo?: string, witnessId?: string, note?: string): HandleResult {
+  private claimMission(playerId: string, missionId: string, claimId: string, photo?: string, witnessId?: string, note?: string, avatar?: string): HandleResult {
     const party = this.partyOf(playerId); const p = party?.players[playerId];
     if (!party || !p || p.removed) return this.fail('Join a party first.');
     if (!p.creature) return this.fail('Adopt a creature before taking challenges.');
@@ -621,6 +622,11 @@ export class Engine {
       const url = this.storePhoto(photo, party.code);
       if (!url) return this.fail('Couldn\'t save the photo. Try again.');
       claim.photoUrl = url;
+      // The first selfie doubles as your face in the feed and the lists: a small square the phone cut from it
+      if (mission.starter && mission.selfie && typeof avatar === 'string' && avatar.startsWith('data:image/') && avatar.length <= MAX_AVATAR_CHARS) {
+        const face = this.storePhoto(avatar, party.code);
+        if (face) { if (p.avatarUrl) this.deletePhotos([p.avatarUrl]); p.avatarUrl = face; }
+      }
     }
     if (mission.method === 'witness') {
       const w = witnessId ? party.players[witnessId] : undefined;
@@ -890,7 +896,8 @@ export class Engine {
     if (!party || !p || p.removed) return this.fail('Join a party first.');
     if (!['😂', '🔥', '❤️'].includes(emoji)) return this.fail('Unknown reaction.');
     const ev = party.feed.find((f) => f.id === eventId);
-    if (!ev || ev.kind !== 'mission' || !ev.playerId) return this.fail('Can\'t react to that.');
+    if (!ev) return this.fail('That one has scrolled off the feed. React to something newer.');
+    if (ev.kind !== 'mission' || !ev.playerId) return this.fail('Can\'t react to that.');
     if (ev.playerId === playerId) return this.fail('Reacting to your own? Bold.');
     if (emoji === '❤️' && playerId !== party.groomId) return this.fail('Only Jezza gives out hearts.');
     ev.reactions = ev.reactions ?? {};
@@ -1053,6 +1060,9 @@ export class Engine {
     if (entry) entry.photoUrl = undefined;
     for (const f of party.feed) if (f.photoUrl === url) f.photoUrl = undefined;
     this.deletePhotos([url]);
+    // the face picture is cut from the first selfie, so it goes when that does
+    const owner = claim && MISSION_BY_ID[claim.missionId]?.starter ? party.players[claim.playerId] : undefined;
+    if (owner?.avatarUrl) { this.deletePhotos([owner.avatarUrl]); owner.avatarUrl = undefined; }
     const ownerName = party.players[claim?.playerId ?? entry?.playerId ?? '']?.nickname;
     this.feed(party, { kind: 'host', text: ownerName && ownerName !== p.nickname ? `The host took down a photo of ${ownerName}'s. Points stay.` : `${p.nickname} took down one of their photos.`, emoji: '🗑️' });
     return this.ok(party);
@@ -1797,6 +1807,7 @@ export class Engine {
         for (const e of party.cellar) if (e.photoUrl) { urls.push(e.photoUrl); e.photoUrl = undefined; }
         for (const c of Object.values(party.claims)) if (c.photoUrl) { if (c.status === 'pending' && c.review) this.withdrawPending(party, c); urls.push(c.photoUrl); c.photoUrl = undefined; }
         for (const f of party.feed) if (f.photoUrl) { if (!urls.includes(f.photoUrl)) urls.push(f.photoUrl); f.photoUrl = undefined; }
+        for (const pl of Object.values(party.players)) if (pl.avatarUrl) { urls.push(pl.avatarUrl); pl.avatarUrl = undefined; }
         this.deletePhotos(urls);
         this.feed(party, { kind: 'host', text: `The host deleted ${urls.length} photo${urls.length === 1 ? '' : 's'} from the server. What happens in the vineyard…`, emoji: '🗑️' });
         return this.ok(party, { deleted: urls.length });

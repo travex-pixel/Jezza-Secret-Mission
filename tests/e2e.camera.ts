@@ -32,7 +32,7 @@ async function main() {
   // Opening the camera and closing it again is harmless
   await p.getByRole('button', { name: /take your selfie/i }).click();
   await p.locator('.camera-shutter:not([disabled])').waitFor({ timeout: 8000 });
-  check(/get jezza and the boys/i.test((await p.locator('.camera-top').textContent()) ?? ''), 'the live camera says what to get in the shot');
+  check(/just you/i.test((await p.locator('.camera-top').textContent()) ?? ''), 'the live camera says what to get in the shot');
   await p.getByRole('button', { name: 'Close camera' }).click();
   check((await p.locator('.camera').count()) === 0 && (await p.getByRole('button', { name: /take your selfie/i }).count()) === 1, 'closing the camera early just returns to the step, nothing sent');
   await p.getByRole('button', { name: /take your selfie/i }).click();

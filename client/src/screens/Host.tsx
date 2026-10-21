@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { HostAction, Phase, PlayerPublic } from '@shared/types';
 import { GROUP_MISSIONS, MISSION_BY_ID } from '@shared/missions';
 import { AWARDS } from '@shared/progression';
-import { Creature, ItemIcon } from '../components/Creature';
+import { Creature, ItemIcon, LadPic } from '../components/Creature';
 import { Button, Sheet, timeAgo } from '../components/ui';
 import { useStore, useIsHost } from '../store';
 import { request } from '../net';
@@ -206,7 +206,7 @@ export default function Host() {
         )}
         {section === 'players' && players.map((p) => (
           <button key={p.id} className="list-row" style={{ width: '100%', textAlign: 'left' }} onClick={() => { setTarget(p); setRename(p.nickname); }}>
-            <span className="avatar sm">{p.creature ? <Creature creature={p.creature} level={p.level} colorway={p.equipped.colorway} bare /> : '🥚'}</span>
+            <span className="avatar sm"><LadPic p={p} /></span>
             <span className="grow"><div className="bold">{p.isHost ? '👑 ' : ''}{party.groomId === p.id ? '🤵 ' : ''}{p.nickname}{p.catchUp ? ' 🦵' : ''}</div><div className="tiny faint">{p.points} pts · {p.missionsCompleted} missions · {p.online ? 'online' : 'away'}</div></span>
             <span className="tiny faint">manage ›</span>
           </button>

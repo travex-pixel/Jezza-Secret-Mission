@@ -1,6 +1,6 @@
 import type { Battle, PartyPublic, PlayerPublic } from '@shared/types';
 import { rankFor } from '@shared/progression';
-import { Creature } from '../components/Creature';
+import { Creature, LadPic } from '../components/Creature';
 import { useStore } from '../store';
 
 interface Highlight { emoji: string; title: string; text: string; battle: Battle }
@@ -73,7 +73,7 @@ export default function BattleBoard({ meId }: { meId?: string }) {
       {fighters.map((p, i) => (
         <div key={p.id} className={`list-row ${p.id === meId ? 'me' : ''}`}>
           <span className="rank">#{i + 1}</span>
-          <span className="avatar sm"><Creature creature={p.creature!} level={p.level} colorway={p.equipped.colorway} bare /></span>
+          <span className="avatar sm"><LadPic p={p} /></span>
           <span className="grow" style={{ minWidth: 0 }}><div className="bold ellipsis">{p.nickname}</div><div className="tiny faint ellipsis">{rankFor(p.rating).emoji} {rankFor(p.rating).name} · {p.title}</div></span>
           <span className="tiny bold nowrap" style={{ textAlign: 'right' }}>{p.rating}<br /><span className="faint">{p.wins}W {p.losses}L{p.streak >= 2 ? ` 🔥${p.streak}` : ''}</span></span>
         </div>))}

@@ -1,5 +1,5 @@
 import { memo, useId } from 'react';
-import type { CreatureId, Equipped } from '@shared/types';
+import type { CreatureId, Equipped, PlayerPublic } from '@shared/types';
 import { CREATURES, type Colorway } from '@shared/creatures';
 import { stageForLevel, COSMETIC_BY_ID } from '@shared/progression';
 
@@ -475,4 +475,11 @@ export function ItemIcon({ id, size = 34 }: { id: string; size?: number }) {
   const slot = COSMETIC_BY_ID[id]?.slot;
   if (slot === 'hat') return <HatIcon id={id} size={size} />;
   return <span className="hat-icon" style={{ fontSize: size * 0.7, lineHeight: 1, width: size, textAlign: 'center' }} aria-hidden="true">{SLOT_EMOJI[slot ?? ''] ?? '🎁'}</span>;
+}
+
+/** A lad as they appear in lists and the feed: their selfie if they took one, else their creature. */
+export function LadPic({ p }: { p: Pick<PlayerPublic, 'creature' | 'level' | 'equipped' | 'avatarUrl' | 'nickname'> }) {
+  if (p.avatarUrl) return <img className="face-pic" src={p.avatarUrl} alt={p.nickname} loading="lazy" decoding="async" />;
+  if (p.creature) return <Creature creature={p.creature} level={p.level} colorway={p.equipped.colorway} equipped={p.equipped} bare />;
+  return <span style={{ fontSize: 20 }}>🥚</span>;
 }

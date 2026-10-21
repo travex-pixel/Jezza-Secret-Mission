@@ -31,6 +31,7 @@ export interface Equipped {
 export interface PlayerPublic {
   id: string;
   nickname: string;
+  avatarUrl?: string; // a small square of their first selfie: their face in the feed and lists (the creature otherwise)
   creature: CreatureId | null;
   creatureName: string;
   level: number;
@@ -369,7 +370,7 @@ export type ClientMessage =
   | { type: 'chooseCreature'; reqId: string; creature: CreatureId; creatureName?: string }
   | { type: 'renameCreature'; reqId: string; creatureName: string }
   | { type: 'equip'; reqId: string; equipped: Partial<Equipped> }
-  | { type: 'claimMission'; reqId: string; missionId: string; claimId: string; photo?: string; witnessId?: string; note?: string }
+  | { type: 'claimMission'; reqId: string; missionId: string; claimId: string; photo?: string; witnessId?: string; note?: string; avatar?: string }
   | { type: 'rerollMission'; reqId: string; missionId: string }
   | { type: 'confirmWitness'; reqId: string; claimId: string; approve: boolean }
   | { type: 'challenge'; reqId: string; opponentId: string }

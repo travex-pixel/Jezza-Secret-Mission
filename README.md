@@ -35,7 +35,7 @@ More screenshots at every tested viewport live in [`docs/screenshots/`](docs/scr
 | The Jezza Wall (roasts and toasts, votes, Jezza's ❤️, Roast Reel at the finale) | ✅ |
 | The Cellar: drink reviews with label photos (any drink counts; only 3 a day score) | ✅ |
 | 😂 🔥 reactions (❤️ for Jezza only) that drive the awards | ✅ |
-| **Live feed**: every line shows the lad's creature with the moment's emoji, names in bold, a colour edge by type (challenges, battles, level-ups, the cellar, EPIC jobs), a glow for big moments (evolutions, raids, phase changes), photo thumbnails, and new lines slide in. Lobby shows the latest few under a pulsing LIVE; *See all* opens the full feed | ✅ |
+| **Live feed**: every line shows the lad's face (a small square cut from their first selfie, else their creature) with the moment's emoji, names in bold, a colour edge by type (challenges, battles, level-ups, the cellar, EPIC jobs), a glow for big moments (evolutions, raids, phase changes), photo thumbnails, and new lines slide in. Lobby shows the latest few under a pulsing LIVE; *See all* opens the full feed | ✅ |
 | The groom's own creature: the **Golden Stag** (groom only, given automatically) | ✅ |
 | Party camera roll; delete your own photos any time, ask the host to take down anyone else's | ✅ |
 | Host keepsake download (every roast, toast, review, award and the final board) and a scan-to-join QR code | ✅ |
@@ -348,6 +348,8 @@ Skipping jumps straight to the engine's final state.
 | `npm run test:viewports` | Playwright walkthrough at 4 phone viewports → `test-results/screenshots/` (curated copies live in `docs/screenshots/`), fails on overflow/scroll/console errors |
 | `npx tsx tests/e2e.live.ts` | Two separate browser sessions playing together against a built server (`BASE_URL`) |
 | `npx tsx tests/e2e.static.ts` | (build first with `VITE_BASE=/Jezza-Secret-Mission/ VITE_STATIC_DEMO=1 npm run build:client`) Serves the GitHub Pages demo build under its base path and plays it headless (no server) |
+| `npx tsx tests/stress.sim.ts` | (build first) Boots its own server and throws 20 phones at it: simultaneous joins and full-size selfie uploads, challenges, votes, witness confirms, non-stop battles, a raid, a giveaway race, Friday→Saturday mid-game, phones dropping out mid-battle. Checks latency, memory against Cloud Run's 512 MB, every phone agreeing on scores, every fight counted once, and a restart keeping it all. `STRESS_PLAYERS` / `STRESS_SECONDS` to push harder |
+| `npx tsx tests/soak.sim.ts` | The whole weekend in fast-forward on the real engine (Fri 5pm → Sun lunch, ~9 s): auto-battles while lads are away, the 5am Saturday switch, raids, EPIC jobs, Saturday arrivals, finale awards and the keepsake. `SOAK_SEED` for a different weekend |
 | `npx tsx tests/e2e.giveaway.ts` | Starter kit and giveaways against a built server: host release with confirm, a claim race over the last item, the Lobby claim card, every starter hat drawn and persisted |
 | `npx tsx tests/e2e.host.ts` | Host UI against a built server: phases, group reveal, photo vote → gallery, BS dispute, witness confirmation, finale ceremony |
 | `npx tsx tests/persistence.sim.ts` | Boots a server, creates a party, restarts it, verifies the party is restored |

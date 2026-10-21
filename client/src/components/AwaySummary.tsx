@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { FORMS } from '@shared/creatures';
 import { rankFor, sortLeaderboard } from '@shared/progression';
-import { Creature } from './Creature';
+import { Creature, LadPic } from './Creature';
 import { Button, Sheet } from './ui';
 import { useStore, useMe, playerById, findBattle } from '../store';
 import { request } from '../net';
@@ -63,7 +63,7 @@ export default function AwaySummary() {
             const can = !!findBattle({ party, priv }, e.battleId);
             return (
               <div key={e.id} className="list-row" style={{ alignItems: 'center' }}>
-                <span className="avatar sm">{o?.creature && <Creature creature={o.creature} level={o.level} colorway={o.equipped.colorway} bare />}</span>
+                <span className="avatar sm">{o && <LadPic p={o} />}</span>
                 <span className="grow" style={{ minWidth: 0 }}>
                   <div className="bold ellipsis">{e.won ? '🏆 Beat' : '🩹 Lost to'} {o?.nickname ?? 'a mate'}'s {o?.creatureName}{e.close ? ' (close one)' : ''}</div>
                   <div className="tiny faint ellipsis">+{e.xp} XP{e.levelUp ? ` · ⬆️ Lv${e.levelUp}` : ''}{e.evolved ? ' · 🧬 evolved' : ''}{e.rivalry ? ` · ${e.rivalry.replace(/^RIVALRY: /, '⚔️ ')}` : ''}</div>

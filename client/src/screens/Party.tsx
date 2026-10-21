@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import qrcode from 'qrcode-generator';
-import { Creature } from '../components/Creature';
+import { Creature, LadPic } from '../components/Creature';
 import { Button, FeedItem, Sheet, timeAgo } from '../components/ui';
 import { useStore, useMe } from '../store';
 import { isDemo, leaveParty, request } from '../net';
@@ -46,7 +46,7 @@ export default function Party() {
       <div className="screen-body scroll-y stack-6">
         {view === 'roster' && players.map((p) => (
           <div key={p.id} className={`list-row ${p.id === me?.id ? 'me' : ''}`}>
-            <span className="avatar">{p.creature ? <Creature creature={p.creature} level={p.level} colorway={p.equipped.colorway} equipped={p.equipped} bare /> : <span style={{ fontSize: 20 }}>🥚</span>}</span>
+            <span className="avatar"><LadPic p={p} /></span>
             <span className="grow" style={{ minWidth: 0 }}><div className="bold ellipsis">{p.isHost ? '👑 ' : ''}{p.nickname}{p.id === me?.id ? ' (you)' : ''}</div><div className="tiny faint ellipsis">{p.creature ? `${p.creatureName} · Lv ${p.level} · ${p.title}` : 'Still choosing a creature…'}</div></span>
             <span className="col" style={{ alignItems: 'flex-end', gap: 4 }}><span className="bold gold-text">{p.points}</span><span className={`pill pill-xs ${p.online ? 'pill-ok' : ''}`}>{p.online ? 'online' : timeAgo(p.lastSeen)}</span></span>
           </div>

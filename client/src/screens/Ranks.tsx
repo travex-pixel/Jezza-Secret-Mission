@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { sortLeaderboard, rankFor } from '@shared/progression';
 import { FORMS } from '@shared/creatures';
-import { Creature } from '../components/Creature';
+import { Creature, LadPic } from '../components/Creature';
 import { useStore, useMe } from '../store';
 import Finale from './Finale';
 import BattleBoard from './BattleBoard';
@@ -43,7 +43,7 @@ export default function Ranks() {
             {rest.map((p, i) => (
               <div key={p.id} className={`list-row ${p.id === me?.id ? 'me' : ''}`}>
                 <span className="rank">#{i + 4}</span>
-                <span className="avatar sm"><Creature creature={p.creature!} level={p.level} colorway={p.equipped.colorway} bare /></span>
+                <span className="avatar sm"><LadPic p={p} /></span>
                 <span className="grow" style={{ minWidth: 0 }}><div className="bold ellipsis">{p.nickname}{p.id === me?.id ? ' (you)' : ''}{p.freshLegs > 0 ? ' 🦵' : ''}</div><div className="tiny faint ellipsis">{FORMS[p.creature!][p.level >= 8 ? 2 : p.level >= 4 ? 1 : 0]} Lv{p.level} · {rankFor(p.rating).emoji} {p.wins}W {p.losses}L{p.streak >= 2 ? ` · 🔥${p.streak}` : ''}</div></span>
                 <span className="bold nowrap gold-text">{p.points}</span>
               </div>))}
