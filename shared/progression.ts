@@ -49,11 +49,11 @@ export function eloUpdate(winner: number, loser: number, k = 32): [number, numbe
 export const COSMETICS: Cosmetic[] = [
   { id: 'hat_party', slot: 'hat', name: 'Party Cone', description: 'A tiny gold party hat. Immediately improves morale.' },
   // Starter kit: every creature gets these the moment it's adopted
-  { id: 'hat_party_blue', slot: 'hat', name: 'Blue Party Hat', description: 'Starter kit. Classic blue cone, worn slightly crooked.' },
-  { id: 'hat_party_purple', slot: 'hat', name: 'Purple Party Hat', description: 'Starter kit. Royal purple. For creatures with opinions.' },
-  { id: 'hat_party_white', slot: 'hat', name: 'White Party Hat', description: 'Starter kit. Crisp white. Will not stay white.' },
-  { id: 'hat_party_yellow', slot: 'hat', name: 'Yellow Party Hat', description: 'Starter kit. Sunny yellow. Visible from the carpark.' },
-  { id: 'hat_party_green', slot: 'hat', name: 'Green Party Hat', description: 'Starter kit. Vineyard green. Blends in with the vines.' },
+  { id: 'hat_party_blue', slot: 'hat', name: 'Blue Party Hat', description: 'Starter kit. A blue cracker crown. Goes on at dinner, stays on all night.' },
+  { id: 'hat_party_purple', slot: 'hat', name: 'Purple Party Hat', description: 'Starter kit. A purple cracker crown. For creatures with opinions.' },
+  { id: 'hat_party_white', slot: 'hat', name: 'White Party Hat', description: 'Starter kit. A white cracker crown. Will not stay white.' },
+  { id: 'hat_party_yellow', slot: 'hat', name: 'Yellow Party Hat', description: 'Starter kit. A yellow cracker crown. Visible from the carpark.' },
+  { id: 'hat_party_green', slot: 'hat', name: 'Green Party Hat', description: 'Starter kit. A green cracker crown. Blends in with the vines.' },
   { id: 'hat_santa', slot: 'hat', name: 'Santa Hat', description: 'Starter kit. Ho ho ho. In October. Why not.' },
   { id: 'hat_bunny', slot: 'hat', name: 'Bunny Ears', description: 'Starter kit. Hop to it.' },
   { id: 'hat_cork', slot: 'hat', name: 'Cork Crown', description: 'A crown of wine corks. Smells faintly of 2019.' },

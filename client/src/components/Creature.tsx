@@ -339,14 +339,26 @@ function Hat({ id, a }: { id: string; a: Anchors }) {
   const cone = (fill: string, tip: string, stripe: string, pom: string, stroke?: string) => (
     <g transform={`translate(${x + w * 0.22} ${y - 2}) rotate(14)`}><path d="M0 0 L-14 2 L0 -34 L14 2 Z" fill={fill} stroke={stroke} strokeWidth={stroke ? 1.2 : 0} /><path d="M-8 -16 L8 -16 L0 -34 Z" fill={tip} /><path d="M-11 -8 h22" stroke={stripe} strokeWidth="3" /><circle cx="0" cy="-35" r="4" fill={pom} /></g>
   );
+  // a cracker crown: a tissue-paper band with a zig-zag of points, the back row peeking over the top
+  const crown = (fill: string, stroke: string) => {
+    const W = w / 2.1, pts = 5, step = (2 * W) / pts;
+    const zig = (top: number, base: number) => `M${-W} 4 L${-W} ${base} ` + Array.from({ length: pts }, (_, i) => `L${-W + step * (i + 0.5)} ${top} L${-W + step * (i + 1)} ${base}`).join(' ') + ` L${W} 4 Z`;
+    return (
+      <g transform={`translate(${x} ${y - 2})`}>
+        <path d={zig(-30, -16)} transform="translate(0 -3) scale(0.86 1)" fill={shade(fill, -40)} stroke={stroke} strokeWidth="1" />
+        <path d={zig(-26, -12)} fill={fill} stroke={stroke} strokeWidth="1.2" strokeLinejoin="round" />
+        <path d={`M${-W + 2} 0 h${2 * W - 4}`} stroke="rgba(255,255,255,.35)" strokeWidth="2" />
+      </g>
+    );
+  };
   switch (id) {
     case 'hat_party': return cone('#E5AD48', '#76243A', '#F6EBDD', '#F07842');
-    // Starter kit: the same crooked cone in five colours you can tell apart across a table
-    case 'hat_party_blue': return cone('#2F6FD6', '#1B3F8F', '#F6EBDD', '#F3CD7A');
-    case 'hat_party_purple': return cone('#7B3FBF', '#4C2380', '#F6EBDD', '#F07842');
-    case 'hat_party_white': return cone('#FFFAF2', '#E5AD48', '#76243A', '#F07842', '#c9c2c9');
-    case 'hat_party_yellow': return cone('#FFE14D', '#F07842', '#76243A', '#2F6FD6');
-    case 'hat_party_green': return cone('#2E9E5B', '#1D6B3C', '#F6EBDD', '#F3CD7A');
+    // Starter kit: Christmas-cracker paper crowns in five colours you can tell apart across a table
+    case 'hat_party_blue': return crown('#2B5BD7', '#1A3A8F');
+    case 'hat_party_purple': return crown('#8E3BCB', '#5A2187');
+    case 'hat_party_white': return crown('#FFFAF2', '#c9c2c9');
+    case 'hat_party_yellow': return crown('#F2D13A', '#B8961C');
+    case 'hat_party_green': return crown('#2EA84A', '#1C6E30');
     case 'hat_santa': return (<g transform={`translate(${x} ${y + 2})`}><path d={`M${-w / 2.4} -3 L${w / 2.4} -3 Q${w / 3} -24 ${w / 1.5} -30 Q${w / 2.6} -20 ${w / 6} -14 Q0 -22 ${-w / 2.4} -3 Z`} fill="#c8102e" stroke="#8e0a21" strokeWidth="1.2" /><circle cx={w / 1.5} cy="-31" r="5" fill="#fffaf2" stroke="#d8cfc6" strokeWidth="1" /><rect x={-w / 2.4 - 2} y="-7" width={w / 1.2 + 4} height="9" rx="4.5" fill="#fffaf2" stroke="#d8cfc6" strokeWidth="1" /></g>);
     case 'hat_bunny': return (<g transform={`translate(${x} ${y + 2})`}>{[-1, 1].map((d) => <g key={d} transform={`translate(${d * w / 5} -4) rotate(${d * 12})`}><ellipse cx="0" cy="-20" rx="6.5" ry="22" fill="#fffaf2" stroke="#c9c2c9" strokeWidth="1.2" /><ellipse cx="0" cy="-19" rx="3.2" ry="15" fill="#F4A7B9" /></g>)}<rect x={-w / 2.6} y="-5" width={w / 1.3} height="5" rx="2.5" fill="#242127" /></g>);
     case 'hat_cork': return (<g>{[-2, -1, 0, 1, 2].map((i) => <rect key={i} x={x + i * (w / 5.2) - 5} y={y - 14 - (i === 0 ? 4 : Math.abs(i) === 1 ? 2 : 0)} width="10" height="16" rx="3" fill="#c9a97a" stroke="#8a6a46" strokeWidth="1.5" />)}<rect x={x - w / 2 + 2} y={y - 4} width={w - 4} height="6" rx="3" fill="#76243A" /></g>);
