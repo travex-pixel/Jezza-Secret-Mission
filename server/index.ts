@@ -134,7 +134,9 @@ if (fs.existsSync(CLIENT_DIR)) {
     const proto = String(req.headers['x-forwarded-proto'] ?? '').split(',')[0].trim() === 'https' || req.secure ? 'https' : 'http';
     const host = String(req.headers['x-forwarded-host'] ?? req.headers.host ?? '').split(',')[0].trim();
     const origin = (process.env.PUBLIC_URL ?? '').replace(/\/$/, '') || (/^[a-z0-9.-]+(:\d{1,5})?$/i.test(host) ? `${proto}://${host}` : '');
-    res.set('Cache-Control', 'no-cache').type('html').send(indexTemplate.replaceAll('__PUBLIC_URL__', origin));
+    // The preview's own address keeps the invite code, so tapping the link card in Messenger opens the invite, not the front door
+    const code = /^[A-Z0-9]{4,6}$/i.test(String(req.query.p ?? '')) ? String(req.query.p).toUpperCase() : '';
+    res.set('Cache-Control', 'no-cache').type('html').send(indexTemplate.replace('__PUBLIC_URL__/"', `${origin}/${code ? `?p=${code}` : ''}"`).replaceAll('__PUBLIC_URL__', origin));
   });
 } else {
   app.get('/', (_req, res) => res.type('text').send('Project Jezza server is running. Build the client (npm run build) or use the Vite dev server.'));
