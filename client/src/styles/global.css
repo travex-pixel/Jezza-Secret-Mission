@@ -608,7 +608,8 @@ img, svg { display: block; max-width: 100%; }
   .creature .stag-twinkle { animation: none !important; opacity: .8; }
 }
 
-.pick-info { height: 76px; overflow: hidden; }
+/* room for the name and two lines; grows (and the creature above shrinks) if the phone's text is bigger, never cuts off */
+.pick-info { min-height: 76px; flex: 0 0 auto; }
 
 /* Compact phones (320-360 wide / <= 640 tall) */
 @media (max-height: 660px) {
@@ -619,7 +620,7 @@ img, svg { display: block; max-width: 100%; }
   .title-xl { font-size: clamp(26px, 8.5vw, 36px); }
   .hero-creature { width: min(48vw, 200px); bottom: 38%; }
   .pick-card { padding: 6px 4px 8px; }
-  .pick-info { height: 66px; }
+  .pick-info { min-height: 66px; }
   .pick-info .small { font-size: 12px; }
   .mission-card .mc-body.clamp { -webkit-line-clamp: 2; }
   .mission-card.compact .mc-foot > .tiny { display: none; } /* the buttons say it: room for them on a narrow phone */
