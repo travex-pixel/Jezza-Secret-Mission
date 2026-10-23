@@ -137,7 +137,7 @@ export default function Host() {
               <div className="row" style={{ gap: 8 }}>
                 <ItemIcon id={grabItem} size={40} />
                 <select className="input grow" style={{ minHeight: 44, fontSize: 16 }} value={grabItem} onChange={(e) => setGrabItem(e.target.value)} aria-label="Item to release">
-                  {COSMETICS.filter((c) => !STARTER_COSMETICS.includes(c.id)).map((c) => <option key={c.id} value={c.id}>{/Reward code only/.test(c.description) ? '⭐ ' : ''}{c.name}</option>)}
+                  {COSMETICS.filter((c) => !STARTER_COSMETICS.includes(c.id)).map((c) => <option key={c.id} value={c.id}>{/^Reward code/.test(c.description) ? '⭐ ' : ''}{c.name}</option>)}
                 </select>
               </div>
               <div className="row-between"><span className="small">How many</span><span className="row" style={{ gap: 6 }}>{[...new Set([1, 3, 5, Math.max(1, party.players.length)])].sort((x, y) => x - y).map((n) => <button key={n} className={`pill ${grabQty === n ? 'pill-gold' : ''}`} onClick={() => setGrabQty(n)}>{n === party.players.length ? `all ${n}` : n}</button>)}</span></div>
@@ -159,7 +159,7 @@ export default function Host() {
             <div className="tiny faint">Make a code for an accessory and give it to whoever you reckon deserves it. They type it in on their Me screen. Only you can see these.</div>
             <div className="panel pad stack-6">
               <select className="input" style={{ minHeight: 44, fontSize: 16 }} value={codeItem} onChange={(e) => setCodeItem(e.target.value)} aria-label="Accessory">
-                {COSMETICS.filter((c) => !STARTER_COSMETICS.includes(c.id)).map((c) => <option key={c.id} value={c.id}>{/Reward code only/.test(c.description) ? '⭐ ' : ''}{c.name}</option>)}
+                {COSMETICS.filter((c) => !STARTER_COSMETICS.includes(c.id)).map((c) => <option key={c.id} value={c.id}>{/^Reward code/.test(c.description) ? '⭐ ' : ''}{c.name}</option>)}
               </select>
               <div className="tiny faint">{COSMETIC_BY_ID[codeItem]?.description}</div>
               <div className="row-between"><span className="small">Can be used by</span><span className="row" style={{ gap: 6 }}>{[1, 3, 15].map((n) => <button key={n} className={`pill ${codeUses === n ? 'pill-gold' : ''}`} onClick={() => setCodeUses(n)}>{n === 1 ? '1 lad' : n === 15 ? 'everyone' : `${n} lads`}</button>)}</span></div>

@@ -351,6 +351,10 @@ function Hat({ id, a }: { id: string; a: Anchors }) {
       </g>
     );
   };
+  // a glowing ring floating over the head
+  const halo = (ring: string, shine: string) => (
+    <g transform={`translate(${x} ${y})`}><g className="halo"><ellipse cx="0" cy="-19" rx={w / 2.5} ry="6" fill="none" stroke={ring} strokeWidth="5" opacity="0.55" /><ellipse cx="0" cy="-19" rx={w / 2.5} ry="6" fill="none" stroke={shine} strokeWidth="2.2" /></g></g>
+  );
   switch (id) {
     case 'hat_party': return cone('#E5AD48', '#76243A', '#F6EBDD', '#F07842');
     // Starter kit: Christmas-cracker paper crowns in five colours you can tell apart across a table
@@ -360,6 +364,10 @@ function Hat({ id, a }: { id: string; a: Anchors }) {
     case 'hat_party_yellow': return crown('#F2D13A', '#B8961C');
     case 'hat_party_green': return crown('#2EA84A', '#1C6E30');
     case 'hat_santa': return (<g transform={`translate(${x} ${y + 2})`}><path d={`M${-w / 2.4} -3 L${w / 2.4} -3 Q${w / 3} -24 ${w / 1.5} -30 Q${w / 2.6} -20 ${w / 6} -14 Q0 -22 ${-w / 2.4} -3 Z`} fill="#c8102e" stroke="#8e0a21" strokeWidth="1.2" /><circle cx={w / 1.5} cy="-31" r="5" fill="#fffaf2" stroke="#d8cfc6" strokeWidth="1" /><rect x={-w / 2.4 - 2} y="-7" width={w / 1.2 + 4} height="9" rx="4.5" fill="#fffaf2" stroke="#d8cfc6" strokeWidth="1" /></g>);
+    case 'hat_halo_gold': return halo('#FFD86B', '#fff3c4');
+    case 'hat_halo_ice': return halo('#9fe8ff', '#ffffff');
+    case 'hat_halo_toxic': return halo('#8dff6b', '#e4ffd6');
+    case 'hat_halo_devil': return (<g transform={`translate(${x} ${y + 2})`}>{[-1, 1].map((d) => <path key={d} d={`M${d * w / 3.2} 0 C${d * w / 2.4} -6 ${d * w / 2.1} -18 ${d * w / 1.9} -30 C${d * w / 2.6} -20 ${d * w / 3.6} -10 ${d * w / 5.5} 0 Z`} fill="#d9122e" stroke="#8e0a21" strokeWidth="1.2" strokeLinejoin="round" />)}</g>);
     case 'hat_bunny': return (<g transform={`translate(${x} ${y + 2})`}>{[-1, 1].map((d) => <g key={d} transform={`translate(${d * w / 5} -4) rotate(${d * 12})`}><ellipse cx="0" cy="-20" rx="6.5" ry="22" fill="#fffaf2" stroke="#c9c2c9" strokeWidth="1.2" /><ellipse cx="0" cy="-19" rx="3.2" ry="15" fill="#F4A7B9" /></g>)}<rect x={-w / 2.6} y="-5" width={w / 1.3} height="5" rx="2.5" fill="#242127" /></g>);
     case 'hat_cork': return (<g>{[-2, -1, 0, 1, 2].map((i) => <rect key={i} x={x + i * (w / 5.2) - 5} y={y - 14 - (i === 0 ? 4 : Math.abs(i) === 1 ? 2 : 0)} width="10" height="16" rx="3" fill="#c9a97a" stroke="#8a6a46" strokeWidth="1.5" />)}<rect x={x - w / 2 + 2} y={y - 4} width={w - 4} height="6" rx="3" fill="#76243A" /></g>);
     case 'hat_crown': return (<g transform={`translate(${x} ${y})`}><path d={`M${-w / 2.4} 2 L${-w / 2.4} -22 L${-w / 4.8} -10 L0 -28 L${w / 4.8} -10 L${w / 2.4} -22 L${w / 2.4} 2 Z`} fill="#E5AD48" stroke="#c98a2a" strokeWidth="2" /><circle cx={-w / 4.8} cy="-4" r="3" fill="#F07842" /><circle cx="0" cy="-6" r="3.5" fill="#76243A" /><circle cx={w / 4.8} cy="-4" r="3" fill="#F07842" /></g>);
@@ -410,12 +418,26 @@ function EvoFront({ stage, a }: { stage: number; a: Anchors }) {
     {stage >= 3 && <ellipse className="evo-halo" cx={x} cy={y - 26} rx={w / 2.4} ry="5" fill="none" stroke="#F3CD7A" strokeWidth="3" />}
   </g>);
 }
+function Wings({ id, a }: { id: string; a: Anchors }) {
+  const { y } = a.shoulders;
+  // left wing path from the shoulder out; the right is a mirror
+  const feather = `M92 ${y + 8} C66 ${y - 34} 20 ${y - 30} 10 ${y + 10} C26 ${y + 2} 34 ${y + 12} 30 ${y + 30} C44 ${y + 22} 54 ${y + 28} 56 ${y + 44} C70 ${y + 30} 84 ${y + 26} 92 ${y + 24} Z`;
+  const bat = `M92 ${y + 8} C70 ${y - 20} 30 ${y - 24} 8 ${y - 2} L22 ${y + 10} L10 ${y + 26} L32 ${y + 24} L30 ${y + 44} L54 ${y + 30} L92 ${y + 26} Z`;
+  const fairy = `M94 ${y + 6} C70 ${y - 40} 26 ${y - 36} 30 ${y + 2} C44 ${y + 10} 70 ${y + 8} 94 ${y + 14} Z M94 ${y + 16} C72 ${y + 24} 38 ${y + 22} 36 ${y + 48} C56 ${y + 46} 78 ${y + 34} 94 ${y + 26} Z`;
+  const [d, fill, stroke, extra] = id === 'cape_wings_bat' ? [bat, '#2a2230', '#6a5a7a', null]
+    : id === 'cape_wings_phoenix' ? [feather, 'url(#wingFire)', '#ffb347', <path d={`M92 ${y + 12} C70 ${y - 10} 40 ${y - 8} 28 ${y + 10}`} fill="none" stroke="#fff1b8" strokeWidth="2" opacity="0.8" />]
+    : id === 'cape_wings_fairy' ? [fairy, 'url(#wingFairy)', '#bff0ff', null]
+    : [feather, '#fffaf2', '#d8cfc6', <path d={`M88 ${y + 14} C66 ${y - 6} 40 ${y - 2} 30 ${y + 12} M84 ${y + 22} C64 ${y + 12} 48 ${y + 16} 40 ${y + 30}`} fill="none" stroke="#e4dbd0" strokeWidth="1.5" />];
+  const wing = (flip: boolean) => <g transform={flip ? 'translate(200 0) scale(-1 1)' : undefined}><g className="wing-flap"><path d={d} fill={fill} stroke={stroke} strokeWidth="1.5" strokeLinejoin="round" opacity={id === 'cape_wings_fairy' ? 0.85 : 1} />{extra}</g></g>;
+  return <g className="wings">{wing(false)}{wing(true)}</g>;
+}
 function Cape({ id, a }: { id: string; a: Anchors }) {
+  if (id.startsWith('cape_wings_')) return <Wings id={id} a={a} />;
   const { y, w } = a.shoulders;
   const fill = id === 'cape_gold' ? 'url(#capeGold)' : id === 'cape_slayer' ? 'url(#capeSlayer)' : 'url(#capeVelvet)';
   return <path d={`M${100 - w / 2} ${y} C${100 - w / 2 - 14} ${y + 40} ${100 - w / 2 - 18} ${y + 70} ${100 - w / 2 - 10} ${y + 72} L${100 + w / 2 + 10} ${y + 72} C${100 + w / 2 + 18} ${y + 70} ${100 + w / 2 + 14} ${y + 40} ${100 + w / 2} ${y} Z`} fill={fill} opacity={0.95} />;
 }
-const AURA_COLORS: Record<string, string> = { aura_ember: '#F07842', aura_moon: '#cfd8ff', aura_gold: '#E5AD48', aura_disco: '#c38cff', aura_clean: '#7fe3ff', aura_epic: '#9b5cff', aura_rainbow: '#ff6bd6' };
+const AURA_COLORS: Record<string, string> = { aura_ember: '#F07842', aura_moon: '#8fa4ff', aura_gold: '#E5AD48', aura_disco: '#ff5ea8', aura_clean: '#5ee0ff', aura_epic: '#9b5cff', aura_rainbow: '#ff6bd6', aura_ice: '#bfeeff', aura_toxic: '#7dff4a', aura_love: '#ff6b9d', aura_shadow: '#2a1f3a' };
 
 export const Creature = memo(function Creature({ creature, colorway = 0, equipped, state = 'idle', flip, className, style, bare, animKey, level, stage: forcedStage, silhouette }: Props) {
   const stage = forcedStage ?? (level ? stageForLevel(level) : 1);
@@ -431,11 +453,13 @@ export const Creature = memo(function Creature({ creature, colorway = 0, equippe
     <div className={`creature cre-${creature} evo-${stage} ${silhouette ? 'silhouette' : ''} ${flip ? 'flip' : ''} ${className ?? ''}`} data-state={state} style={style} key={animKey}>
       <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" aria-label={def.name}>
         <defs>
-          <radialGradient id={`aura-${uid}`}><stop offset="0" stopColor={aura ?? cw.glow} stopOpacity="0.55" /><stop offset="0.6" stopColor={aura ?? cw.glow} stopOpacity="0.18" /><stop offset="1" stopColor={aura ?? cw.glow} stopOpacity="0" /></radialGradient>
+          <radialGradient id={`aura-${uid}`}><stop offset="0" stopColor={aura ?? cw.glow} stopOpacity={aura ? 0.85 : 0.55} /><stop offset="0.6" stopColor={aura ?? cw.glow} stopOpacity={aura ? 0.4 : 0.18} /><stop offset="1" stopColor={aura ?? cw.glow} stopOpacity="0" /></radialGradient>
           <linearGradient id="capeVelvet" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#8E2B45" /><stop offset="1" stopColor="#571827" /></linearGradient>
           <linearGradient id="capeGold" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#F3CD7A" /><stop offset="1" stopColor="#c98a2a" /></linearGradient>
           <linearGradient id="capeSlayer" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#3a3340" /><stop offset="0.85" stopColor="#15121a" /><stop offset="1" stopColor="#76243A" /></linearGradient>
           <linearGradient id="evoWing" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stopColor="#fff6d6" stopOpacity="0.2" /><stop offset="1" stopColor="#E5AD48" stopOpacity="0.85" /></linearGradient>
+          <linearGradient id="wingFire" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stopColor="#ffd24d" /><stop offset="0.6" stopColor="#F07842" /><stop offset="1" stopColor="#c8102e" /></linearGradient>
+          <linearGradient id="wingFairy" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stopColor="#bff0ff" stopOpacity="0.9" /><stop offset="1" stopColor="#c38cff" stopOpacity="0.6" /></linearGradient>
           <linearGradient id="rainbowRing" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stopColor="#ff5ea8" /><stop offset="0.35" stopColor="#ffd24d" /><stop offset="0.7" stopColor="#5ee0ff" /><stop offset="1" stopColor="#c38cff" /></linearGradient>
           <radialGradient id={`shadow-${uid}`}><stop offset="0" stopColor="#000" stopOpacity="0.45" /><stop offset="1" stopColor="#000" stopOpacity="0" /></radialGradient>
         </defs>
@@ -485,6 +509,14 @@ function Aura({ id }: { id: string }) {
       return <g className="aura-clean">{[0, 1, 2, 3, 4, 5].map((i) => <g key={i} className="bubble" style={{ animationDelay: `${i * 0.7}s` }}><circle cx={46 + i * 22} cy={150} r={5 + (i % 3) * 2.5} fill="rgba(170,235,255,.28)" stroke="#bff0ff" strokeWidth="1.2" /><circle cx={44 + i * 22} cy={147 - (i % 3)} r="1.6" fill="#fff" /></g>)}</g>;
     case 'aura_epic': // purple lightning
       return <g className="aura-epic" stroke="#d9b8ff" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" fill="none"><circle className="epic-ring" cx="100" cy="118" r="86" stroke="#a66bff" strokeWidth="2.5" strokeDasharray="3 9" opacity="0.7" /><path className="bolt" d="M40 60 L54 84 L44 86 L60 112" /><path className="bolt" style={{ animationDelay: '0.9s' }} d="M160 48 L148 76 L158 78 L142 104" /><path className="bolt" style={{ animationDelay: '1.5s' }} d="M36 136 L48 150 L40 152 L52 170" /></g>;
+    case 'aura_ice': // snowflakes drifting down
+      return <g className="aura-ice" stroke="#e8fbff" strokeWidth="1.6" strokeLinecap="round">{[0, 1, 2, 3, 4, 5].map((i) => { const x = 36 + i * 26, y = 40 + (i % 3) * 14; return <g key={i} className="flake" style={{ animationDelay: `${i * 0.6}s` }}><path d={`M${x} ${y - 6} V${y + 6} M${x - 6} ${y} H${x + 6} M${x - 4} ${y - 4} L${x + 4} ${y + 4} M${x + 4} ${y - 4} L${x - 4} ${y + 4}`} /></g>; })}</g>;
+    case 'aura_toxic': // green fumes bubbling up
+      return <g className="aura-toxic">{[0, 1, 2, 3, 4].map((i) => <circle key={i} className="fume" style={{ animationDelay: `${i * 0.8}s` }} cx={50 + i * 25} cy={160} r={8 + (i % 2) * 5} fill="#7dff4a" opacity="0.5" />)}</g>;
+    case 'aura_love': // hearts floating up
+      return <g className="aura-love" fill="#ff5e8a">{[0, 1, 2, 3, 4].map((i) => { const x = 44 + i * 28; return <path key={i} className="heart" style={{ animationDelay: `${i * 0.7}s` }} d={`M${x} 156 c-6 -8 -14 -2 -8 5 l8 8 l8 -8 c6 -7 -2 -13 -8 -5 z`} />; })}</g>;
+    case 'aura_shadow': // dark smoke curling round
+      return <g className="aura-shadow">{[0, 1, 2, 3].map((i) => <ellipse key={i} className="smoke" style={{ animationDelay: `${i * 1.1}s` }} cx={60 + i * 26} cy={150} rx={16} ry={10} fill="#1a1226" opacity="0.7" />)}</g>;
     case 'aura_rainbow': // a thick ring that cycles through every colour
       return <g className="aura-rainbow-ring"><circle cx="100" cy="118" r="84" fill="none" stroke="url(#rainbowRing)" strokeWidth="7" opacity="0.9" strokeDasharray="30 10" /></g>;
     default: return null;

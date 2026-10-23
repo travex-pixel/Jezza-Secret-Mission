@@ -561,6 +561,17 @@ img, svg { display: block; max-width: 100%; }
 .creature .pose-zzz text { animation: zzz 2.4s ease-in-out infinite; opacity: 0; }
 .creature .pose-zzz text:nth-child(2) { animation-delay: .5s; } .creature .pose-zzz text:nth-child(3) { animation-delay: 1s; }
 @keyframes spin { to { transform: rotate(360deg); } }
+.creature .aura-ice .flake { animation: flake-fall 4s linear infinite; }
+.creature .aura-toxic .fume { animation: fume-rise 3.2s ease-out infinite; }
+.creature .aura-love .heart { animation: heart-rise 3s ease-out infinite; }
+.creature .aura-shadow .smoke { animation: smoke 4.5s ease-in-out infinite; }
+.creature .wings .wing-flap { transform-box: fill-box; transform-origin: 90% 20%; animation: flap 2.4s ease-in-out infinite; }
+.creature .halo { animation: cre-float 3.2s ease-in-out infinite; }
+@keyframes flake-fall { 0% { transform: translateY(-20px) rotate(0); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(110px) rotate(180deg); opacity: 0; } }
+@keyframes fume-rise { 0% { transform: translateY(0) scale(.6); opacity: 0; } 25% { opacity: .55; } 100% { transform: translateY(-120px) scale(1.6); opacity: 0; } }
+@keyframes heart-rise { 0% { transform: translateY(0) scale(.6); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(-120px) scale(1.1); opacity: 0; } }
+@keyframes smoke { 0%, 100% { transform: translate(0, 0) scale(1); opacity: .5; } 50% { transform: translate(-10px, -40px) scale(1.5); opacity: .25; } }
+@keyframes flap { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-9deg); } }
 @keyframes ember-rise { 0% { transform: translateY(0); opacity: 0; } 15% { opacity: 1; } 100% { transform: translateY(-110px) translateX(8px); opacity: 0; } }
 @keyframes bubble-rise { 0% { transform: translateY(0); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(-120px); opacity: 0; } }
 @keyframes twinkle { 0%, 100% { transform: scale(.5); opacity: .3; } 50% { transform: scale(1.3); opacity: 1; } }
@@ -657,6 +668,7 @@ img, svg { display: block; max-width: 100%; }
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
   .creature .body-g, .creature .wing, .creature .tail, .creature .lid, .creature .aura-g, .creature .stag-rays, .creature .aura-rainbow-ring, .creature .aura-rays, .creature .aura-disco, .creature .ember, .creature .bubble, .creature .twinkle, .creature .pose-wind path { animation: none !important; }
   .creature .bolt, .creature .pose-zzz text { animation: none !important; opacity: .8; }
+  .creature .flake, .creature .fume, .creature .heart, .creature .smoke, .creature .wing-flap, .creature .halo { animation: none !important; }
   .creature .stag-twinkle { animation: none !important; opacity: .8; }
 }
 
