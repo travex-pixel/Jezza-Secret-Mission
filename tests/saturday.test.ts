@@ -99,16 +99,20 @@ describe('Saturday Quests', () => {
     doPhoto(ids[2]);
     expect(p.quests[0].done).toBe(true); expect(party().feed.filter((f) => /finished the quest "Grinder"/.test(f.text)).length).toBe(1); // once
   });
-  it("a win quest ticks over when a fight settles, for both sides' quests", () => {
-    const { eng, ids, party, host, priv } = setup();
+  it("a fight quest ticks over when a fight is actually fought, for both sides' quests", () => {
+    const { eng, ids, party, host, priv, advance } = setup();
     host({ kind: 'setPhase', phase: 'saturday' });
     const a = party().players[ids[2]], b = party().players[ids[3]];
-    a.quests = [{ defId: 'fights5', baseline: a.wins + a.losses, done: false }]; b.quests = [{ defId: 'fights5', baseline: b.wins + b.losses, done: false }];
+    const base = a.fairFights;
+    a.quests = [{ defId: 'fights5', baseline: a.fairFights, done: false }]; b.quests = [{ defId: 'fights5', baseline: b.fairFights, done: false }];
     for (let i = 0; i < 5; i++) {
       const bid = (eng.handle(ids[2], { type: 'challenge', reqId: 'c', opponentId: ids[3] }).ack as any).data.battleId as string;
       eng.handle(ids[3], { type: 'respondChallenge', reqId: 'r', battleId: bid, accept: true });
-      eng.handle(ids[2], { type: 'surrender', reqId: 's', battleId: bid });
+      // a plays every round, b's phone is face down: the fight times out in a's favour (a real finish, unlike a surrender)
+      for (let r = 0; r < 12 && party().battles[bid].status === 'active'; r++) { eng.handle(ids[2], { type: 'battleAction', reqId: 'x', battleId: bid, round: party().battles[bid].round, action: 'attack' } as any); advance(60_000); eng.tick(); }
+      expect(party().battles[bid].status).toBe('finished');
     }
+    expect(party().players[ids[2]].fairFights - base).toBe(5);
     expect(priv(ids[2]).quests[0].done).toBe(true); expect(priv(ids[3]).quests[0].done).toBe(true);
   });
   it('a lad who adopts on Saturday gets quests straight away; a saved Saturday party gets them on load', () => {
@@ -319,5 +323,85 @@ describe('fights and raids, more fun', () => {
     expect(party().players[ids[4]].points - before).toBeLessThan(base * 1.5 + 11); // normal (variety bonus aside)
     party().players[ids[3]].points = 330; doPhoto(ids[3]); // past 80%: boost switches off
     expect(party().players[ids[3]].comeback).toBe(false);
+  });
+});
+
+describe('review fixes: things a cheeky lad or a fat-thumbed host could do', () => {
+  it('moleDone rejects anything but a real mission index', () => {
+    const { eng, party, host } = setup();
+    host({ kind: 'setPhase', phase: 'saturday' });
+    const mole = party().mole!.moles[0].playerId;
+    const before = party().players[mole].points;
+    for (const index of ['map', 'constructor', '__proto__', '0', 1.5, -1, 3, 99, null, undefined]) expect(eng.handle(mole, { type: 'moleDone', reqId: 'm', index: index as any }).ack?.ok, String(index)).toBe(false);
+    expect(party().players[mole].points).toBe(before);
+    expect((Array.prototype as any).done).toBeUndefined();
+  });
+  it('a quest lands the moment someone else approves your photo, with no tap from you', () => {
+    const { eng, ids, party, host, priv, doPhoto } = setup();
+    host({ kind: 'setPhase', phase: 'saturday' });
+    const lad = ids[2];
+    for (let i = 0; i < 3; i++) doPhoto(lad); // rookie snaps count straight away; after that photos go to review
+    party().photoMode = 'host';
+    party().players[lad].quests = [{ defId: 'missions5', baseline: party().players[lad].missionsCompleted, done: false }];
+    for (let i = 0; i < 5; i++) {
+      const r = doPhoto(lad); expect(r.ack?.ok).toBe(true);
+      const claim = Object.values(party().claims).find((c) => c.status === 'pending' && c.playerId === lad)!;
+      expect(claim, 'photo waits for the host').toBeTruthy();
+      expect(host({ kind: 'resolveClaim', claimId: claim.id, approve: true }).ack?.ok).toBe(true);
+    }
+    expect(priv(lad).quests[0].done).toBe(true); // the host's approval was the last action, and the lad still got it
+    expect(priv(lad).drops.some((d) => d.source === 'quest')).toBe(true);
+  });
+  it('the tick sweep catches a quest moved by a reaction', () => {
+    const { eng, ids, party, host, priv } = setup();
+    host({ kind: 'setPhase', phase: 'saturday' });
+    const lad = ids[2];
+    party().players[lad].quests = [{ defId: 'laughs5', baseline: party().players[lad].laughs, done: false }];
+    party().players[lad].laughs += 5; // moved by other lads' reactions, nobody acting as the owner
+    expect(priv(lad).quests[0].done).toBe(false);
+    eng.tick();
+    expect(priv(lad).quests[0].done).toBe(true);
+  });
+  it('surrender-farming does not count towards fight quests', () => {
+    const { eng, ids, party, host, priv } = setup();
+    host({ kind: 'setPhase', phase: 'saturday' });
+    const [a, b] = [ids[2], ids[3]];
+    party().players[a].quests = [{ defId: 'wins3', baseline: 0, done: false }, { defId: 'fights5', baseline: 0, done: false }];
+    for (let i = 0; i < 5; i++) {
+      const r = eng.handle(a, { type: 'challenge', reqId: 'c', opponentId: b } as any);
+      const bid = (r.ack as any).data?.battleId ?? Object.values(party().battles).find((x) => x.status === 'challenge')?.id;
+      eng.handle(b, { type: 'respondChallenge', reqId: 'r', battleId: bid, accept: true });
+      eng.handle(b, { type: 'surrender', reqId: 's', battleId: bid } as any);
+    }
+    expect(party().players[a].wins).toBe(5);
+    expect(party().players[a].fairWins).toBe(0);
+    expect(priv(a).quests.every((q) => !q.done)).toBe(true);
+  });
+  it('a BS dispute cannot re-cross the third-challenge line for a second drop', () => {
+    const { ids, party, doPhoto, priv } = setup();
+    const lad = ids[2];
+    for (let i = 0; i < 3; i++) doPhoto(lad);
+    expect(priv(lad).drops.filter((d) => d.source === 'challenge').length).toBe(1);
+    party().players[lad].missionsCompleted -= 1; // what a dispute does
+    doPhoto(lad);
+    expect(priv(lad).drops.filter((d) => d.source === 'challenge').length).toBe(1);
+    doPhoto(lad); doPhoto(lad);
+    expect(priv(lad).drops.filter((d) => d.source === 'challenge').length).toBe(2);
+  });
+  it('flipping Fresh Legs on and off hands out one welcome drop, not one per flip; bouncing the phase keeps quests', () => {
+    const { ids, party, host, priv } = setup();
+    for (let i = 0; i < 3; i++) host({ kind: 'setCatchUp', playerId: ids[2], on: i % 2 === 0 });
+    expect(priv(ids[2]).drops.filter((d) => d.source === 'gift').length).toBe(1);
+    host({ kind: 'setPhase', phase: 'saturday' });
+    const q = priv(ids[3]).quests.map((x) => x.defId);
+    party().players[ids[3]].quests[0].done = true;
+    host({ kind: 'setPhase', phase: 'lobby' }); host({ kind: 'setPhase', phase: 'saturday' });
+    expect(priv(ids[3]).quests.map((x) => x.defId)).toEqual(q);
+    expect(priv(ids[3]).quests[0].done).toBe(true);
+  });
+  it('a junk Mole count falls back to the default instead of a round with no Mole', () => {
+    const { party, host } = setup();
+    expect(host({ kind: 'assignMole', count: 'abc' }).ack?.ok).toBe(true);
+    expect(party().mole!.moles.length).toBe(1);
   });
 });

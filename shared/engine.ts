@@ -39,6 +39,8 @@ export interface PlayerState extends PlayerPublic {
   quests: Quest[];         // today's quests
   lastTauntAt: number;
   morningDrop: Phase | null; // which day's wake-up drop this lad has had
+  welcomeDrop: boolean;      // had the Fresh Legs welcome drop
+  realMissions: number;      // non-tutorial challenges approved, never lowered (drives Lucky Drops)
   creatureBefore?: CreatureId; // the groom's creature before it became the Golden Stag (given back if the host moves the title)
 }
 
@@ -212,6 +214,9 @@ export class Engine {
         p.h2h ??= {}; p.upsetLosses ??= 0; p.reactionsGiven ??= 0; p.autoBattles ??= true;
         p.away ??= []; p.lastAutoAt ??= 0; p.recentAuto ??= []; p.epicsDone ??= 0; p.codeTries ??= [];
         p.drops ??= []; p.quests ??= []; p.lastTauntAt ??= 0; p.comeback ??= false; p.morningDrop ??= null;
+        p.welcomeDrop ??= p.drops.some((d) => d.source === 'gift');
+        p.realMissions ??= (p.completedMissionIds ?? []).filter((id) => !MISSION_BY_ID[id]?.tutorial).length;
+        p.fairWins ??= p.wins; p.fairFights ??= p.wins + p.losses;
         // Starter kit added after the save: back-fill it (a set, so running this again changes nothing)
         if (p.creature) p.unlocked = unique([...p.unlocked, ...cosmeticsForLevel(1)]);
         // Challenges retired (or missing) since the save leave the hand; anything already sent for checking finishes as normal.
@@ -353,7 +358,7 @@ export class Engine {
     // Quests count whatever just happened (a win, a photo, a reaction) the moment it lands
     const party = res.ack?.ok ? this.partyOf(playerId) : undefined;
     const p = party?.players[playerId];
-    if (party && p && p.quests.length && msg.type !== 'openDrop') { const n = res.direct.length; this.checkQuests(party, p, res.direct); if (res.direct.length !== n) res.changed = true; }
+    if (party && p && p.quests.length && msg.type !== 'openDrop') { try { const n = res.direct.length; this.checkQuests(party, p, res.direct); if (res.direct.length !== n) res.changed = true; } catch (e) { console.error('[engine] quest check failed', e); } }
     return res;
   }
 
@@ -742,7 +747,9 @@ export class Engine {
     const xp = mission.xp * (rookie ? 2 : 1);
     const bonus = [rookie ? '🚀 Rookie boost: double XP' : '', fresh ? '🦵 Fresh Legs: double points' : '', comeback ? '🔥 Comeback: 1.5× points' : '', newCategory ? `+${VARIETY_BONUS} new category` : ''].filter(Boolean).join(' · ') || undefined;
     const reward = this.grant(party, p, points, xp, direct);
-    if (!mission.tutorial && p.missionsCompleted % DROP_EVERY === 0) this.addDrop(party, p, 'challenge', undefined, direct);
+    // 5. drops ride a counter that disputes and resets never lower, so the third-challenge line can't be re-crossed
+    if (!mission.tutorial) { p.realMissions += 1; if (p.realMissions % DROP_EVERY === 0) this.addDrop(party, p, 'challenge', undefined, direct); }
+    this.checkQuests(party, p, direct); // the approver is often someone else; the owner's quest still lands now
     const label = mission.secret ? 'a sneaky one' : `"${mission.title}"`;
     this.feed(party, { kind: 'mission', text: `${p.nickname} did ${label} (+${points})`, playerId: p.id, photoUrl: claim.photoUrl, emoji: mission.secret ? '🕵️' : CATEGORY_EMOJI[mission.category], claimId: claim.id, flags: 0 });
     direct.push({ to: p.id, msg: { type: 'reward', points, xp, ...reward, title: mission.title, bonus, quiet: !immediate || undefined } });
@@ -986,6 +993,7 @@ export class Engine {
         direct.push({ to: owner.id, msg: { type: 'toast', text: 'Jezza gave your challenge a ❤️ (+5)', emoji: '❤️', tone: 'success' } });
       }
       this.checkAchievements(party, owner, direct);
+      this.checkQuests(party, owner, direct);
     }
     return this.ok(party, undefined, direct);
   }
@@ -1549,6 +1557,7 @@ export class Engine {
     const w = party.players[b.winnerId!]; const l = party.players[b.loserId!];
     if (!w || !l || b.rewards) return; // settled exactly once
     w.wins += 1; l.losses += 1;
+    if (b.reason !== 'surrender' && b.reason !== 'disconnect') { w.fairWins += 1; w.fairFights += 1; l.fairFights += 1; } // quests count fights that were actually fought
     b.rewards = {};
     this.checkQuests(party, w, direct); this.checkQuests(party, l, direct);
     const rivalry = b.reason === 'disconnect' ? undefined : this.recordH2H(w, l);
@@ -1675,6 +1684,7 @@ export class Engine {
       for (const p of Object.values(party.players)) {
         if (p.removed) continue;
         if (this.refillRerolls(p)) dirty = true;
+        if (p.quests.some((q) => !q.done)) { const n = direct.length; this.checkQuests(party, p, direct); if (direct.length !== n) dirty = true; } // witness confirms, vote timeouts: whoever moved the stat, the quest lands
         if (p.creature && this.activePhase(party)) {
           const stale = p.hand.filter((h) => h.status === 'active' && !MISSION_BY_ID[h.missionId]?.starter && now - h.assignedAt > HAND_EXPIRE_MS);
           if (stale.length) { p.hand = p.hand.filter((h) => !stale.includes(h)); this.refillHand(party, p); dirty = true; }
@@ -1708,9 +1718,10 @@ export class Engine {
   }
 
   private giveCatchUp(p: PlayerState, party?: PartyState, direct?: Outbound[]) {
+    const first = !p.welcomeDrop;
     p.catchUp = true;
     p.freshLegs = Math.max(p.freshLegs, FRESH_LEGS);
-    if (party && direct) this.addDrop(party, p, 'gift', 'rare', direct); // a welcome drop for the late lads
+    if (party && direct && first) { p.welcomeDrop = true; this.addDrop(party, p, 'gift', 'rare', direct); } // one welcome drop for the late lads, however often the switch is flipped
   }
 
   private applyPhase(party: PartyState, phase: Phase, direct: Outbound[], auto = false) {
@@ -1726,7 +1737,7 @@ export class Engine {
     if (phase === 'saturday') party.autoSaturdayAt = null;
     if (phase === 'saturday' && prev !== 'saturday') {
       this.lateArrivalsCatchUp(party, direct);
-      for (const p of Object.values(party.players)) if (p.creature && !p.removed) this.assignQuests(party, p);
+      for (const p of Object.values(party.players)) if (p.creature && !p.removed && !p.quests.length) this.assignQuests(party, p);
       this.feed(party, { kind: 'phase', text: '📜 SATURDAY QUESTS are out: three each, big points and a Lucky Drop for every one you finish.', emoji: '📜' });
       if (!party.mole) this.assignMole(party, undefined, direct);
       for (const p of Object.values(party.players)) if (p.online) this.morningDrop(party, p);
@@ -2135,7 +2146,8 @@ export class Engine {
     if (playerId) { const p = party.players[playerId]; if (!p || p.removed || !p.creature) return false; picks = [p]; }
     else {
       if (pool.length < 4) return false;
-      const n = Math.max(1, Math.min(MOLE_MAX, Math.floor(pool.length / 4), count ?? molesFor(pool.length)));
+      const want = Number.isInteger(count) && (count as number) > 0 ? (count as number) : molesFor(pool.length);
+      const n = Math.max(1, Math.min(MOLE_MAX, Math.floor(pool.length / 4), want));
       picks = [...pool].sort(() => this.rng() - 0.5).slice(0, n);
     }
     party.mole = { moles: [], assignedAt: this.now(), votes: {}, revealed: false };
@@ -2159,8 +2171,8 @@ export class Engine {
     const party = this.partyOf(playerId); const p = party?.players[playerId]; const m = party?.mole;
     const mine = m?.moles.find((x) => x.playerId === playerId);
     if (!party || !p || !m || !mine || m.revealed) return this.fail('Nice try.');
+    if (!Number.isInteger(index) || index < 0 || index >= mine.missions.length) return this.fail('No such mission.');
     const mission = mine.missions[index];
-    if (!mission) return this.fail('No such mission.');
     if (mission.done) return { ack: { ok: true, data: { already: true } }, changed: false, direct: [] };
     mission.done = true;
     const direct: Outbound[] = [];
@@ -2225,7 +2237,7 @@ function newPlayer(id: string, nickname: string, now: number, isHost: boolean, j
     id, nickname, creature: null, creatureName: '', level: 1, xp: 0, points: 0, equipped: { colorway: 0 }, unlocked: [], achievements: [], comeback: false,
     missionsCompleted: 0, wins: 0, losses: 0, title: 'Fresh Legend', online: true, isHost, joinedAt: now, lastSeen: now, categoryCounts: {}, witnessed: 0,
     rating: START_RATING, streak: 0, bestStreak: 0, bounties: 0, laughs: 0, fires: 0, groomLoves: 0, wallVotes: 0,
-    cellarCount: 0, cellarFires: 0, raidDamage: 0, raidsJoined: 0, lowKey: false, freshLegs: 0, catchUp: false, joinedPhase, morningDrop: null,
+    cellarCount: 0, cellarFires: 0, raidDamage: 0, raidsJoined: 0, lowKey: false, freshLegs: 0, catchUp: false, joinedPhase, morningDrop: null, welcomeDrop: false, realMissions: 0, fairWins: 0, fairFights: 0,
     h2h: {}, upsetLosses: 0, reactionsGiven: 0, autoBattles: true, epicsDone: 0,
     hand: [], completedMissionIds: [], rerollsLeft: REROLLS_PER_PHASE, scoredBattlesVs: {}, missedRounds: 0, lastHonourClaimAt: 0, flagged: [], rerollRefillAt: 0, drops: [], quests: [], lastTauntAt: 0,
     away: [], lastAutoAt: 0, recentAuto: [], codeTries: [],
@@ -2233,7 +2245,7 @@ function newPlayer(id: string, nickname: string, now: number, isHost: boolean, j
 }
 
 function toPublic(p: PlayerState): PlayerPublic {
-  const { hand, completedMissionIds, rerollsLeft, scoredBattlesVs, missedRounds, lastHonourClaimAt, flagged, rerollRefillAt, away, lastAutoAt, recentAuto, codeTries, creatureBefore, drops, quests, lastTauntAt, ...pub } = p;
+  const { hand, completedMissionIds, rerollsLeft, scoredBattlesVs, missedRounds, lastHonourClaimAt, flagged, rerollRefillAt, away, lastAutoAt, recentAuto, codeTries, creatureBefore, drops, quests, lastTauntAt, morningDrop, welcomeDrop, realMissions, ...pub } = p;
   return pub;
 }
 

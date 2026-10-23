@@ -44,6 +44,8 @@ export interface PlayerPublic {
   missionsCompleted: number;
   wins: number;
   losses: number;
+  fairWins: number;   // wins in fights that were actually fought (no surrenders / disconnects): what quests count
+  fairFights: number;
   title: string;
   online: boolean;
   isHost: boolean;

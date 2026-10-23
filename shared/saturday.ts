@@ -59,8 +59,8 @@ export function rollDrop(rng: () => number, owned: string[], source: Drop['sourc
 // ---------- Saturday Quests ----------
 export interface QuestDef { id: string; title: string; blurb: string; emoji: string; target: number; points: number; drop: Rarity; stat: (p: PlayerPublic) => number }
 export const QUEST_DEFS: QuestDef[] = [
-  { id: 'wins3', title: 'Three Wins', blurb: 'Win 3 fights today.', emoji: '⚔️', target: 3, points: 60, drop: 'rare', stat: (p) => p.wins },
-  { id: 'fights5', title: 'Brawler', blurb: 'Fight 5 times, win or lose.', emoji: '🥊', target: 5, points: 40, drop: 'rare', stat: (p) => p.wins + p.losses },
+  { id: 'wins3', title: 'Three Wins', blurb: 'Win 3 fights today.', emoji: '⚔️', target: 3, points: 60, drop: 'rare', stat: (p) => p.fairWins },
+  { id: 'fights5', title: 'Brawler', blurb: 'Fight 5 times, win or lose.', emoji: '🥊', target: 5, points: 40, drop: 'rare', stat: (p) => p.fairFights },
   { id: 'missions5', title: 'Grinder', blurb: 'Finish 5 challenges.', emoji: '🎯', target: 5, points: 60, drop: 'rare', stat: (p) => p.missionsCompleted },
   { id: 'photos3', title: 'Paparazzi', blurb: 'Do 3 photo challenges.', emoji: '📸', target: 3, points: 50, drop: 'rare', stat: (p) => p.categoryCounts.photo ?? 0 },
   { id: 'jezza3', title: 'Groom Service', blurb: 'Do 3 Get-the-groom-in challenges.', emoji: '🤵', target: 3, points: 60, drop: 'epic', stat: (p) => p.categoryCounts.jezza ?? 0 },
