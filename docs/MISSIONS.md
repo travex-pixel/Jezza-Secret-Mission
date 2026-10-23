@@ -1,6 +1,6 @@
 # Project Jezza: Challenge List
 
-102 missions. Points go to the weekend leaderboard, XP levels up your creature.
+103 missions. Points go to the weekend leaderboard, XP levels up your creature.
 
 How they're checked: **Just tap it** (honour system) = tap "I did it" (one every 8 minutes) · **Needs a photo** = take a photo or pick one from your library; by default the lads vote it in (two 👍), or the host can switch to approving them or to instant · **A mate confirms** = a mate who was there taps yes on their phone. Mates can 🚩 Call BS on anything. Nobody ever has to drink: any drink counts, water included.
 
@@ -33,7 +33,7 @@ New players start with a 30-second intro: **Get the Boys Online** (selfie with J
 | # | Mission | Instruction | Difficulty | Pts / XP | How | When |
 |---|---|---|---|---|---|---|
 
-## 📸 Cooked Photos (23)
+## 📸 Cooked Photos (24)
 
 | # | Mission | Instruction | Difficulty | Pts / XP | How | When |
 |---|---|---|---|---|---|---|
@@ -42,6 +42,7 @@ New players start with a 30-second intro: **Get the Boys Online** (selfie with J
 | e07 | **Mirror Mirror** | Mirror selfie with as many lads in it as you can fit. | Easy | 10 / 20 | Needs a photo | Fri + Sat |
 | e10 | **Creature Cosplay** | Recreate your creature's pose. Get a mate to snap it. | Easy | 10 / 20 | Needs a photo | Fri + Sat |
 | n13 | **No Questions Asked** | Get five people into a group photo without telling them why. | Spicy | 20 / 35 | Needs a photo | Fri + Sat |
+| f01 | **Photo Drop** | Anything funny or cool. No challenge needed, no vote, straight to the camera roll. | Easy | 5 / 10 | Needs a photo | Fri + Sat |
 | n14 | **Get the Boys Online** | Selfie with at least three lads in it, everyone looking fired up for the weekend. | Easy | 10 / 20 | Needs a photo | Fri + Sat |
 | p01 | **Most Cooked Selfie** | Convince Jezza to take a selfie with you. The more cooked, the better. | Easy | 10 / 20 | Needs a photo | Fri + Sat |
 | p02 | **Identical Idiots** | Get three mates to pull the exact same face in one photo. | Spicy | 20 / 35 | Needs a photo | Fri + Sat |

@@ -156,6 +156,7 @@ export function nextSaturdayMorning(from: number): number {
 }
 const isJezza = (nick: string) => nick.toLowerCase().replace(/[^a-z]/g, '').includes('jezza');
 const FEED_LIMIT = 60;
+const FREE_PHOTO_GAP_MS = 3 * 60_000;   // photo drops per lad
 const LOG_LIMIT = 5000;   // the keepsake's full weekend record
 const MAX_PHOTO_CHARS = 1_400_000; // ~1MB jpeg as base64 (phones send ~1600px, usually 250-500KB)
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -553,7 +554,7 @@ export class Engine {
     const secretInHand = p.hand.some((h) => MISSION_BY_ID[h.missionId]?.secret && h.status !== 'done');
     return MISSIONS.filter((m) =>
       m.scope === 'private' && !m.tutorial && !m.retired && m.method !== 'host' && missionAvailableInPhase(m, phase)
-      && !inHand.has(m.id) && !p.completedMissionIds.includes(m.id)
+      && !inHand.has(m.id) && !p.completedMissionIds.includes(m.id) && !m.free
       && !(m.secret && secretInHand) && !(p.lowKey && m.loud),
     );
   }
@@ -593,10 +594,14 @@ export class Engine {
     const mission = MISSION_BY_ID[missionId];
     if (!mission) return this.fail('Unknown challenge.');
     if (mission.wall) return this.fail(`Write your ${mission.wall} and it posts to the Jezza Wall.`);
-    if (p.completedMissionIds.includes(missionId)) return this.fail('Already done that one. No double dipping.');
+    if (p.completedMissionIds.includes(missionId) && !mission.free) return this.fail('Already done that one. No double dipping.');
     const now = this.now();
     const isGroup = mission.scope === 'group';
-    if (isGroup) {
+    if (mission.free) {
+      // the photo drop: not in anyone's hand, as often as you like, with a breather between so the roll isn't one lad's
+      const last = Object.values(party.claims).filter((c) => c.playerId === playerId && MISSION_BY_ID[c.missionId]?.free).map((c) => c.createdAt).sort((x, y) => y - x)[0] ?? 0;
+      if (now - last < FREE_PHOTO_GAP_MS) return this.fail(`One drop every ${FREE_PHOTO_GAP_MS / 60_000} minutes. Next in ${Math.ceil((last + FREE_PHOTO_GAP_MS - now) / 1000)}s.`);
+    } else if (isGroup) {
       if (!party.revealedGroupMissions.includes(missionId)) return this.fail('That group challenge isn\'t live yet.');
     } else {
       const h = p.hand.find((x) => x.missionId === missionId);
@@ -644,7 +649,7 @@ export class Engine {
     party.claims[claimId] = claim;
     const direct: Outbound[] = [];
     const others = Object.values(party.players).filter((x) => !x.removed && x.creature && x.id !== playerId).length;
-    if (mission.method === 'photo' && party.photoMode !== 'instant' && others > 0 && !mission.starter && !rookie) { // the selfie and rookie snaps count straight away
+    if (mission.method === 'photo' && party.photoMode !== 'instant' && others > 0 && !mission.starter && !rookie && !mission.free) { // the selfie and rookie snaps count straight away
       // Photo check: the lads vote it in (or the host approves it). Nobody is ever stuck: it times out in the snapper's favour.
       claim.review = party.photoMode; claim.votesUp = []; claim.votesDown = [];
       if (!isGroup) { const h = p.hand.find((x) => x.missionId === missionId)!; h.status = 'pending'; h.claimId = claimId; }
@@ -669,6 +674,13 @@ export class Engine {
     const mission = MISSION_BY_ID[claim.missionId];
     if (!p || !mission) return;
     claim.status = 'approved'; claim.resolvedAt = this.now();
+    if (mission.free) {
+      // a photo drop: a few points and XP, straight into the roll and the feed; not a challenge, so no challenge stats
+      const reward = this.grant(party, p, mission.points, mission.xp, direct);
+      this.feed(party, { kind: 'mission', text: `${p.nickname} dropped a photo${claim.note ? `: “${claim.note}”` : ''} (+${mission.points})`, playerId: p.id, photoUrl: claim.photoUrl, emoji: '📸', claimId: claim.id, flags: 0 });
+      direct.push({ to: p.id, msg: { type: 'reward', points: mission.points, xp: mission.xp, ...reward, title: 'Photo dropped', quiet: !immediate || undefined } });
+      return;
+    }
     const rookie = !mission.tutorial && mission.scope === 'private' && rookieLeft(p.completedMissionIds) > 0 && !p.catchUp; // Saturday arrivals have Fresh Legs instead
     if (!p.completedMissionIds.includes(mission.id)) p.completedMissionIds.push(mission.id);
     const h = p.hand.find((x) => x.missionId === mission.id);

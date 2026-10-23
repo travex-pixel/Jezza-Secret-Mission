@@ -18,6 +18,7 @@ export interface Mission {
   tutorial?: boolean; // one of the three intro steps (selfie, roast, toast)
   wall?: 'roast' | 'toast'; // done by posting to the Jezza Wall
   retired?: boolean; // no longer dealt; kept so old completions, claims and feed posts still resolve
+  free?: boolean;    // never dealt: anyone can do it any time, as often as they like (the photo drop)
 }
 
 export const CATEGORY_META: Record<MissionCategory, { label: string; emoji: string; hue: string }> = {
@@ -99,6 +100,8 @@ export const MISSIONS: Mission[] = [
   m({ id: 'n11', title: 'Google That', instruction: 'Get someone to Google something ridiculous. The more ridiculous, the better.', category: 'sneaky', difficulty: 1, method: 'witness' }),
   m({ id: 'n12', title: 'Love You, Mate', instruction: 'Get Jezza to say "I love you" to another lad.', category: 'jezza', difficulty: 2, method: 'witness' }),
   m({ id: 'n13', title: 'No Questions Asked', instruction: 'Get five people into a group photo without telling them why.', category: 'photo', difficulty: 2, method: 'photo' }),
+  // ---------- Not a challenge: just post a photo ----------
+  m({ id: 'f01', free: true, title: 'Photo Drop', instruction: 'Anything funny or cool. No challenge needed, no vote, straight to the camera roll.', category: 'photo', difficulty: 1, method: 'photo', points: 5, xp: 10 }),
   m({ id: 'n14', title: 'Get the Boys Online', instruction: 'Selfie with at least three lads in it, everyone looking fired up for the weekend.', category: 'photo', difficulty: 1, method: 'photo' }),
 
   // ---------- MAKE JEZZA LAUGH ----------

@@ -162,3 +162,23 @@ describe('host hype levers', () => {
     expect(eng.publicView(party()).capLifted).toBe(true);
   });
 });
+
+describe('photo drop', () => {
+  it('any photo, no challenge, repeatable with a breather, counts as points but not as a challenge', () => {
+    const { eng, ids, party, advance } = setup();
+    const p = party().players[ids[1]];
+    expect(p.hand.some((h) => h.missionId === 'f01')).toBe(false); // never dealt
+    const before = { pts: p.points, done: p.missionsCompleted, xp: p.xp };
+    const r = eng.handle(ids[1], { type: 'claimMission', reqId: 'x', missionId: 'f01', claimId: 'drop-claim-0001', photo: PHOTO, note: 'Shorty asleep in the esky' });
+    expect(r.ack?.ok).toBe(true); expect((r.ack as any).data.status).toBe('approved'); // no vote
+    expect(p.points - before.pts).toBe(5); expect(p.xp - before.xp).toBe(10);
+    expect(p.missionsCompleted).toBe(before.done); // not a challenge
+    expect(party().feed.at(-1)!.text).toContain('dropped a photo: “Shorty asleep in the esky”');
+    expect(eng.publicView(party()).gallery.some((g) => g.id === 'drop-claim-0001')).toBe(true);
+    const again = eng.handle(ids[1], { type: 'claimMission', reqId: 'x', missionId: 'f01', claimId: 'drop-claim-0002', photo: PHOTO });
+    expect(again.ack?.ok).toBe(false); expect((again.ack as any).error).toMatch(/every 3 minutes/);
+    advance(3 * 60_000 + 1);
+    expect(eng.handle(ids[1], { type: 'claimMission', reqId: 'x', missionId: 'f01', claimId: 'drop-claim-0003', photo: PHOTO }).ack?.ok).toBe(true);
+    expect(eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: 'f01', claimId: 'drop-claim-0004' }).ack?.ok).toBe(false); // needs a photo
+  });
+});
