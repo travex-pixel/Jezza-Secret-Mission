@@ -105,6 +105,23 @@ describe('keepsake export', () => {
     expect(html).toContain('src="photos/001 Big Dave - Show Your Face.jpeg"');
     expect(html).toContain('&quot;five minutes away&quot;'); // escaped, not raw
   });
+  it('keeps the whole weekend\'s feed for the keepsake and a stats row per lad, even after the live feed has rolled over', () => {
+    const { eng, ids, party } = setup();
+    for (let i = 0; i < 80; i++) eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'grantPoints', playerId: ids[1 + (i % 2)], points: 1, reason: `Line number ${i}` } });
+    expect(party().feed.length).toBeLessThanOrEqual(60);
+    const k = eng.keepsake(party());
+    expect(k.feed.length).toBeGreaterThan(80); // joins, adoptions and 80 host lines
+    expect(k.feed[0].at).toBeLessThanOrEqual(k.feed[k.feed.length - 1].at);
+    expect(k.stats.length).toBe(3);
+    const me = k.stats.find((s) => s.nickname === 'Big Dave')!;
+    expect(me.creature).toBe('Wombat Warrior');
+    const csv = keepsakeCsvs(k, photoFileNames(k));
+    expect(csv['stats.csv'].split('\r\n')[0]).toContain('Raid damage');
+    expect(csv['feed.csv']).toContain('Line number 79');
+    // survives a save and reload
+    const again = new Engine({ now: () => 9_000_001, rng: seededRng(1) }, JSON.parse(JSON.stringify(eng.state)));
+    expect(again.keepsake(again.state.parties[party().code]).feed.length).toBe(k.feed.length);
+  });
   it('file names are safe on any computer', () => {
     expect(safeFileName('Cellar - 🍷 Shiraz/Grenache: "big" <3')).toBe('Cellar - ShirazGrenache big 3');
     expect(safeFileName('🔥🔥')).toBe('photo');

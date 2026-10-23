@@ -91,6 +91,7 @@ export interface PlayerPrivate {
   awayBattles: Battle[];            // full records for the battles in `away`, for replays
   pendingWitness: WitnessRequest[]; // requests where this player is the witness
   honourCooldownUntil: number;      // server time after which the next honour-system claim is allowed
+  scoredVs: Record<string, number>; // points-scoring fights already had against each mate (3 max each)
   flagged: string[];                // claim ids this player has already called BS on
   secret: string;
 }
@@ -350,6 +351,14 @@ export interface Keepsake {
   wall: { author: string; kind: 'roast' | 'toast'; text: string; votes: number; groomLove: boolean; at: number }[];
   cellar: { author: string; drink: string; stars: number; note?: string; fires: number; at: number }[];
   photos: { url: string; caption: string; author: string; at: number }[];
+  stats: KeepsakeStats[];                 // the whole weekend, per lad
+  feed: { at: number; kind: string; text: string; who?: string }[]; // every feed line of the weekend, oldest first
+}
+export interface KeepsakeStats {
+  nickname: string; creature: string; creatureName: string; level: number; points: number; missions: number; photos: number;
+  wins: number; losses: number; bestStreak: number; bounties: number; upsets: number; laughs: number; fires: number; groomLoves: number;
+  reactionsGiven: number; wallPosts: number; wallVotes: number; cellarReviews: number; cellarFires: number; raidDamage: number; raidsJoined: number;
+  epicsDone: number; witnessed: number; badges: number; items: number; joined: string; categories: string; h2h: string;
 }
 
 // ---------- Protocol ----------

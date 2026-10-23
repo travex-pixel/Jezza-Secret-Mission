@@ -40,5 +40,10 @@ export function keepsakeCsvs(k: Keepsake, names: string[]): Record<string, strin
     'awards.csv': csv([['Award', 'Winner', 'Why'], ...k.awards.map((a) => [a.name, a.winner, a.reason])]),
     'cellar.csv': csv([['Drink', 'Stars', 'Who', 'Note', 'Fires', 'When'], ...k.cellar.map((c) => [c.drink, c.stars, c.author, c.note ?? '', c.fires, keepsakeWhen(c.at)])]),
     'photos.csv': csv([['File', 'Who', 'What', 'When'], ...k.photos.map((p, i) => [names[i], p.author, p.caption, keepsakeWhen(p.at)])]),
+    'stats.csv': csv([
+      ['Lad', 'Creature', 'Creature name', 'Level', 'Points', 'Challenges', 'Photos', 'Wins', 'Losses', 'Best streak', 'Bounties', 'Upset losses', 'Laughs got', 'Fires got', 'Jezza hearts', 'Reactions given', 'Wall posts', 'Wall laughs', 'Cellar reviews', 'Cellar fires', 'Raid damage', 'Raids joined', 'EPIC jobs', 'Witnessed', 'Badges', 'Items', 'Joined', 'Challenges by type', 'Head to head'],
+      ...(k.stats ?? []).map((s) => [s.nickname, s.creature, s.creatureName, s.level, s.points, s.missions, s.photos, s.wins, s.losses, s.bestStreak, s.bounties, s.upsets, s.laughs, s.fires, s.groomLoves, s.reactionsGiven, s.wallPosts, s.wallVotes, s.cellarReviews, s.cellarFires, s.raidDamage, s.raidsJoined, s.epicsDone, s.witnessed, s.badges, s.items, s.joined, s.categories, s.h2h]),
+    ]),
+    'feed.csv': csv([['When', 'Type', 'Who', 'What happened'], ...(k.feed ?? []).map((f) => [keepsakeWhen(f.at), f.kind, f.who ?? '', f.text])]),
   };
 }

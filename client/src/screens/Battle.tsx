@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Battle, PlayerPublic, TapQuality } from '@shared/types';
 import { CREATURES } from '@shared/creatures';
-import { autoPick, healthPcts, makeCreatureState, resolveRound, PLANS, PLAN_SECONDS, powerMult, qualityFor, type GamePlan } from '@shared/battle';
+import { autoPick, healthPcts, MAX_SCORED_VS_SAME_OPPONENT, makeCreatureState, resolveRound, PLANS, PLAN_SECONDS, powerMult, qualityFor, type GamePlan } from '@shared/battle';
 import { rankFor, sortLeaderboard } from '@shared/progression';
 import { Creature, LadPic } from '../components/Creature';
 import { Button, Sheet, useCountdown } from '../components/ui';
@@ -132,6 +132,7 @@ function usePractice(me: PlayerPublic | undefined) {
 export default function BattleScreen() {
   const me = useMe();
   const party = useStore((s) => s.party);
+  const priv = useStore((s) => s.priv);
   const myBattle = useMyBattle();
   const toast = useStore((s) => s.toast);
   const setReplay = useStore((s) => s.setReplay);
@@ -213,11 +214,11 @@ export default function BattleScreen() {
             {mates.map((p) => { const busy = party.battles.some((b) => (b.status === 'active' || b.status === 'challenge') && (b.a.playerId === p.id || b.b.playerId === p.id)); return (
               <button key={p.id} className="list-row" style={{ width: '100%', textAlign: 'left', opacity: busy ? 0.5 : 1 }} disabled={busy} onClick={() => challenge(p.id)}>
                 <span className="avatar sm"><LadPic p={p} /></span>
-                <span className="grow"><div className="bold">{p.id === bountyId ? '👑 ' : ''}{p.nickname}</div><div className="tiny faint">{p.id === bountyId ? 'BOUNTY: beat them for double points · ' : ''}{rankFor(p.rating).emoji} {rankFor(p.rating).name} · {p.wins}W {p.losses}L{p.streak >= 2 ? ` · 🔥${p.streak}` : ''}</div></span>
+                <span className="grow"><div className="bold">{p.id === bountyId ? '👑 ' : ''}{p.nickname}{(() => { const left = MAX_SCORED_VS_SAME_OPPONENT - (priv?.scoredVs?.[p.id] ?? 0); return <span className={`pill pill-xs ${left > 0 ? 'pill-gold' : ''}`} style={{ marginLeft: 6 }} data-testid="scored-left">{left > 0 ? `${left} for points` : 'XP only'}</span>; })()}</div><div className="tiny faint">{p.id === bountyId ? 'BOUNTY: beat them for double points · ' : ''}{rankFor(p.rating).emoji} {rankFor(p.rating).name} · {p.wins}W {p.losses}L{p.streak >= 2 ? ` · 🔥${p.streak}` : ''}</div></span>
                 <span className={`pill pill-xs ${busy ? 'pill-ember' : p.online ? 'pill-ok' : ''}`}>{busy ? 'in battle' : p.online ? 'online' : 'away'}</span>
               </button>); })}
           </div>
-          {lastOpponent && <div className="tiny faint center" style={{ marginTop: 6 }}>Only 3 scored bouts per opponent per day. Spread the violence.</div>}
+          <div className="tiny faint center" style={{ marginTop: 6 }}>Points for your first 3 fights against each lad; after that it's XP and bragging rights. Spread the violence.</div>
         </Sheet>
       )}
       {showPractice && (

@@ -67,6 +67,7 @@ export interface PartyState {
   epics: Epic[];
   codes: RewardCode[];
   giveaways: Giveaway[];
+  log: FeedEvent[];      // every feed line of the weekend (the feed itself keeps only the latest few)
 }
 
 export interface EngineState {
@@ -153,6 +154,7 @@ export function nextSaturdayMorning(from: number): number {
 }
 const isJezza = (nick: string) => nick.toLowerCase().replace(/[^a-z]/g, '').includes('jezza');
 const FEED_LIMIT = 60;
+const LOG_LIMIT = 5000;   // the keepsake's full weekend record
 const MAX_PHOTO_CHARS = 1_400_000; // ~1MB jpeg as base64 (phones send ~1600px, usually 250-500KB)
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
@@ -185,7 +187,7 @@ export class Engine {
       party.raids ??= []; party.wall ??= []; party.cellar ??= [];
       party.phaseMissions ??= { friday: 0, saturday: 0 };
       party.photoMode ??= 'vote';
-      party.epics ??= []; party.codes ??= []; party.giveaways ??= [];
+      party.epics ??= []; party.codes ??= []; party.giveaways ??= []; party.log ??= [...party.feed];
       for (const e of party.epics) { e.tier ??= 'medium'; e.points ??= EPIC_TIERS[e.tier].points; e.xp ??= EPIC_TIERS[e.tier].xp; }
       for (const b of Object.values(party.battles)) if (b.status === 'active' && !b.quick && !b.auto) { b.quick = true; b.roundDeadline = Math.min(b.roundDeadline ?? Infinity, this.now() + PLAN_SECONDS * 1000); }
       party.nextAutoAt ??= this.now() + FIRST_AUTO_DELAY_MS;
@@ -289,6 +291,7 @@ export class Engine {
       rerollRefillAt: p.rerollsLeft >= REROLLS_PER_PHASE ? 0 : p.rerollRefillAt,
       pendingWitness,
       honourCooldownUntil: (p.lastHonourClaimAt ?? 0) + HONOUR_COOLDOWN_MS,
+      scoredVs: p.scoredBattlesVs,
       flagged: p.flagged ?? [],
       away: p.away,
       awayBattles: unique(p.away.map((e) => e.battleId)).map((id) => party.battles[id]).filter(Boolean).map((b) => redactBattle(b, playerId)),
@@ -383,7 +386,7 @@ export class Engine {
       code, name: (partyName ?? '').trim().slice(0, 40) || "Jezza's Bucks Weekend", hostId: playerId, phase: 'friday', missionsOpen: true,
       createdAt: now, players: {}, feed: [], claims: {}, revealedGroupMissions: [], battles: {}, awardOverrides: {}, finalized: false, fridayPoints: null, seq: 0,
       groomId: isJezza(v.name) ? playerId : null, autoSaturdayAt: nextSaturdayMorning(now), nextGroupAt: now + FIRST_GROUP_DELAY_MS,
-      raids: [], wall: [], cellar: [], phaseMissions: { friday: 0, saturday: 0 }, photoMode: 'vote', nextAutoAt: now + FIRST_AUTO_DELAY_MS, epics: [], codes: [], giveaways: [],
+      raids: [], wall: [], cellar: [], phaseMissions: { friday: 0, saturday: 0 }, photoMode: 'vote', nextAutoAt: now + FIRST_AUTO_DELAY_MS, epics: [], codes: [], giveaways: [], log: [],
     };
     party.players[playerId] = newPlayer(playerId, v.name, now, true, 'friday');
     if (pin) party.hostPinHash = hashPin(code, pin);
@@ -1671,6 +1674,16 @@ export class Engine {
         ...Object.values(party.claims).filter((c) => c.photoUrl && c.status !== 'rejected').map((c) => ({ url: c.photoUrl!, caption: MISSION_BY_ID[c.missionId]?.title ?? 'Challenge', author: nick(c.playerId), at: c.createdAt })),
         ...party.cellar.filter((e) => e.photoUrl).map((e) => ({ url: e.photoUrl!, caption: `Cellar - ${e.drink}`, author: nick(e.playerId), at: e.at })),
       ].sort((a, b) => a.at - b.at),
+      stats: sortLeaderboard(players).map((x) => ({
+        nickname: x.nickname, creature: x.creature ? CREATURES[x.creature].name : '', creatureName: x.creatureName, level: x.level, points: x.points, missions: x.missionsCompleted,
+        photos: Object.values(party.claims).filter((c) => c.playerId === x.id && c.photoUrl && c.status !== 'rejected').length,
+        wins: x.wins, losses: x.losses, bestStreak: x.bestStreak, bounties: x.bounties, upsets: x.upsetLosses, laughs: x.laughs, fires: x.fires, groomLoves: x.groomLoves,
+        reactionsGiven: x.reactionsGiven, wallPosts: party.wall.filter((w) => w.playerId === x.id && !w.hidden).length, wallVotes: x.wallVotes, cellarReviews: x.cellarCount, cellarFires: x.cellarFires,
+        raidDamage: x.raidDamage, raidsJoined: x.raidsJoined, epicsDone: x.epicsDone, witnessed: x.witnessed, badges: x.achievements.length, items: x.unlocked.length,
+        joined: x.joinedPhase, categories: Object.entries(x.categoryCounts).filter(([, n]) => n).map(([c, n]) => `${c} ${n}`).join(' · '),
+        h2h: Object.entries(x.h2h).map(([id, r]) => `${nick(id)} ${r.w}-${r.l}`).join(' · '),
+      })),
+      feed: (party.log ?? party.feed).map((f) => ({ at: f.at, kind: f.kind, text: f.text, who: f.playerId ? nick(f.playerId) : undefined })),
     };
   }
 
@@ -1922,8 +1935,11 @@ export class Engine {
 
   // ---------- helpers ----------
   private feed(party: PartyState, ev: Omit<FeedEvent, 'id' | 'at'>) {
-    party.feed.push({ id: `f_${party.feed.length}_${Math.floor(this.rng() * 1e6).toString(36)}`, at: this.now(), ...ev });
+    const line: FeedEvent = { id: `f_${party.feed.length}_${Math.floor(this.rng() * 1e6).toString(36)}`, at: this.now(), ...ev };
+    party.feed.push(line);
     if (party.feed.length > FEED_LIMIT) party.feed = party.feed.slice(-FEED_LIMIT);
+    (party.log ??= []).push(line); // the long record for the keepsake (reactions and photos arrive on the feed copy)
+    if (party.log.length > LOG_LIMIT) party.log = party.log.slice(-LOG_LIMIT);
   }
 }
 
