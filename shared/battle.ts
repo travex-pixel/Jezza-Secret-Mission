@@ -27,7 +27,7 @@ export type Rng = () => number; // [0,1)
 export function makeCreatureState(playerId: string, creature: CreatureId, level: number): BattleCreatureState {
   const base = CREATURES[creature].stats;
   // Gentle level scaling so a level 10 creature is ~+18% HP; keeps battles fair at a party.
-  const maxHp = Math.round(base.hp * (1 + (level - 1) * 0.02));
+  const maxHp = Math.round(base.hp * (1 + (Math.min(level, 10) - 1) * 0.02)); // the grind past 10 is for titles, not muscle
   return { playerId, creature, hp: maxHp, maxHp, specialCooldown: 0 };
 }
 

@@ -1,8 +1,9 @@
 import type { Cosmetic, PlayerPublic, MissionCategory, Battle, AwardResult, Phase } from './types';
 
-// Cumulative XP needed to reach each level (index = level-1). Max level 10.
-// Quick at the start (the selfie alone is Level 2, first evolution after about five challenges), slower later.
-export const LEVEL_XP = [0, 50, 110, 190, 320, 520, 800, 1150, 1600, 2200];
+// Cumulative XP needed to reach each level (index = level-1). Quick at the start (the selfie alone is Level 2,
+// first evolution after about five challenges), slower later; 10 is the fully evolved creature. 11–15 are the long
+// grind for the lads who won't stop: titles only, no extra muscle in battle.
+export const LEVEL_XP = [0, 50, 110, 190, 320, 520, 800, 1150, 1600, 2200, 3100, 4200, 5600, 7400, 9600];
 export const MAX_LEVEL = LEVEL_XP.length;
 
 // ---------- Evolutions ----------
@@ -103,6 +104,11 @@ export const LEVEL_UNLOCKS: Record<number, { cosmetics: string[]; colorways: num
   8: { cosmetics: ['hat_crown', 'aura_moon'], colorways: 3, title: 'Final Form' },
   9: { cosmetics: ['cape_gold'], colorways: 3 },
   10: { cosmetics: ['aura_gold'], colorways: 3, title: 'Hunter Valley Legend' },
+  11: { cosmetics: [], colorways: 3, title: 'Vineyard Myth' },
+  12: { cosmetics: [], colorways: 3, title: 'Hall of Famer' },
+  13: { cosmetics: [], colorways: 3, title: 'Absolute Unit' },
+  14: { cosmetics: [], colorways: 3, title: 'Hunter Valley Deity' },
+  15: { cosmetics: [], colorways: 3, title: 'JEZZA TIER' },
 };
 
 export function colorwaysUnlocked(level: number): number {

@@ -166,6 +166,9 @@ async function main() {
   check(page1.includes('src="photos/') && /The Jezza Wall/.test(page1), 'the zipped page points at the photos inside the zip, so it works offline');
   const roasts = execFileSync('unzip', ['-p', zipPath, list.find((f) => /roasts-and-toasts\.csv$/.test(f))!], { encoding: 'utf8' });
   check(/^\uFEFF?Type,Who,What they said/.test(roasts) && /Robbo/.test(roasts), 'roasts-and-toasts.csv has the posts');
+  const tv = await fetch(`${BASE}/api/party/${code}/tv`).then((r) => r.json());
+  check(Array.isArray(tv.players) && tv.players.some((p: any) => p.nickname === 'Robbo') && tv.code === code && !JSON.stringify(tv).includes('secret'), 'the TV link serves the party read-only with nothing private');
+  check((await fetch(`${BASE}/api/party/ZZZZ/tv`)).status === 404, 'a made-up code gets nothing');
   const expired = await fetch(`${BASE}/api/export/not-a-real-token`);
   check(expired.status === 404, 'a made-up download link gets nothing');
   await page.getByText(/‹ Host controls/).click();

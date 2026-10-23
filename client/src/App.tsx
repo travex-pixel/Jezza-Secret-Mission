@@ -24,16 +24,20 @@ import AwaySummary, { useAwayAutoOpen } from './components/AwaySummary';
 import ReplayOverlay from './battle/Replay';
 import { GlobalPhotoViewer } from './components/PhotoViewer';
 
+// …/?tv=CODE: the read-only TV page, no login (a smart TV's browser, or a laptop on the HDMI)
+const TV_CODE = (() => { const c = new URLSearchParams(location.search).get('tv'); return c && /^[A-Z0-9]{4,6}$/i.test(c) ? c.toUpperCase() : null; })();
+
 export default function App() {
   const flow = useStore((s) => s.flow);
   const tab = useStore((s) => s.tab);
   const party = useStore((s) => s.party);
   const me = useMe();
-  useEffect(() => { connect(); }, []);
+  useEffect(() => { if (!TV_CODE) connect(); }, []);
   useAwayAutoOpen();
   // Guard: if we lose party membership mid-game, bounce to join.
   useEffect(() => { if (flow === 'main' && party && !me) useStore.getState().setFlow('join'); }, [flow, party, me]);
 
+  if (TV_CODE) return <TV code={TV_CODE} />;
   let screen: React.ReactNode;
   if (flow === 'opening') screen = <Opening />;
   else if (flow === 'join' || !party || !me) screen = <Join />;

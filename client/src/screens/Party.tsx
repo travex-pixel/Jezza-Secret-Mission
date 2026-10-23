@@ -13,7 +13,9 @@ export default function Party() {
   const toast = useStore((s) => s.toast);
   const view = useStore((s) => s.partyView);
   const setView = (v: 'roster' | 'feed') => useStore.setState({ partyView: v });
-  const [sheet, setSheet] = useState<'leave' | 'claim' | 'qr' | null>(null);
+  const [sheet, setSheet] = useState<'leave' | 'claim' | 'qr' | 'tv' | null>(null);
+  const tvLink = `${location.origin}${location.pathname}?tv=${party?.code ?? ''}`;
+  const copyTv = async () => { try { await navigator.clipboard.writeText(tvLink); toast('TV link copied. Open it in the TV or laptop browser.', '📺', 'success'); } catch { toast(tvLink, '📺'); } };
   const [pin, setPin] = useState('');
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -57,11 +59,30 @@ export default function Party() {
         {view === 'roster' && (
           <div className="col" style={{ gap: 0, paddingTop: 6 }}>
             {!amHost && party.hasHostPin && <Button variant="ghost" onClick={() => { setErr(null); setSheet('claim'); }}>🔑 Host lost their phone? Claim host</Button>}
-            <Button variant="ghost" onClick={() => setTab('tv')} data-testid="tv-mode">📺 TV mode: mirror your phone to the telly</Button>
+            <Button variant="ghost" onClick={() => setSheet('tv')} data-testid="tv-mode">📺 Put the game on the TV</Button>
             <Button variant="ghost" onClick={() => setSheet('leave')}>🚪 Leave this party</Button>
           </div>
         )}
       </div>
+      {sheet === 'tv' && (
+        <Sheet onClose={() => setSheet(null)}>
+          <div className="stack-10">
+            <div className="eyebrow center">📺 On the TV</div>
+            <div className="small center">Live photos, the leaderboard and the feed, big. Two ways:</div>
+            <div className="panel pad stack-6">
+              <div className="bold">1. Open this link on the TV</div>
+              <div className="tiny dim">Smart TV browser, or a laptop plugged into the TV. No login, read-only, updates itself.</div>
+              <div style={{ fontFamily: 'monospace', fontSize: 13, wordBreak: 'break-all' }} data-testid="tv-link">{tvLink}</div>
+              <Button size="sm" onClick={() => void copyTv()}>Copy link</Button>
+            </div>
+            <div className="panel pad stack-6">
+              <div className="bold">2. Mirror this phone</div>
+              <div className="tiny dim">Cast / Smart View / Screen Mirroring, then turn the phone sideways.</div>
+              <Button size="sm" variant="secondary" onClick={() => { setSheet(null); setTab('tv'); }} data-testid="tv-here">Show it on this phone</Button>
+            </div>
+          </div>
+        </Sheet>
+      )}
       {sheet === 'leave' && (
         <Sheet center onClose={() => setSheet(null)}>
           <div className="center stack-10">

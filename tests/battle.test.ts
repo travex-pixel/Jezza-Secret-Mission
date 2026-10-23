@@ -87,8 +87,8 @@ describe('battle engine', () => {
 });
 
 describe('progression', () => {
-  it('levels are monotonic and capped at 10', () => {
-    expect(levelForXp(0)).toBe(1); expect(levelForXp(60)).toBe(2); expect(levelForXp(99999)).toBe(10);
+  it('levels are monotonic and capped at 15 (10 is the fully evolved creature; 11–15 are titles)', () => {
+    expect(levelForXp(0)).toBe(1); expect(levelForXp(60)).toBe(2); expect(levelForXp(99999)).toBe(15); expect(levelForXp(2200)).toBe(10);
     expect(levelProgress(70).pct).toBeGreaterThan(0);
     expect(cosmeticsForLevel(10).length).toBeGreaterThan(5);
   });

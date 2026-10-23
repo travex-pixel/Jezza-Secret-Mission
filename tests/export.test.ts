@@ -182,3 +182,14 @@ describe('photo drop', () => {
     expect(eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: 'f01', claimId: 'drop-claim-0004' }).ack?.ok).toBe(false); // needs a photo
   });
 });
+
+describe('the long grind', () => {
+  it('level 10 is still 2200 XP, 15 takes 9600; battles stop scaling at 10', async () => {
+    const { levelForXp, MAX_LEVEL, titleForLevel } = await import('../shared/progression');
+    const { makeCreatureState } = await import('../shared/battle');
+    expect(levelForXp(2200)).toBe(10); expect(levelForXp(3099)).toBe(10); expect(levelForXp(3100)).toBe(11);
+    expect(levelForXp(9600)).toBe(15); expect(levelForXp(999_999)).toBe(15); expect(MAX_LEVEL).toBe(15);
+    expect(titleForLevel(15)).toBe('JEZZA TIER'); expect(titleForLevel(10)).toBe('Hunter Valley Legend');
+    expect(makeCreatureState('x', 'dragon', 15).maxHp).toBe(makeCreatureState('x', 'dragon', 10).maxHp);
+  });
+});

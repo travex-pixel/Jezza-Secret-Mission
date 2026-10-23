@@ -124,6 +124,13 @@ app.get('/api/export/:token', async (req, res) => {
   } catch (e) { console.error('[export] failed', e); }
   res.end();
 });
+// Read-only party view for a TV, laptop or anything with a browser (…/?tv=CODE). The code is the same one the
+// lads join with; it shows exactly what every member already sees, nothing private, no way to act.
+app.get('/api/party/:code/tv', (req, res) => {
+  const party = engine.state.parties[String(req.params.code).toUpperCase()];
+  if (!party) return res.status(404).json({ error: 'No party with that code.' });
+  res.set('Cache-Control', 'no-store').json(engine.publicView(party));
+});
 app.use('/photos', express.static(PHOTO_DIR, { maxAge: '7d', immutable: true, fallthrough: false }));
 if (fs.existsSync(CLIENT_DIR)) {
   app.use(express.static(CLIENT_DIR, { maxAge: '1h', index: false }));

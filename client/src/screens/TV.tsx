@@ -9,10 +9,22 @@ import { FeedItem, timeAgo } from '../components/ui';
 
 const SLIDE_MS = 7000;
 
-export default function TV() {
+export default function TV({ code }: { code?: string }) {
   const party = useStore((s) => s.party);
   const setTab = useStore((s) => s.setTab);
   const [i, setI] = useState(0);
+  const [err, setErr] = useState<string | null>(null);
+  // Standalone (…/?tv=CODE on a TV or laptop): no login, just read the party every few seconds
+  useEffect(() => {
+    if (!code) return;
+    let stop = false;
+    const pull = async () => {
+      try { const r = await fetch(`/api/party/${encodeURIComponent(code)}/tv`); if (!r.ok) { setErr((await r.json().catch(() => ({})))?.error ?? 'Could not reach the party.'); return; } useStore.setState({ party: await r.json() }); setErr(null); }
+      catch { setErr('Lost the connection. Retrying…'); }
+    };
+    void pull(); const t = setInterval(() => { if (!stop) void pull(); }, 3000);
+    return () => { stop = true; clearInterval(t); };
+  }, [code]);
   useEffect(() => { const t = setInterval(() => setI((n) => n + 1), SLIDE_MS); return () => clearInterval(t); }, []);
   // keep the screen on while it's up on the TV
   useEffect(() => {
@@ -20,7 +32,7 @@ export default function TV() {
     (navigator as Navigator & { wakeLock?: { request: (t: 'screen') => Promise<{ release?: () => Promise<void> }> } }).wakeLock?.request('screen').then((l) => { lock = l; }).catch(() => undefined);
     return () => { void lock?.release?.(); };
   }, []);
-  if (!party) return null;
+  if (!party) return <div className="tv" data-testid="tv"><div className="tv-empty"><div className="display title-lg gold-text">{err ?? 'Finding the party…'}</div>{code && <div className="small dim bold">Code {code.toUpperCase()}</div>}</div></div>;
   const photos = party.gallery ?? [];
   const photo = photos.length ? photos[photos.length - 1 - (i % photos.length)] : null; // newest first, round and round
   const who = photo ? party.players.find((p) => p.id === photo.playerId) : undefined;
@@ -28,7 +40,7 @@ export default function TV() {
   const latest = [...party.feed].reverse().filter((f) => f.kind !== 'join' && f.kind !== 'levelup').slice(0, 4);
   const parade = party.players.filter((p) => p.creature).slice(0, 8);
   return (
-    <div className="tv" onClick={() => setTab('party')} data-testid="tv">
+    <div className={`tv ${code ? 'standalone' : ''}`} onClick={() => { if (!code) setTab('party'); }} data-testid="tv">
       <div className="tv-photo">
         {photo ? (
           <>
@@ -65,7 +77,7 @@ export default function TV() {
         </div>
         <div className="eyebrow" style={{ marginTop: 10 }}>Just now</div>
         <div className="stack-6 tv-feed">{latest.map((f) => <FeedItem key={f.id} f={f} compact />)}</div>
-        <div className="tiny faint center">Tap anywhere to leave TV mode</div>
+        {code ? (err && <div className="tiny faint center">{err}</div>) : <div className="tiny faint center">Tap anywhere to leave TV mode</div>}
       </aside>
     </div>
   );
