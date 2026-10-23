@@ -551,6 +551,9 @@ export class Engine {
     p.unlocked = unique([...p.unlocked, ...cosmeticsForLevel(1)]);
     p.equipped = { colorway: 0, hat: 'hat_party' };
     if (party.phase === 'saturday' && !p.quests.length) this.assignQuests(party, p);
+    // A Saturday joiner is online already (hello came before joinParty), so the wake-up drop and the Fresh Legs welcome
+    // drop land here rather than waiting for their next reconnect
+    if (party.phase === 'saturday') { this.morningDrop(party, p); if (p.catchUp && !p.welcomeDrop) { p.welcomeDrop = true; this.addDrop(party, p, 'gift', 'rare', []); } }
     p.title = titleForLevel(1);
     // The intro straight away, regardless of phase: your selfie, roast Jezza, toast Jezza. The groom just gets the selfie.
     p.hand = (isGroom ? [STARTER_MISSION] : TUTORIAL_MISSIONS).map((m) => ({ missionId: m.id, assignedAt: this.now(), status: 'active' as const }));
@@ -2185,6 +2188,7 @@ export class Engine {
     const party = this.partyOf(playerId); const p = party?.players[playerId]; const m = party?.mole;
     if (!party || !p || p.removed || !p.creature) return this.fail('Adopt a creature first.');
     if (!m || m.revealed) return this.fail('Voting is closed.');
+    if (playerId === party.hostId) return this.fail('The host can see the answer, so the host doesn\'t vote.');
     const s = party.players[suspectId];
     if (!s || s.removed || !s.creature || s.id === playerId) return this.fail('Pick a mate (not yourself).');
     const mine = m.votes[playerId] ?? [];

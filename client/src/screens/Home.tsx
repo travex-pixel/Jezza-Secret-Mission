@@ -51,7 +51,7 @@ export default function Home() {
   const drop = priv?.drops?.[0];
   const quests = priv?.quests ?? [];
   const questsDone = quests.filter((q) => q.done).length;
-  const moleOpen = !!party?.mole?.voting && !priv?.mole; // the Mole doesn't vote on themselves
+  const moleOpen = !!party?.mole?.voting && !priv?.mole && !priv?.moleHost; // the Mole doesn't vote on themselves, and the host can see the answer
   if (!party || !me?.creature) return null;
   const board = sortLeaderboard(party.players);
   const rank = board.findIndex((p) => p.id === me.id) + 1;
@@ -110,7 +110,7 @@ export default function Home() {
         {alert === 'drop' && drop && (
           <button className={`drop-card r-${drop.rarity}`} style={{ ['--rc' as string]: RARITY[drop.rarity].color }} onClick={() => setOpening(drop)} data-testid="drop-card">
             <span className="drop-card-crate">{drop.source === 'morning' ? '☀️' : '🎁'}</span>
-            <span className="grow" style={{ minWidth: 0, textAlign: 'left' }}><div className="bold">{drop.source === 'morning' ? 'Morning Drop. Rise and shine' : 'Lucky Drop waiting'}{(priv?.drops?.length ?? 0) > 1 ? ` · ${priv!.drops.length} of them` : ''}</div><div className="tiny" style={{ opacity: .85 }}>{drop.source === 'morning' ? 'A wake-up present. There\'s always something in it.' : drop.source === 'quest' ? 'Quest reward' : drop.source === 'gift' ? 'Welcome gift' : drop.source === 'host' ? 'From the host' : 'Every third challenge drops one'}</div></span>
+            <span className="grow" style={{ minWidth: 0, textAlign: 'left' }}><div className="bold">{drop.source === 'morning' ? 'Morning Drop. Rise and shine' : 'Lucky Drop'}{(priv?.drops?.length ?? 0) > 1 ? ` · ${priv!.drops.length} waiting` : drop.source === 'morning' ? '' : ' waiting'}</div><div className="tiny" style={{ opacity: .85 }}>{drop.source === 'morning' ? 'A wake-up present. There\'s always something in it.' : drop.source === 'quest' ? 'Quest reward' : drop.source === 'gift' ? 'Welcome gift' : drop.source === 'host' ? 'From the host' : 'Every third challenge drops one'}</div></span>
             <span className="pill pill-gold">OPEN</span>
           </button>
         )}
@@ -120,8 +120,8 @@ export default function Home() {
         {alert === 'grab' && grab && <GiveawayCard g={grab} />}
         {(quests.length > 0 || moleOpen) && (
           <div className="row" style={{ gap: 6 }}>
-            {quests.length > 0 && <button className="panel quest-strip grow" onClick={() => { useStore.setState({ missionsTab: 'quests' }); setTab('missions'); }} data-testid="quest-strip"><span>📜</span><span className="grow ellipsis"><b>Saturday Quests</b> · {questsDone}/{quests.length} done</span><span className="tiny bold" style={{ color: 'var(--rose)' }}>→</span></button>}
-            {moleOpen && <button className={`panel quest-strip ${priv?.moleVotes?.length ? '' : 'alert'}`} style={{ flex: '0 0 auto' }} onClick={() => setVoting(true)} data-testid="mole-strip"><span>🕵️</span><span className="bold">{priv?.moleVotes?.length ? 'Change vote' : (party.mole?.count ?? 1) > 1 ? 'Who are the Moles?' : 'Who\'s the Mole?'}</span></button>}
+            {quests.length > 0 && <button className="panel quest-strip grow" onClick={() => { useStore.setState({ missionsTab: 'quests' }); setTab('missions'); }} data-testid="quest-strip"><span>📜</span><span className="grow ellipsis"><b>Quests</b> · {questsDone}/{quests.length} done</span><span className="tiny bold" style={{ color: 'var(--rose)' }}>→</span></button>}
+            {moleOpen && <button className={`panel quest-strip ${priv?.moleVotes?.length ? '' : 'hot'}`} style={{ flex: '0 0 auto' }} onClick={() => setVoting(true)} data-testid="mole-strip"><span>🕵️</span><span className="bold">{priv?.moleVotes?.length ? 'Change vote' : (party.mole?.count ?? 1) > 1 ? 'Who are the Moles?' : 'Who\'s the Mole?'}</span></button>}
           </div>
         )}
         {alert === 'epic' && epic && <EpicCard epic={epic} compact />}

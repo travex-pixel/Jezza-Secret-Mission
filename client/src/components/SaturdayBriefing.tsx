@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Button, Sheet } from './ui';
 import { sfx } from '../audio';
+import { QUESTS_PER_DAY } from '@shared/saturday';
 
 const key = (code: string) => `hvl-sat-brief-${code}`;
 const seen = (code: string) => { try { return localStorage.getItem(key(code)) === '1'; } catch { return false; } };
@@ -12,10 +13,10 @@ export default function SaturdayBriefing({ code, moles, isMole }: { code: string
   if (!open) return null;
   const close = () => { try { localStorage.setItem(key(code), '1'); } catch { /* private mode: it just shows again */ } sfx.tap(); setOpen(false); };
   const lines: [string, string, string][] = [
-    ['☀️', 'Morning Drop', 'A wake-up chest is waiting on your Lobby. There\'s always something in it.'],
-    ['📜', '3 Quests', 'Your own goals for today, on the Challenges tab. Each one pays points and a Lucky Drop.'],
-    ['🎁', 'Lucky Drops', 'Every third challenge drops a chest. Epics and legendaries are real, not a rumour.'],
-    [isMole ? '🤫' : '🕵️', isMole ? 'You are a Mole' : moles > 1 ? `${moles} Moles are among you` : 'There is a Mole', isMole ? 'Your secret missions are on the Challenges tab. Don\'t get caught.' : 'Someone has secret sabotage missions. Vote from the Lobby before the finale. Right names score.'],
+    ['☀️', 'Morning Drop', 'A wake-up drop is waiting on your Lobby. There\'s always something in it.'],
+    ['📜', `${QUESTS_PER_DAY} Quests`, 'Your own goals for today, on the Challenges tab. Each one pays points and a Lucky Drop.'],
+    ['🎁', 'Lucky Drops', 'Every third challenge earns a drop. Epics and legendaries are real, not a rumour.'],
+    ...(isMole || moles > 0 ? [[isMole ? '🤫' : '🕵️', isMole ? 'You are a Mole' : moles > 1 ? `${moles} Moles are among you` : 'There is a Mole', isMole ? 'Your secret missions are on the Challenges tab. Don\'t get caught.' : 'Someone has secret sabotage missions. Vote from the Lobby before the finale. Right names score.'] as [string, string, string]] : []),
     ['⚔️', 'Fights & raids', 'Taunt mid-fight. When a boss hits half health, a 25-second weak spot opens: double damage.'],
   ];
   return (

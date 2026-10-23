@@ -155,11 +155,12 @@ describe('The Mole', () => {
     expect((eng.handle(moleId, { type: 'moleDone', reqId: 'm', index: 0 }).ack as any).data.already).toBe(true);
   });
   it('votes are secret, changeable, scored at the reveal; caught vs got away', () => {
-    const { eng, ids, party, host, priv } = setup(8);
+    const { eng, ids, party, host, priv } = setup(9);
     host({ kind: 'setPhase', phase: 'saturday' });
-    expect(party().mole!.moles.length).toBe(1); // 6 eligible: still one by default
+    expect(party().mole!.moles.length).toBe(1); // 7 eligible: still one by default
     const mole = party().mole!.moles[0].playerId;
-    const others = ids.filter((id) => id !== mole);
+    const others = ids.filter((id) => id !== mole && id !== ids[0]); // the host can see the answer, so the host doesn't vote
+    expect(eng.handle(ids[0], { type: 'moleVote', reqId: 'v', suspectId: mole }).ack?.ok).toBe(false);
     expect(eng.handle(others[0], { type: 'moleVote', reqId: 'v', suspectId: others[0] }).ack?.ok).toBe(false); // not yourself
     for (const id of others.slice(0, 5)) eng.handle(id, { type: 'moleVote', reqId: 'v', suspectId: mole }); // 5 right
     eng.handle(others[5], { type: 'moleVote', reqId: 'v', suspectId: others[0] }); // 1 wrong
@@ -199,7 +200,7 @@ describe('The Mole', () => {
     expect(priv(ids[0]).moleHost!.map((x) => x.playerId).sort()).toEqual([a, b].sort());
     expect(priv(a).mole?.missions.length).toBe(3); expect(priv(b).mole?.missions.length).toBe(3);
     expect(eng.publicView(party()).mole!.count).toBe(2);
-    const voters = ids.filter((id) => id !== a && id !== b);
+    const voters = ids.filter((id) => id !== a && id !== b && id !== ids[0]);
     const [v1, v2, v3] = voters;
     eng.handle(v1, { type: 'moleVote', reqId: 'v', suspectId: a }); eng.handle(v1, { type: 'moleVote', reqId: 'v', suspectId: b }); // both right
     expect(priv(v1).moleVotes).toEqual([a, b]);
@@ -262,6 +263,20 @@ describe('the wake-up drop', () => {
     eng.setOnline(ids[3], true);
     const up = priv(ids[3]).drops.find((x) => x.source === 'morning')!;
     expect(up.rarity).toBe('epic'); expect(up.item && DROP_ITEMS.epic.includes(up.item)).toBe(true);
+  });
+  it('a lad who joins on Saturday has the Morning Drop and the welcome drop waiting the moment they adopt', () => {
+    const { eng, code, party, host, priv } = setup();
+    host({ kind: 'setPhase', phase: 'saturday' });
+    const late = 'player_sat_late'; eng.auth(late, 'secret-late');
+    eng.setOnline(late, true); // hello comes before joinParty: nothing to give yet
+    eng.handle(late, { type: 'joinParty', reqId: 'j', code, nickname: 'Wazza' });
+    expect(party().players[late].drops.length).toBe(0);
+    eng.handle(late, { type: 'chooseCreature', reqId: 'c', creature: 'fox' });
+    const drops = priv(late).drops;
+    expect(drops.filter((d) => d.source === 'morning').length).toBe(1);
+    expect(drops.filter((d) => d.source === 'gift').length).toBe(1);
+    eng.setOnline(late, false); eng.setOnline(late, true);
+    expect(priv(late).drops.length).toBe(2); // and nothing doubles up on reconnect
   });
   it('the host can gift a drop to one lad', () => {
     const { ids, host, priv } = setup();

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { GROUP_MISSIONS, MISSION_BY_ID, rookieLeft } from '@shared/missions';
 import { MissionCard } from '../components/MissionCard';
 import { EpicCard } from '../components/EpicCard';
@@ -12,7 +12,8 @@ import { QUEST_BY_ID, RARITY } from '@shared/saturday';
 export default function Missions() {
   const priv = useStore((s) => s.priv);
   const party = useStore((s) => s.party);
-  const [tab, setTab] = useState<'mine' | 'group' | 'done' | 'quests'>(() => { const t = useStore.getState().missionsTab; useStore.setState({ missionsTab: null }); return t ?? 'mine'; });
+  const [tab, setTab] = useState<'mine' | 'group' | 'done' | 'quests'>(() => useStore.getState().missionsTab ?? 'mine');
+  useEffect(() => { if (useStore.getState().missionsTab) useStore.setState({ missionsTab: null }); }, []);
   const quests = priv?.quests ?? [];
   const mole = priv?.mole;
   const [moleBusy, setMoleBusy] = useState(false);
@@ -45,7 +46,7 @@ export default function Missions() {
       <div className="tabs" style={{ marginBottom: 10 }}>
         <button className={`tab ${tab === 'mine' ? 'on' : ''}`} onClick={() => setTab('mine')}>Mine ({hand.length})</button>
         <button className={`tab ${tab === 'group' ? 'on' : ''}`} onClick={() => setTab('group')}>Group ({revealed.length})</button>
-        {quests.length > 0 && <button className={`tab ${tab === 'quests' ? 'on' : ''}`} onClick={() => setTab('quests')} data-testid="quests-tab">📜 Quests ({quests.filter((q) => q.done).length}/{quests.length})</button>}
+        {quests.length > 0 && <button className={`tab ${tab === 'quests' ? 'on' : ''}`} onClick={() => setTab('quests')} data-testid="quests-tab" style={{ whiteSpace: 'nowrap' }}>Quests {quests.filter((q) => q.done).length}/{quests.length}</button>}
         <button className={`tab ${tab === 'done' ? 'on' : ''}`} onClick={() => setTab('done')}>Done ({done.length})</button>
       </div>
       <div className="screen-body scroll-y stack-10">
@@ -57,6 +58,18 @@ export default function Missions() {
             <div className="btn-row"><Button size="sm" variant="secondary" onClick={() => witness(w.claimId, false)}>Nope</Button><Button size="sm" onClick={() => witness(w.claimId, true)}>I saw it ✓</Button></div>
           </div>
         ))}
+        {tab === 'mine' && mole && (
+          <div className="panel mole-panel pad stack-6" data-testid="mole-panel">
+            <div className="row-between"><span className="eyebrow" style={{ color: '#ffb48f' }}>🕵️ You are the Mole</span><span className="tiny faint">shh</span></div>
+            <div className="tiny dim">Secret missions. Tick them off yourself (+40 each, no feed line). The lads vote on who you are; get to the reveal uncaught for +100.</div>
+            {mole.missions.map((m, i) => (
+              <div key={i} className="row" style={{ gap: 8, alignItems: 'flex-start' }}>
+                <span className="small grow" style={{ textDecoration: m.done ? 'line-through' : 'none', opacity: m.done ? .6 : 1 }}>{m.text}</span>
+                {m.done ? <span className="pill pill-xs pill-ok">done</span> : <Button size="sm" variant="secondary" disabled={moleBusy} style={{ whiteSpace: 'nowrap', flex: '0 0 auto' }} onClick={() => void moleDone(i)}>Did it</Button>}
+              </div>
+            ))}
+          </div>
+        )}
         {tab === 'mine' && (
           <>
             {rookie > 0 && !!hand.length && <div className="panel panel-gold pad small center"><b>🚀 Rookie boost:</b> next {rookie} {rookie === 1 ? 'challenge gives' : 'challenges give'} double XP and count{rookie === 1 ? 's' : ''} straight away.</div>}
@@ -85,18 +98,6 @@ export default function Missions() {
                 </span>
               </div>); })}
           </>
-        )}
-        {tab === 'mine' && mole && (
-          <div className="panel mole-panel pad stack-6" data-testid="mole-panel">
-            <div className="row-between"><span className="eyebrow" style={{ color: '#ffb48f' }}>🕵️ You are the Mole</span><span className="tiny faint">shh</span></div>
-            <div className="tiny dim">Secret missions. Tick them off yourself (+40 each, no feed line). The lads vote on who you are; get to the reveal uncaught for +100.</div>
-            {mole.missions.map((m, i) => (
-              <div key={i} className="row" style={{ gap: 8, alignItems: 'flex-start' }}>
-                <span className="small grow" style={{ textDecoration: m.done ? 'line-through' : 'none', opacity: m.done ? .6 : 1 }}>{m.text}</span>
-                {m.done ? <span className="pill pill-xs pill-ok">done</span> : <Button size="xs" variant="secondary" disabled={moleBusy} onClick={() => void moleDone(i)}>Did it</Button>}
-              </div>
-            ))}
-          </div>
         )}
         {tab === 'group' && (
           <>

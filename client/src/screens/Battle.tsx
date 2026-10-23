@@ -51,7 +51,10 @@ function Arena({ battle, meId, names, onPlan, onSurrender, onRematch, onExit, pr
   const liveTaunt = taunt && taunt.battleId === battle.id && Date.now() - taunt.at < 2600 ? taunt : null;
   const [, tick] = useState(0);
   useEffect(() => { if (!liveTaunt) return; const t = setTimeout(() => tick((n) => n + 1), 2700); return () => clearTimeout(t); }, [liveTaunt?.at]); // eslint-disable-line react-hooks/exhaustive-deps
-  const sendTaunt = (emoji: string) => { if (practice) return; request({ type: 'taunt', battleId: battle.id, emoji }).catch(() => undefined); };
+  const [tauntAt, setTauntAt] = useState(0); // mirrors the server's 2.5s gap so dead taps don't happen silently
+  useEffect(() => { if (!tauntAt) return; const t = setTimeout(() => tick((n) => n + 1), 2600); return () => clearTimeout(t); }, [tauntAt]);
+  const cooling = Date.now() - tauntAt < 2500;
+  const sendTaunt = (emoji: string) => { if (practice || cooling) return; setTauntAt(Date.now()); request({ type: 'taunt', battleId: battle.id, emoji }).catch(() => undefined); };
 
   return (
     <div className="screen-body" style={{ gap: 8 }}>
@@ -63,9 +66,9 @@ function Arena({ battle, meId, names, onPlan, onSurrender, onRematch, onExit, pr
         status={(who) => finished ? null : who === 'far'
           ? <span className="pill pill-xs status">{foe.locked || foe.plan ? '🔒 ready' : '🤔 picking'}</span>
           : <span className="pill pill-xs status">{locked ? '🔒 locked in' : 'your call'}</span>}
-        overlay={<>{charging && <PowerTap label={`${PLANS[charging].emoji} Charge up!`} onDone={(power, q) => commit(charging, power, q)} />}{liveTaunt && <span key={liveTaunt.at} className="taunt-bubble" style={liveTaunt.from === meId ? { left: '12%', bottom: '28%' } : { right: '12%', top: '22%' }}>{liveTaunt.emoji}</span>}</>}
+        overlay={<>{charging && <PowerTap label={`${PLANS[charging].emoji} Charge up!`} onDone={(power, q) => commit(charging, power, q)} />}{liveTaunt && <span key={liveTaunt.at} className="taunt-bubble" style={liveTaunt.from === meId ? { left: '12%', bottom: '48%' } : { right: '12%', top: '22%' }}>{liveTaunt.emoji}</span>}</>}
       />
-      {!finished && !practice && battle.status === 'active' && <div className="taunt-bar" data-testid="taunt-bar">{['😂', '🔥', '😴', '💪', '👀', '🫡', '🤡', '🍻'].map((e) => <button key={e} onClick={() => sendTaunt(e)} aria-label={`Taunt ${e}`}>{e}</button>)}</div>}
+      {!finished && !practice && battle.status === 'active' && <div className={`taunt-bar ${cooling ? 'cooling' : ''}`} data-testid="taunt-bar">{['😂', '🔥', '😴', '💪', '👀', '🫡', '🤡', '🍻'].map((e) => <button key={e} disabled={cooling} onClick={() => sendTaunt(e)} aria-label={`Taunt ${e}`}>{e}</button>)}</div>}
       {finished ? (
         <div className="arena-log">{lastLog ? lastLog.lines.slice(-2).map((l, i) => <div key={`${lastLog.round}-${i}`} className="log-line ellipsis">{l}</div>) : <div className="log-line">Here we go…</div>}</div>
       ) : null}

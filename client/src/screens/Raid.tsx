@@ -22,6 +22,7 @@ export default function Raid() {
   const [hitKey, setHitKey] = useState(0);
   const [pop, setPop] = useState<{ k: number; text: string; crit: boolean } | null>(null);
   const timeLeft = useCountdown(raid?.status === 'active' ? raid.endsAt : undefined);
+  const weakLeft = useCountdown(raid?.status === 'active' ? raid.weakUntil : undefined);
   const cool = useCountdown(nextAt > Date.now() ? nextAt : undefined);
   const lastLogLen = useRef(raid?.log.length ?? 0);
   // shake the boss whenever anyone lands a hit
@@ -53,7 +54,7 @@ export default function Raid() {
       <div className="screen-body" style={{ gap: 8 }}>
         <div className="center"><div className="display title-md gold-text">{boss.name}</div><div className="tiny dim bold">{active ? boss.taunt : raid.status === 'won' ? boss.defeat : boss.escape}</div></div>
         <div className="raid-bar"><i style={{ width: `${pct * 100}%` }} /><span>{raid.hp} / {raid.maxHp}</span></div>
-        {active && raid.weakUntil && raid.weakUntil > party.serverTime && <div className="weak-banner" data-testid="weak-banner">🎯 WEAK SPOT · double damage · {Math.max(1, Math.ceil((raid.weakUntil - party.serverTime) / 1000))}s</div>}
+        {active && weakLeft > 0 && <div className="weak-banner" data-testid="weak-banner">🎯 WEAK SPOT · double damage · {weakLeft}s</div>}
         <div className="stage grow" style={{ minHeight: 0, alignItems: 'center' }}>
           <div className="stage-pool" />
           <Boss boss={raid.boss} hitKey={hitKey} dead={raid.status === 'won'} style={{ height: '100%', maxHeight: 260, aspectRatio: '1', zIndex: 1 }} />

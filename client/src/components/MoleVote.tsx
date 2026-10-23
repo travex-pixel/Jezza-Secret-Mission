@@ -14,7 +14,7 @@ export default function MoleVote({ onClose }: { onClose: () => void }) {
   const me = useMe();
   const [busy, setBusy] = useState(false);
   if (!party || !me) return null;
-  const lads = party.players.filter((p) => p.creature && p.id !== me.id).sort((a, b) => a.nickname.localeCompare(b.nickname));
+  const lads = party.players.filter((p) => p.creature && p.id !== me.id && !p.isHost).sort((a, b) => a.nickname.localeCompare(b.nickname));
   const count = party.mole?.count ?? 1;
   const picks = priv?.moleVotes ?? [];
   const vote = async (id: string) => {
