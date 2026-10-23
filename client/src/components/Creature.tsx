@@ -426,7 +426,7 @@ export const Creature = memo(function Creature({ creature, colorway = 0, equippe
   const uid = useId().replace(/:/g, '');
   const aura = !bare && equipped?.aura ? AURA_COLORS[equipped.aura] : null;
   const pose = !bare && equipped?.pose;
-  const poseT = pose === 'pose_heroic' ? 'rotate(-5 100 170) scale(1.05) translate(-5 -8)' : pose === 'pose_lounge' ? 'rotate(-16 100 170) translate(6 4)' : undefined;
+  const poseT = pose === 'pose_heroic' ? 'translate(100 176) rotate(-7) scale(1.1 1.12) translate(-100 -176) translate(0 -4)' : pose === 'pose_lounge' ? 'translate(100 176) rotate(-32) scale(0.96) translate(-100 -176) translate(14 22)' : undefined;
   return (
     <div className={`creature cre-${creature} evo-${stage} ${silhouette ? 'silhouette' : ''} ${flip ? 'flip' : ''} ${className ?? ''}`} data-state={state} style={style} key={animKey}>
       <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" aria-label={def.name}>
@@ -436,13 +436,18 @@ export const Creature = memo(function Creature({ creature, colorway = 0, equippe
           <linearGradient id="capeGold" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#F3CD7A" /><stop offset="1" stopColor="#c98a2a" /></linearGradient>
           <linearGradient id="capeSlayer" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#3a3340" /><stop offset="0.85" stopColor="#15121a" /><stop offset="1" stopColor="#76243A" /></linearGradient>
           <linearGradient id="evoWing" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stopColor="#fff6d6" stopOpacity="0.2" /><stop offset="1" stopColor="#E5AD48" stopOpacity="0.85" /></linearGradient>
+          <linearGradient id="rainbowRing" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stopColor="#ff5ea8" /><stop offset="0.35" stopColor="#ffd24d" /><stop offset="0.7" stopColor="#5ee0ff" /><stop offset="1" stopColor="#c38cff" /></linearGradient>
           <radialGradient id={`shadow-${uid}`}><stop offset="0" stopColor="#000" stopOpacity="0.45" /><stop offset="1" stopColor="#000" stopOpacity="0" /></radialGradient>
         </defs>
-        {!bare && (aura || state !== 'idle' || true) && <circle className={`aura-g ${equipped?.aura === 'aura_rainbow' ? 'aura-rainbow' : ''}`} cx="100" cy="118" r="78" fill={`url(#aura-${uid})`} opacity={aura ? 1 : 0.5} />}
+        {!bare && <circle className="aura-g" cx="100" cy="118" r="78" fill={`url(#aura-${uid})`} opacity={aura ? 1 : 0.5} />}
+        {!bare && equipped?.aura && <Aura id={equipped.aura} />}
+        {pose === 'pose_heroic' && <g className="pose-wind">{[-1, 0, 1].map((k) => <path key={k} d={`M${22 + k * 6} ${96 + k * 22} h${38 - Math.abs(k) * 10}`} stroke="#F6EBDD" strokeWidth="3" strokeLinecap="round" opacity="0.7" />)}</g>}
+        {pose === 'pose_lounge' && <g className="pose-zzz" fill="#F6EBDD" fontFamily="Nunito, sans-serif" fontWeight="900"><text x="138" y="78" fontSize="14">z</text><text x="150" y="62" fontSize="18">Z</text><text x="166" y="42" fontSize="22">Z</text></g>}
         <ellipse cx="100" cy="176" rx="48" ry="9" fill={`url(#shadow-${uid})`} />
         {state === 'guard' && (<g className="shield"><circle cx="100" cy="118" r="70" fill="none" stroke="#E5AD48" strokeWidth="3" strokeDasharray="14 10" opacity="0.9" /><circle cx="100" cy="118" r="62" fill="rgba(229,173,72,0.12)" stroke="#F6EBDD" strokeWidth="1.5" opacity="0.8" /></g>)}
         <g transform={evoScale !== 1 ? `translate(100 176) scale(${evoScale}) translate(-100 -176)` : undefined}>
-        <g className={`body-g ${parts.floats ? 'float' : ''}`} transform={poseT}>
+        <g transform={poseT}>{/* the pose, on its own layer so the body animations can't override it */}
+        <g className={`body-g ${parts.floats ? 'float' : ''}`}>
           <EvoBack stage={stage} a={parts.anchors} />
           {!bare && equipped?.cape && equipped.cape !== 'cape_groomsman' && equipped.cape !== 'cape_apron' && equipped.cape !== 'cape_hivis' && <Cape id={equipped.cape} a={parts.anchors} />}
           {parts.back}
@@ -456,12 +461,35 @@ export const Creature = memo(function Creature({ creature, colorway = 0, equippe
           {!bare && equipped?.hat && <Hat id={equipped.hat} a={parts.anchors} />}
         </g>
         </g>
+        </g>
       </svg>
     </div>
   );
 });
 
 export default Creature;
+
+// ---------------- auras: each one its own shape and motion, not just a tint ----------------
+const RAY = (n: number, r1: number, r2: number, w: number) => Array.from({ length: n }, (_, i) => { const a = (i / n) * Math.PI * 2; const c = Math.cos(a), s = Math.sin(a); const px = -s * w, py = c * w; return `M${100 + c * r1 + px} ${118 + s * r1 + py} L${100 + c * r2} ${118 + s * r2} L${100 + c * r1 - px} ${118 + s * r1 - py} Z`; }).join(' ');
+function Aura({ id }: { id: string }) {
+  switch (id) {
+    case 'aura_ember': // embers drifting up off a warm glow
+      return <g className="aura-ember">{[0, 1, 2, 3, 4, 5, 6].map((i) => <circle key={i} className="ember" style={{ animationDelay: `${i * 0.45}s` }} cx={52 + i * 16} cy={150 - (i % 3) * 8} r={2.2 + (i % 2)} fill={i % 2 ? '#F07842' : '#FFD27A'} />)}</g>;
+    case 'aura_moon': // a silver crescent and a few twinkling stars
+      return <g className="aura-moon"><path d="M44 58 a26 26 0 1 0 10 36 a21 21 0 1 1 -10 -36 Z" fill="#dfe6ff" opacity="0.9" />{[[40, 60], [62, 36], [160, 120], [36, 120], [128, 30]].map(([x, y], i) => <path key={i} className="twinkle" style={{ animationDelay: `${i * 0.6}s` }} d={`M${x} ${y - 6} L${x + 1.6} ${y - 1.6} L${x + 6} ${y} L${x + 1.6} ${y + 1.6} L${x} ${y + 6} L${x - 1.6} ${y + 1.6} L${x - 6} ${y} L${x - 1.6} ${y - 1.6} Z`} fill="#fff" />)}</g>;
+    case 'aura_gold': // slow golden sunrays
+      return <g className="aura-rays"><path d={RAY(12, 58, 96, 5)} fill="#E5AD48" opacity="0.5" /></g>;
+    case 'aura_disco': // a spinning ring of coloured lights
+      return <g className="aura-disco">{['#ff5ea8', '#ffd24d', '#5ee0ff', '#8dff6b', '#c38cff', '#ff8a4d', '#ffffff', '#ff5ea8'].map((c, i) => { const a = (i / 8) * Math.PI * 2; return <circle key={i} cx={100 + Math.cos(a) * 80} cy={118 + Math.sin(a) * 80} r="5" fill={c} />; })}</g>;
+    case 'aura_clean': // soap bubbles floating up
+      return <g className="aura-clean">{[0, 1, 2, 3, 4, 5].map((i) => <g key={i} className="bubble" style={{ animationDelay: `${i * 0.7}s` }}><circle cx={46 + i * 22} cy={150} r={5 + (i % 3) * 2.5} fill="rgba(170,235,255,.28)" stroke="#bff0ff" strokeWidth="1.2" /><circle cx={44 + i * 22} cy={147 - (i % 3)} r="1.6" fill="#fff" /></g>)}</g>;
+    case 'aura_epic': // purple lightning
+      return <g className="aura-epic" stroke="#d9b8ff" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" fill="none"><circle className="epic-ring" cx="100" cy="118" r="86" stroke="#a66bff" strokeWidth="2.5" strokeDasharray="3 9" opacity="0.7" /><path className="bolt" d="M40 60 L54 84 L44 86 L60 112" /><path className="bolt" style={{ animationDelay: '0.9s' }} d="M160 48 L148 76 L158 78 L142 104" /><path className="bolt" style={{ animationDelay: '1.5s' }} d="M36 136 L48 150 L40 152 L52 170" /></g>;
+    case 'aura_rainbow': // a thick ring that cycles through every colour
+      return <g className="aura-rainbow-ring"><circle cx="100" cy="118" r="84" fill="none" stroke="url(#rainbowRing)" strokeWidth="7" opacity="0.9" strokeDasharray="30 10" /></g>;
+    default: return null;
+  }
+}
 
 // ---------------- item previews ----------------
 const SLOT_EMOJI: Record<string, string> = { hat: '🎩', face: '🕶️', cape: '🧣', aura: '✨', pose: '🦸' };
