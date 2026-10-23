@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Battle, PlayerPublic, TapQuality } from '@shared/types';
 import { CREATURES } from '@shared/creatures';
-import { autoPick, makeCreatureState, resolveRound, PLANS, PLAN_SECONDS, powerMult, qualityFor, type GamePlan } from '@shared/battle';
+import { autoPick, healthPcts, makeCreatureState, resolveRound, PLANS, PLAN_SECONDS, powerMult, qualityFor, type GamePlan } from '@shared/battle';
 import { rankFor, sortLeaderboard } from '@shared/progression';
 import { Creature, LadPic } from '../components/Creature';
 import { Button, Sheet, useCountdown } from '../components/ui';
@@ -68,6 +68,7 @@ function Arena({ battle, meId, names, onPlan, onSurrender, onRematch, onExit, pr
         <div className="panel panel-gold pad center stack-6 fade-up">
           <div className="display title-lg gold-text">{won ? 'VICTORY' : 'DEFEATED'}</div>
           <div className="small bold dim">{won ? `${myInfo?.name} stands tall. ${foeInfo?.nick} will be hearing about this.` : `${foeInfo?.name} got the better of you. Rematch?`}</div>
+          {battle.reason === 'rounds' && (() => { const [wp, lp] = healthPcts(won ? mine : foe, won ? foe : mine); return <div className="tiny bold" data-testid="time-result">⏱️ Time! Decided on health left (share of each bar): you {won ? wp : lp} · {foeInfo?.nick ?? 'them'} {won ? lp : wp}</div>; })()}
           {battle.rewards?.[meId] && !practice && <span className="pill pill-gold">+{battle.rewards[meId].points} pts · +{battle.rewards[meId].xp} XP</span>}
           <div className="btn-row">{onRematch && <Button variant="secondary" size="sm" onClick={onRematch}>Rematch</Button>}<Button size="sm" onClick={onExit}>Done</Button></div>
         </div>

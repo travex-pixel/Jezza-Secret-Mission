@@ -161,3 +161,12 @@ describe('Golden Stag balance', () => {
     expect(w / n).toBeLessThan(0.62);
   });
 });
+
+describe('time-out result shows the percentages it was decided on', () => {
+  it('Big Dave 37/100 beats Chris 43/119: shown as 37% vs 36%, never looking like the winner had less', async () => {
+    const { healthPcts } = await import('../shared/battle');
+    expect(healthPcts({ hp: 37, maxHp: 100 }, { hp: 43, maxHp: 119 })).toEqual(['37%', '36%']);
+    expect(healthPcts({ hp: 504, maxHp: 1000 }, { hp: 496, maxHp: 1000 })).toEqual(['50.4%', '49.6%']); // would round to a tie
+    expect(healthPcts({ hp: 10, maxHp: 100 }, { hp: -3, maxHp: 100 })).toEqual(['10%', '0%']);
+  });
+});

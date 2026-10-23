@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { CREATURES } from '@shared/creatures';
+import { healthPcts } from '@shared/battle';
 import { Button, Sheet } from '../components/ui';
 import { useStore, playerById } from '../store';
 import BattleStage from './BattleStage';
@@ -22,7 +23,11 @@ export default function ReplayOverlay() {
   const info = Object.fromEntries([pa, pb].filter(Boolean).map((p) => [p!.id, { nick: p!.nickname, name: p!.creatureName, level: p!.level, colorway: p!.equipped.colorway, equipped: p!.equipped }]));
   const nearId = battle.b.playerId === meId ? meId : battle.a.playerId;
   const w = playerById(party, battle.winnerId); const l = playerById(party, battle.loserId);
-  const how = battle.reason === 'ko' ? 'by KO' : battle.reason === 'rounds' ? 'on remaining health' : battle.reason === 'surrender' ? 'by surrender' : 'on a no-show';
+  // Both sides named the same way, and a time-out shows the percentages it was decided on (each side's own bar)
+  const ws = battle.winnerId === battle.a.playerId ? battle.a : battle.b; const ls = ws === battle.a ? battle.b : battle.a;
+  const label = (p: typeof w, side: typeof ws) => `${p?.creatureName || CREATURES[side.creature].name} (${p?.nickname ?? '?'})`;
+  const [wPct, lPct] = healthPcts(ws, ls);
+  const how = battle.reason === 'ko' ? 'by KO' : battle.reason === 'rounds' ? `on health left: ${wPct} vs ${lPct}` : battle.reason === 'surrender' ? 'by surrender' : 'on a no-show';
   const mine = battle.rewards?.[meId];
   return (
     <Sheet onClose={close}>
@@ -33,7 +38,7 @@ export default function ReplayOverlay() {
         </div>
         <BattleStage key={`${battle.id}-${run}`} battle={battle} info={info} nearId={nearId} mode="replay" speed={speed} skip={skip} onDone={() => { setDone(true); setTook(Math.round(performance.now() - started.current)); }} />
         <div className="center small bold" style={{ minHeight: 40 }}>
-          {done ? <>{w?.creatureName ?? CREATURES[battle[battle.winnerId === battle.a.playerId ? 'a' : 'b'].creature].name} ({w?.nickname}) beat {l?.nickname} {how}.{mine ? <span className="pill pill-gold pill-xs" style={{ marginLeft: 6 }}>{mine.points ? `+${mine.points} pts · ` : ''}+{mine.xp} XP</span> : null}</> : <span className="faint">Every hit here is exactly what the game rolled.</span>}
+          {done ? <>{label(w, ws)} beat {label(l, ls)} {how}.{mine ? <span className="pill pill-gold pill-xs" style={{ marginLeft: 6 }}>{mine.points ? `+${mine.points} pts · ` : ''}+{mine.xp} XP</span> : null}</> : <span className="faint">Every hit here is exactly what the game rolled.</span>}
         </div>
         <div className="replay-bar">
           {!done && <Button size="sm" variant="secondary" onClick={() => setSpeed((s) => (s === 1 ? 2 : 1))}>{speed === 1 ? '⏩ Fast' : '▶ Normal'}</Button>}

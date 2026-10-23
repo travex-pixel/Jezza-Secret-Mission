@@ -36,6 +36,14 @@ function defOf(c: BattleCreatureState) { return CREATURES[c.creature].stats.def;
 function spdOf(c: BattleCreatureState) { return CREATURES[c.creature].stats.spd; }
 function name(c: BattleCreatureState, names: Record<string, string>) { return names[c.playerId] ?? CREATURES[c.creature].name; }
 
+/** Health left as the "on remaining health" rule sees it (a share of each side's own bar), e.g. ["37%", "36%"].
+ *  One decimal place when whole numbers would look like a tie, so the winner never seems to have less. */
+export function healthPcts(winner: { hp: number; maxHp: number }, loser: { hp: number; maxHp: number }): [string, string] {
+  const w = (Math.max(0, winner.hp) / winner.maxHp) * 100, l = (Math.max(0, loser.hp) / loser.maxHp) * 100;
+  const d = Math.round(w) === Math.round(l) ? 1 : 0;
+  return [`${w.toFixed(d)}%`, `${l.toFixed(d)}%`];
+}
+
 /** Raw attack damage before the target's mitigation. */
 function baseDamage(c: BattleCreatureState, rng: Rng, mult = 1): number {
   const roll = 0.9 + rng() * 0.3;
@@ -182,7 +190,8 @@ export function resolveRound(battle: Battle, rng: Rng, names: Record<string, str
     const aPct = a.hp / a.maxHp; const bPct = b.hp / b.maxHp;
     const aWins = aPct > bPct || (aPct === bPct && spdOf(a) >= spdOf(b));
     finish(battle, aWins ? a.playerId : b.playerId, aWins ? b.playerId : a.playerId, 'rounds', now);
-    log.lines.push(`Time! ${name(aWins ? a : b, names)} wins on remaining health.`);
+    const [wp, lp] = healthPcts(aWins ? a : b, aWins ? b : a);
+    log.lines.push(`Time! ${name(aWins ? a : b, names)} wins on health left: ${wp} vs ${lp}.`);
   } else {
     battle.round += 1;
     battle.roundDeadline = now + ROUND_SECONDS * 1000;
