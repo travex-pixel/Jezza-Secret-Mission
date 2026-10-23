@@ -16,7 +16,7 @@ export const DROP_EVERY = 3; // a drop every third challenge
 /** What can fall out of a drop, by rarity. Items only ever come from here, giveaways or codes. */
 export const DROP_ITEMS: Record<Rarity, string[]> = {
   common: ['face_zinc', 'hat_bucket', 'hat_koala'],
-  rare: ['cape_singlet', 'hat_emu', 'face_aviators', 'cape_sarong', 'hat_viking', 'face_mo'],
+  rare: ['cape_singlet', 'hat_emu', 'face_aviators', 'cape_sarong', 'hat_viking', 'face_mo', 'face_bali'],
   epic: ['hat_mullet', 'hat_cockatoo', 'cape_chain', 'aura_volcano', 'face_barong', 'aura_rainbow'],
   legendary: ['hat_croc', 'cape_wings_garuda', 'aura_southern_cross'],
 };
@@ -26,7 +26,7 @@ export interface Drop {
   id: string;
   rarity: Rarity;
   at: number;
-  source: 'challenge' | 'quest' | 'gift' | 'host';
+  source: 'challenge' | 'quest' | 'gift' | 'host' | 'morning';
   item?: string;     // the cosmetic inside, if any
   points: number;
   xp: number;
@@ -40,12 +40,16 @@ export function rollRarity(rng: () => number): Rarity {
 }
 
 /** Decide the contents at drop time (so opening is just a reveal). Items the lad already owns turn into points. */
-export function rollDrop(rng: () => number, owned: string[], source: Drop['source'], now: number, forced?: Rarity): Drop {
-  const rarity = forced ?? rollRarity(rng);
+export function rollDrop(rng: () => number, owned: string[], source: Drop['source'], now: number, forced?: Rarity, opts: { item?: boolean } = {}): Drop {
+  let rarity = forced ?? rollRarity(rng);
+  let pool = DROP_ITEMS[rarity].filter((i) => !owned.includes(i));
+  if (opts.item) {
+    // this drop must hold an item: if the rarity is picked clean, step up until there's one left (a nice surprise)
+    while (!pool.length && RARITIES.indexOf(rarity) < RARITIES.length - 1) { rarity = RARITIES[RARITIES.indexOf(rarity) + 1]; pool = DROP_ITEMS[rarity].filter((i) => !owned.includes(i)); }
+  }
   const meta = RARITY[rarity];
-  const pool = DROP_ITEMS[rarity].filter((i) => !owned.includes(i));
   // epics and legendaries always carry an item while there's one left to give; commons mostly points
-  const wantItem = rarity === 'legendary' || rarity === 'epic' ? true : rarity === 'rare' ? rng() < 0.65 : rng() < 0.3;
+  const wantItem = opts.item || rarity === 'legendary' || rarity === 'epic' ? true : rarity === 'rare' ? rng() < 0.65 : rng() < 0.3;
   const item = wantItem && pool.length ? pool[Math.floor(rng() * pool.length)] : undefined;
   const base = Math.round(meta.points[0] + rng() * (meta.points[1] - meta.points[0]));
   const points = item ? Math.round(base / 2) : wantItem && !pool.length ? base + meta.dupPoints : base;
@@ -83,4 +87,15 @@ export const MOLE_MISSIONS: string[] = [
   'Convince a lad the final form unlocks at level 9.',
 ];
 export const MOLE_POINTS = { mission: 40, caught: 30, escaped: 100, correctGuess: 30 };
-export interface MoleState { playerId: string; assignedAt: number; missions: { text: string; done: boolean }[]; votes: Record<string, string>; revealed: boolean; caught?: boolean; revealedAt?: number }
+export const MOLE_MAX = 3;
+/** How many Moles a room of this many eligible lads gets by default. */
+export const molesFor = (eligible: number) => (eligible >= 8 ? 2 : 1);
+export interface Mole { playerId: string; missions: { text: string; done: boolean }[] }
+export interface MoleState {
+  moles: Mole[];
+  assignedAt: number;
+  votes: Record<string, string[]>;   // voter → suspects (at most one per Mole in play)
+  revealed: boolean;
+  caught?: Record<string, boolean>;  // per Mole, set at the reveal
+  revealedAt?: number;
+}

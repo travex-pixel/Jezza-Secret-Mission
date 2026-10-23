@@ -8,6 +8,7 @@ import { EpicCard } from '../components/EpicCard';
 import { GiveawayCard } from '../components/GiveawayCard';
 import DropOverlay from '../components/DropOverlay';
 import MoleVote from '../components/MoleVote';
+import SaturdayBriefing from '../components/SaturdayBriefing';
 import { RARITY } from '@shared/saturday';
 import HowItWorksSheet from '../components/HowItWorks';
 import { Button, ConnectionPill, FeedItem, XPBar, useCountdown } from '../components/ui';
@@ -108,18 +109,19 @@ export default function Home() {
         {alert === 'vote' && voteEv && <FeedItem f={voteEv} compact />}
         {alert === 'drop' && drop && (
           <button className={`drop-card r-${drop.rarity}`} style={{ ['--rc' as string]: RARITY[drop.rarity].color }} onClick={() => setOpening(drop)} data-testid="drop-card">
-            <span className="drop-card-crate">🎁</span>
-            <span className="grow" style={{ minWidth: 0, textAlign: 'left' }}><div className="bold">Lucky Drop waiting{(priv?.drops?.length ?? 0) > 1 ? ` · ${priv!.drops.length} of them` : ''}</div><div className="tiny" style={{ opacity: .85 }}>{drop.source === 'quest' ? 'Quest reward' : drop.source === 'gift' ? 'Welcome gift' : drop.source === 'host' ? 'From the host' : 'Every third challenge drops one'}</div></span>
+            <span className="drop-card-crate">{drop.source === 'morning' ? '☀️' : '🎁'}</span>
+            <span className="grow" style={{ minWidth: 0, textAlign: 'left' }}><div className="bold">{drop.source === 'morning' ? 'Morning Drop. Rise and shine' : 'Lucky Drop waiting'}{(priv?.drops?.length ?? 0) > 1 ? ` · ${priv!.drops.length} of them` : ''}</div><div className="tiny" style={{ opacity: .85 }}>{drop.source === 'morning' ? 'A wake-up present. There\'s always something in it.' : drop.source === 'quest' ? 'Quest reward' : drop.source === 'gift' ? 'Welcome gift' : drop.source === 'host' ? 'From the host' : 'Every third challenge drops one'}</div></span>
             <span className="pill pill-gold">OPEN</span>
           </button>
         )}
         {opening && <DropOverlay drop={opening} onClose={() => setOpening(null)} />}
         {voting && <MoleVote onClose={() => setVoting(false)} />}
+        {party.phase === 'saturday' && !opening && <SaturdayBriefing code={party.code} moles={party.mole?.count ?? 0} isMole={!!priv?.mole} />}
         {alert === 'grab' && grab && <GiveawayCard g={grab} />}
         {(quests.length > 0 || moleOpen) && (
           <div className="row" style={{ gap: 6 }}>
             {quests.length > 0 && <button className="panel quest-strip grow" onClick={() => { useStore.setState({ missionsTab: 'quests' }); setTab('missions'); }} data-testid="quest-strip"><span>📜</span><span className="grow ellipsis"><b>Saturday Quests</b> · {questsDone}/{quests.length} done</span><span className="tiny bold" style={{ color: 'var(--rose)' }}>→</span></button>}
-            {moleOpen && <button className={`panel quest-strip ${priv?.moleVote ? '' : 'alert'}`} style={{ flex: '0 0 auto' }} onClick={() => setVoting(true)} data-testid="mole-strip"><span>🕵️</span><span className="bold">{priv?.moleVote ? 'Change vote' : 'Who\'s the Mole?'}</span></button>}
+            {moleOpen && <button className={`panel quest-strip ${priv?.moleVotes?.length ? '' : 'alert'}`} style={{ flex: '0 0 auto' }} onClick={() => setVoting(true)} data-testid="mole-strip"><span>🕵️</span><span className="bold">{priv?.moleVotes?.length ? 'Change vote' : (party.mole?.count ?? 1) > 1 ? 'Who are the Moles?' : 'Who\'s the Mole?'}</span></button>}
           </div>
         )}
         {alert === 'epic' && epic && <EpicCard epic={epic} compact />}

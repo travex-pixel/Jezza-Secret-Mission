@@ -96,8 +96,9 @@ export interface PlayerPrivate {
   scoredVs: Record<string, number>; // points-scoring fights already had against each mate (3 max each)
   drops: import('./saturday').Drop[];          // Lucky Drops waiting to be opened
   quests: (import('./saturday').Quest & { progress: number })[]; // today's quests
-  mole?: { missions: { text: string; done: boolean }[] };      // only the Mole gets this
-  moleVote?: string;                                            // who I reckon it is
+  mole?: { missions: { text: string; done: boolean }[] };      // only a Mole gets this (their own missions)
+  moleVotes: string[];                                          // who I reckon it is (one pick per Mole in play)
+  moleHost?: { playerId: string; done: number; total: number }[]; // the host alone sees who the Moles are
   flagged: string[];                // claim ids this player has already called BS on
   secret: string;
 }
@@ -318,7 +319,7 @@ export interface PartyPublic {
   pendingPhotos: { claimId: string; playerId: string; missionId: string; url: string; at: number; up: string[]; down: string[] }[];
   giveaways: Giveaway[];      // live ones, plus any that closed in the last couple of hours
   xpBoostUntil: number | null; // host-called double XP, server time it ends
-  mole: { active: boolean; voting: boolean; votes: number; revealed?: { playerId: string; caught: boolean; correct: string[] } } | null;
+  mole: { active: boolean; voting: boolean; votes: number; count: number; revealed?: { moles: { playerId: string; caught: boolean }[]; correct: string[] } } | null;
   capLifted: boolean;          // host let final forms unlock before Saturday
   autoSaturdayAt: number | null;
   nextGroupAt: number | null;
@@ -456,7 +457,7 @@ export type HostAction =
   | { kind: 'endGiveaway'; giveawayId: string }
   | { kind: 'xpBoost'; minutes?: number }
   | { kind: 'giveDrops'; rarity?: 'common' | 'rare' | 'epic' | 'legendary'; playerId?: string }
-  | { kind: 'assignMole'; playerId?: string }
+  | { kind: 'assignMole'; playerId?: string; count?: number }
   | { kind: 'revealMole' }
   | { kind: 'liftXpCap' };
 

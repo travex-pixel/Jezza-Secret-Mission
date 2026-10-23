@@ -104,6 +104,7 @@ export const COSMETICS: Cosmetic[] = [
   { id: 'cape_singlet', slot: 'cape', name: 'Bintang Singlet', description: 'Lucky Drop. The uniform. Mandatory in Kuta, optional here.', rarity: 'rare' },
   { id: 'hat_emu', slot: 'hat', name: 'Emu Plume', description: 'Lucky Drop. Won a war against the army. Lost to a fence.', rarity: 'rare' },
   { id: 'face_aviators', slot: 'face', name: 'Aviators', description: 'Lucky Drop. Gold rims. Full send.', rarity: 'rare' },
+  { id: 'face_bali', slot: 'face', name: 'Bali Belly', description: 'Lucky Drop. Green around the gills, sweating through it. Do not trust a fart.', rarity: 'rare' },
   { id: 'cape_sarong', slot: 'cape', name: 'Batik Sarong', description: 'Lucky Drop. Hand-dyed in Ubud. Worn in the Hunter.', rarity: 'rare' },
   { id: 'hat_mullet', slot: 'hat', name: 'The Mullet', description: 'Lucky Drop. Business up front. Bucks out back.', rarity: 'epic' },
   { id: 'hat_cockatoo', slot: 'hat', name: 'Cockatoo Crest', description: 'Lucky Drop. Loud, yellow, screams at 5am. Like the lads.', rarity: 'epic' },

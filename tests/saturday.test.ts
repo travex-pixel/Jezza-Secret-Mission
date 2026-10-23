@@ -15,7 +15,7 @@ function setup(n = 6, seed = 3) {
   ids.forEach((id) => eng.auth(id, 'secret-' + id));
   const names = ['Travis', 'Jezza', 'Tommo', 'Big Dave', 'Nath', 'Shorty', 'Robbo', 'Lachy'];
   const code = (eng.handle(ids[0], { type: 'createParty', reqId: '1', nickname: names[0] }).ack as any).data.code as string;
-  ids.slice(1).forEach((id, i) => eng.handle(id, { type: 'joinParty', reqId: 'j', code, nickname: names[i + 1] }));
+  ids.slice(1).forEach((id, i) => eng.handle(id, { type: 'joinParty', reqId: 'j', code, nickname: names[i + 1] ?? `Lad ${i + 1}` }));
   ids.forEach((id, i) => eng.handle(id, { type: 'chooseCreature', reqId: 'c', creature: (['dragon', 'wombat', 'possum', 'owl', 'goblin', 'fox', 'sprite', 'barrel'] as const)[i % 8] }));
   const party = () => eng.state.parties[code];
   party().photoMode = 'instant';
@@ -132,48 +132,140 @@ describe('The Mole', () => {
     const { eng, ids, party, host, priv } = setup();
     host({ kind: 'setPhase', phase: 'saturday' });
     const m = party().mole!;
-    expect(m).toBeTruthy(); expect(m.playerId).not.toBe(ids[0]); expect(m.playerId).not.toBe(party().groomId);
-    expect(m.missions.length).toBe(3);
-    expect(priv(m.playerId).mole?.missions.length).toBe(3);
-    const other = ids.find((id) => id !== m.playerId && id !== ids[0])!;
+    expect(m).toBeTruthy(); expect(m.moles.length).toBe(1); // 5 eligible lads: one Mole
+    const moleId = m.moles[0].playerId;
+    expect(moleId).not.toBe(ids[0]); expect(moleId).not.toBe(party().groomId);
+    expect(m.moles[0].missions.length).toBe(3);
+    expect(priv(moleId).mole?.missions.length).toBe(3);
+    const other = ids.find((id) => id !== moleId && id !== ids[0])!;
     expect(priv(other).mole).toBeUndefined();
-    expect(eng.publicView(party()).mole).toEqual({ active: true, voting: true, votes: 0, revealed: undefined });
+    expect(priv(other).moleHost).toBeUndefined();
+    expect(priv(ids[0]).moleHost).toEqual([{ playerId: moleId, done: 0, total: 3 }]); // the host alone sees who it is
+    expect(eng.publicView(party()).mole).toEqual({ active: true, voting: true, votes: 0, count: 1, revealed: undefined });
     expect(eng.handle(other, { type: 'moleDone', reqId: 'm', index: 0 }).ack?.ok).toBe(false);
-    const pts = party().players[m.playerId].points;
-    expect(eng.handle(m.playerId, { type: 'moleDone', reqId: 'm', index: 0 }).ack?.ok).toBe(true);
-    expect(party().players[m.playerId].points - pts).toBe(MOLE_POINTS.mission);
-    expect(party().feed.some((f) => f.playerId === m.playerId && /mission/i.test(f.text))).toBe(false); // nothing in the feed
-    expect((eng.handle(m.playerId, { type: 'moleDone', reqId: 'm', index: 0 }).ack as any).data.already).toBe(true);
+    const pts = party().players[moleId].points;
+    expect(eng.handle(moleId, { type: 'moleDone', reqId: 'm', index: 0 }).ack?.ok).toBe(true);
+    expect(party().players[moleId].points - pts).toBe(MOLE_POINTS.mission);
+    expect(priv(ids[0]).moleHost![0].done).toBe(1);
+    expect(party().feed.some((f) => f.playerId === moleId && /mission/i.test(f.text))).toBe(false); // nothing in the feed
+    expect((eng.handle(moleId, { type: 'moleDone', reqId: 'm', index: 0 }).ack as any).data.already).toBe(true);
   });
   it('votes are secret, changeable, scored at the reveal; caught vs got away', () => {
     const { eng, ids, party, host, priv } = setup(8);
     host({ kind: 'setPhase', phase: 'saturday' });
-    const mole = party().mole!.playerId;
+    expect(party().mole!.moles.length).toBe(1); // 6 eligible: still one by default
+    const mole = party().mole!.moles[0].playerId;
     const others = ids.filter((id) => id !== mole);
     expect(eng.handle(others[0], { type: 'moleVote', reqId: 'v', suspectId: others[0] }).ack?.ok).toBe(false); // not yourself
     for (const id of others.slice(0, 5)) eng.handle(id, { type: 'moleVote', reqId: 'v', suspectId: mole }); // 5 right
     eng.handle(others[5], { type: 'moleVote', reqId: 'v', suspectId: others[0] }); // 1 wrong
-    eng.handle(others[5], { type: 'moleVote', reqId: 'v', suspectId: others[1] }); // changed mind, still wrong
-    expect(priv(others[5]).moleVote).toBe(others[1]);
+    eng.handle(others[5], { type: 'moleVote', reqId: 'v', suspectId: others[1] }); // changed mind: one Mole, so the new name replaces the old
+    expect(priv(others[5]).moleVotes).toEqual([others[1]]);
+    eng.handle(others[6], { type: 'moleVote', reqId: 'v', suspectId: others[0] });
+    eng.handle(others[6], { type: 'moleVote', reqId: 'v', suspectId: others[0] }); // tapped again: taken back
+    expect(priv(others[6]).moleVotes).toEqual([]);
     expect(eng.publicView(party()).mole!.votes).toBe(6);
     const before = Object.fromEntries(ids.map((id) => [id, party().players[id].points]));
     const notHost = others.find((id) => id !== ids[0])!;
     expect(eng.handle(notHost, { type: 'host', reqId: 'h', action: { kind: 'revealMole' } }).ack?.ok).toBe(false); // host only
     const r = host({ kind: 'revealMole' });
-    expect(r.ack?.ok).toBe(true); expect((r.ack as any).data.caught).toBe(true);
+    expect(r.ack?.ok).toBe(true); expect((r.ack as any).data.moles).toEqual([{ playerId: mole, caught: true }]);
     for (const id of others.slice(0, 5)) expect(party().players[id].points - before[id]).toBe(MOLE_POINTS.correctGuess);
     expect(party().players[others[5]].points - before[others[5]]).toBe(0);
     expect(party().players[mole].points - before[mole]).toBe(MOLE_POINTS.caught);
-    expect(eng.publicView(party()).mole!.revealed!.caught).toBe(true);
+    expect(eng.publicView(party()).mole!.revealed!.moles[0].caught).toBe(true);
+    expect(priv(ids[0]).moleHost).toBeUndefined(); // nothing left to hide
     expect(eng.handle(others[0], { type: 'moleVote', reqId: 'v', suspectId: mole }).ack?.ok).toBe(false); // closed
     expect(host({ kind: 'revealMole' }).ack?.ok).toBe(false);
     // a new Mole can be picked after a reveal; this one gets away
     expect(host({ kind: 'assignMole', playerId: others[2] }).ack?.ok).toBe(true);
-    expect(party().mole!.playerId).toBe(others[2]);
+    expect(party().mole!.moles[0].playerId).toBe(others[2]);
     eng.handle(others[0], { type: 'moleVote', reqId: 'v', suspectId: others[3] });
     const b2 = party().players[others[2]].points;
-    expect((host({ kind: 'revealMole' }).ack as any).data.caught).toBe(false);
+    expect((host({ kind: 'revealMole' }).ack as any).data.moles[0].caught).toBe(false);
     expect(party().players[others[2]].points - b2).toBe(MOLE_POINTS.escaped);
+  });
+  it('two Moles: picked by default in a big room, two names each, scored per name, host can add a third', () => {
+    const { eng, ids, party, host, priv } = setup(12, 5);
+    host({ kind: 'setPhase', phase: 'saturday' });
+    const m = party().mole!;
+    expect(m.moles.length).toBe(2); // 10 eligible → two Moles
+    const [a, b] = m.moles.map((x) => x.playerId);
+    expect(new Set(m.moles.flatMap((x) => x.missions.map((y) => y.text))).size).toBe(6); // no shared gags
+    expect(priv(ids[0]).moleHost!.map((x) => x.playerId).sort()).toEqual([a, b].sort());
+    expect(priv(a).mole?.missions.length).toBe(3); expect(priv(b).mole?.missions.length).toBe(3);
+    expect(eng.publicView(party()).mole!.count).toBe(2);
+    const voters = ids.filter((id) => id !== a && id !== b);
+    const [v1, v2, v3] = voters;
+    eng.handle(v1, { type: 'moleVote', reqId: 'v', suspectId: a }); eng.handle(v1, { type: 'moleVote', reqId: 'v', suspectId: b }); // both right
+    expect(priv(v1).moleVotes).toEqual([a, b]);
+    eng.handle(v1, { type: 'moleVote', reqId: 'v', suspectId: v2 }); // a third name bumps the oldest
+    expect(priv(v1).moleVotes).toEqual([b, v2]);
+    eng.handle(v1, { type: 'moleVote', reqId: 'v', suspectId: v2 }); eng.handle(v1, { type: 'moleVote', reqId: 'v', suspectId: a }); // back to both right
+    eng.handle(v2, { type: 'moleVote', reqId: 'v', suspectId: a }); // one right
+    eng.handle(v3, { type: 'moleVote', reqId: 'v', suspectId: v1 }); eng.handle(v3, { type: 'moleVote', reqId: 'v', suspectId: v2 }); // none
+    // the host makes a third lad a Mole mid-game
+    expect(host({ kind: 'assignMole' }).ack?.ok).toBe(false); // no blind re-pick while they're in play
+    expect(host({ kind: 'assignMole', playerId: a }).ack?.ok).toBe(false); // already one
+    expect(host({ kind: 'assignMole', playerId: v3 }).ack?.ok).toBe(true);
+    expect(party().mole!.moles.length).toBe(3); expect(priv(v3).mole?.missions.length).toBe(3);
+    expect(host({ kind: 'assignMole', playerId: v2 }).ack?.ok).toBe(false); // three is the cap
+    const before = Object.fromEntries(ids.map((id) => [id, party().players[id].points]));
+    const r = host({ kind: 'revealMole' });
+    expect(r.ack?.ok).toBe(true);
+    // 3 voters: a named by 2 (caught), b by 1 (got away), v3 by nobody (got away)
+    const caught = Object.fromEntries((r.ack as any).data.moles.map((x: any) => [x.playerId, x.caught]));
+    expect(caught).toEqual({ [a]: true, [b]: false, [v3]: false });
+    expect(party().players[v1].points - before[v1]).toBe(MOLE_POINTS.correctGuess * 2);
+    expect(party().players[v2].points - before[v2]).toBe(MOLE_POINTS.correctGuess);
+    expect(party().players[a].points - before[a]).toBe(MOLE_POINTS.caught);
+    expect(party().players[b].points - before[b]).toBe(MOLE_POINTS.escaped);
+    expect(party().players[v3].points - before[v3]).toBe(MOLE_POINTS.escaped);
+    expect(party().feed.at(-1)!.text).toMatch(/THE MOLES WERE/);
+    expect(eng.publicView(party()).mole!.revealed!.correct.sort()).toEqual([v1, v2].sort());
+  });
+  it('a save from the single-Mole version migrates', () => {
+    const { eng, ids, party, host } = setup();
+    host({ kind: 'setPhase', phase: 'saturday' });
+    const moleId = party().mole!.moles[0].playerId;
+    const voter = ids.find((id) => id !== moleId)!;
+    (party() as any).mole = { playerId: moleId, assignedAt: 1, missions: [{ text: 'x', done: true }], votes: { [voter]: moleId }, revealed: false };
+    const eng2 = new Engine({ now: () => 7_000_000, rng: seededRng(1) }, JSON.parse(JSON.stringify(eng.state)));
+    const m = eng2.state.parties[party().code].mole!;
+    expect(m.moles).toEqual([{ playerId: moleId, missions: [{ text: 'x', done: true }] }]);
+    expect(m.votes).toEqual({ [voter]: [moleId] });
+    expect((m as any).playerId).toBeUndefined();
+    expect(eng2.privateView(eng2.state.parties[party().code], ids[0])!.moleHost).toEqual([{ playerId: moleId, done: 1, total: 1 }]);
+  });
+});
+
+describe('the wake-up drop', () => {
+  it('lands once, the first time a lad opens the game on Saturday, and always holds an item', () => {
+    const { eng, ids, party, host, priv } = setup();
+    ids.forEach((id) => eng.setOnline(id, false)); // everyone asleep
+    eng.setOnline(ids[1], true);
+    expect(priv(ids[1]).drops.some((d) => d.source === 'morning')).toBe(false); // not on Friday
+    host({ kind: 'setPhase', phase: 'saturday' });
+    expect(priv(ids[1]).drops.filter((d) => d.source === 'morning').length).toBe(1); // online at the switch: it lands then
+    eng.setOnline(ids[2], true);
+    const d = priv(ids[2]).drops.find((x) => x.source === 'morning')!;
+    expect(d).toBeTruthy(); expect(d.rarity).toBe('rare'); expect(d.item && DROP_ITEMS.rare.includes(d.item)).toBe(true);
+    eng.setOnline(ids[2], false); eng.setOnline(ids[2], true); eng.setOnline(ids[1], true);
+    expect(priv(ids[2]).drops.filter((x) => x.source === 'morning').length).toBe(1);
+    expect(priv(ids[1]).drops.filter((x) => x.source === 'morning').length).toBe(1);
+    // a lad who owns every rare already gets bumped up a tier rather than fobbed off with points
+    party().players[ids[3]].unlocked.push(...DROP_ITEMS.rare);
+    eng.setOnline(ids[3], true);
+    const up = priv(ids[3]).drops.find((x) => x.source === 'morning')!;
+    expect(up.rarity).toBe('epic'); expect(up.item && DROP_ITEMS.epic.includes(up.item)).toBe(true);
+  });
+  it('the host can gift a drop to one lad', () => {
+    const { ids, host, priv } = setup();
+    const r = host({ kind: 'giveDrops', rarity: 'legendary', playerId: ids[2] });
+    expect(r.ack?.ok).toBe(true); expect((r.ack as any).data.given).toBe(1);
+    expect(priv(ids[2]).drops.filter((d) => d.source === 'host' && d.rarity === 'legendary').length).toBe(1);
+    expect(priv(ids[1]).drops.filter((d) => d.source === 'host').length).toBe(0);
+    expect(r.direct.some((d) => d.to === ids[2] && d.msg.type === 'toast')).toBe(true);
   });
 });
 

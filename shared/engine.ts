@@ -7,7 +7,7 @@ import type {
   Raid, Reaction, WallPost, CellarEntry, GalleryPhoto, PhotoMode, AwayEvent, Keepsake, Epic, RewardCode, Giveaway,
 } from './types';
 import { EPIC_CUSTOM_ITEM, EPIC_MAX_CREW, EPIC_PRESET_BY_ID, EPIC_TIERS, isEpicTier } from './epics';
-import { DROP_EVERY, MOLE_MISSIONS, MOLE_POINTS, QUESTS_PER_DAY, QUEST_BY_ID, QUEST_DEFS, RARITIES, RARITY, questProgress, rollDrop, type Drop, type MoleState, type Quest, type Rarity } from './saturday';
+import { DROP_EVERY, MOLE_MAX, MOLE_MISSIONS, MOLE_POINTS, molesFor, QUESTS_PER_DAY, QUEST_BY_ID, QUEST_DEFS, RARITIES, RARITY, questProgress, rollDrop, type Drop, type MoleState, type Quest, type Rarity } from './saturday';
 import { CREATURES, CREATURE_IDS, FORMS, GROOM_CREATURE, starterTrio } from './creatures';
 import { MISSIONS, MISSION_BY_ID, STARTER_MISSION, TUTORIAL_MISSIONS, TUTORIAL_IDS, GROUP_MISSIONS, missionAvailableInPhase, rookieLeft, type Mission } from './missions';
 import {
@@ -38,6 +38,7 @@ export interface PlayerState extends PlayerPublic {
   drops: Drop[];           // Lucky Drops (unopened first, opened ones kept a while for the keepsake)
   quests: Quest[];         // today's quests
   lastTauntAt: number;
+  morningDrop: Phase | null; // which day's wake-up drop this lad has had
   creatureBefore?: CreatureId; // the groom's creature before it became the Golden Stag (given back if the host moves the title)
 }
 
@@ -210,12 +211,17 @@ export class Engine {
         p.rerollRefillAt ??= 0;
         p.h2h ??= {}; p.upsetLosses ??= 0; p.reactionsGiven ??= 0; p.autoBattles ??= true;
         p.away ??= []; p.lastAutoAt ??= 0; p.recentAuto ??= []; p.epicsDone ??= 0; p.codeTries ??= [];
-        p.drops ??= []; p.quests ??= []; p.lastTauntAt ??= 0; p.comeback ??= false;
+        p.drops ??= []; p.quests ??= []; p.lastTauntAt ??= 0; p.comeback ??= false; p.morningDrop ??= null;
         // Starter kit added after the save: back-fill it (a set, so running this again changes nothing)
         if (p.creature) p.unlocked = unique([...p.unlocked, ...cosmeticsForLevel(1)]);
         // Challenges retired (or missing) since the save leave the hand; anything already sent for checking finishes as normal.
         const keep = (p.hand ?? []).filter((h) => h.status !== 'active' || (MISSION_BY_ID[h.missionId] && !MISSION_BY_ID[h.missionId].retired));
         if (keep.length !== (p.hand ?? []).length) { p.hand = keep; if (p.creature) this.refillHand(party, p); }
+      }
+      const legacy = party.mole as unknown as { playerId?: string; missions?: { text: string; done: boolean }[]; votes?: Record<string, string | string[]>; caught?: boolean } | null;
+      if (legacy?.playerId) { // saves from the single-Mole version
+        party.mole = { ...party.mole!, moles: [{ playerId: legacy.playerId, missions: legacy.missions ?? [] }], votes: Object.fromEntries(Object.entries(legacy.votes ?? {}).map(([v, x]) => [v, Array.isArray(x) ? x : [x]])), caught: party.mole!.revealed ? { [legacy.playerId]: !!legacy.caught } : undefined };
+        delete (party.mole as unknown as Record<string, unknown>).playerId; delete (party.mole as unknown as Record<string, unknown>).missions;
       }
       if (party.phase === 'saturday') { for (const p of Object.values(party.players)) if (p.creature && !p.removed && !p.quests.length) this.assignQuests(party, p); if (!party.mole) this.assignMole(party, undefined, []); }
     }
@@ -241,7 +247,16 @@ export class Engine {
     if (!party || !p) return undefined;
     p.online = online;
     p.lastSeen = this.now();
+    if (online) this.morningDrop(party, p);
     return party.code;
+  }
+
+  /** The wake-up chest: the first time a lad opens the game on Saturday there's a rare drop waiting, and it always holds an item. */
+  private morningDrop(party: PartyState, p: PlayerState): boolean {
+    if (party.phase !== 'saturday' || !p.creature || p.removed || p.morningDrop === party.phase) return false;
+    p.morningDrop = party.phase;
+    this.addDrop(party, p, 'morning', 'rare', [], { item: true });
+    return true;
   }
 
   // ---------- views ----------
@@ -286,7 +301,7 @@ export class Engine {
         .map((c) => ({ claimId: c.id, playerId: c.playerId, missionId: c.missionId, url: c.photoUrl!, at: c.createdAt, up: c.votesUp ?? [], down: c.votesDown ?? [] })),
       xpBoostUntil: party.xpBoostUntil && party.xpBoostUntil > now ? party.xpBoostUntil : null,
       capLifted: party.capLifted,
-      mole: party.mole ? { active: true, voting: !party.mole.revealed, votes: Object.keys(party.mole.votes).length, revealed: party.mole.revealed ? { playerId: party.mole.playerId, caught: !!party.mole.caught, correct: Object.entries(party.mole.votes).filter(([, s]) => s === party.mole!.playerId).map(([v]) => v) } : undefined } : null,
+      mole: party.mole ? { active: true, voting: !party.mole.revealed, votes: Object.keys(party.mole.votes).length, count: party.mole.moles.length, revealed: party.mole.revealed ? { moles: party.mole.moles.map((m) => ({ playerId: m.playerId, caught: !!party.mole!.caught?.[m.playerId] })), correct: Object.entries(party.mole.votes).filter(([, s]) => s.some((x) => party.mole!.moles.some((m) => m.playerId === x))).map(([v]) => v) } : undefined } : null,
       giveaways: party.giveaways.filter((g) => g.status === 'active' || now - (g.closedAt ?? 0) < 2 * 3600_000).slice(-10),
       autoSaturdayAt: party.autoSaturdayAt,
       nextGroupAt: party.nextGroupAt,
@@ -311,8 +326,9 @@ export class Engine {
       scoredVs: p.scoredBattlesVs,
       drops: p.drops.filter((d) => !d.opened),
       quests: p.quests.map((q) => ({ ...q, progress: questProgress(q, p) })),
-      mole: party.mole && party.mole.playerId === playerId && !party.mole.revealed ? { missions: party.mole.missions } : undefined,
-      moleVote: party.mole?.votes[playerId],
+      mole: party.mole && !party.mole.revealed ? (() => { const m = party.mole!.moles.find((x) => x.playerId === playerId); return m ? { missions: m.missions } : undefined; })() : undefined,
+      moleVotes: party.mole?.votes[playerId] ?? [],
+      moleHost: party.mole && !party.mole.revealed && party.hostId === playerId ? party.mole.moles.map((m) => ({ playerId: m.playerId, done: m.missions.filter((x) => x.done).length, total: m.missions.length })) : undefined,
       flagged: p.flagged ?? [],
       away: p.away,
       awayBattles: unique(p.away.map((e) => e.battleId)).map((id) => party.battles[id]).filter(Boolean).map((b) => redactBattle(b, playerId)),
@@ -1713,6 +1729,7 @@ export class Engine {
       for (const p of Object.values(party.players)) if (p.creature && !p.removed) this.assignQuests(party, p);
       this.feed(party, { kind: 'phase', text: '📜 SATURDAY QUESTS are out: three each, big points and a Lucky Drop for every one you finish.', emoji: '📜' });
       if (!party.mole) this.assignMole(party, undefined, direct);
+      for (const p of Object.values(party.players)) if (p.online) this.morningDrop(party, p);
     }
     const labels: Record<Phase, string> = {
       lobby: 'The game is paused in the lobby.',
@@ -1968,29 +1985,47 @@ export class Engine {
         const targets = Object.values(party.players).filter((p) => !p.removed && p.creature && (!action.playerId || p.id === action.playerId));
         if (!targets.length) return this.fail('Nobody to give it to.');
         for (const p of targets) this.addDrop(party, p, 'host', rarity, direct);
+        if (targets.length === 1) direct.push({ to: targets[0].id, msg: { type: 'toast', text: `🎁 The host sent you a ${rarity ? RARITY[rarity].label : 'Lucky'} Drop. Open it on your Lobby.`, emoji: '🎁', tone: 'success' } });
         if (targets.length > 1) { this.feed(party, { kind: 'unlock', text: `🎁 The host dropped a ${rarity ? RARITY[rarity].label : 'Lucky'} Drop on everyone. Check your Lobby.`, emoji: '🎁' }); direct.push({ to: 'party', msg: { type: 'toast', text: '🎁 A Lucky Drop just landed for everyone. Tap it on your Lobby.', emoji: '🎁', tone: 'success' } }); }
         return this.ok(party, { given: targets.length }, direct);
       }
       case 'assignMole': {
-        if (party.mole && !party.mole.revealed) return this.fail('There is already a Mole. Reveal them first.');
-        const ok = this.assignMole(party, action.playerId, direct);
+        if (party.mole && !party.mole.revealed) {
+          if (!action.playerId) return this.fail('The Moles are already in play. Reveal them first, or pick a lad to add.');
+          if (party.mole.moles.length >= MOLE_MAX) return this.fail(`${MOLE_MAX} Moles is plenty.`);
+          if (party.mole.moles.some((m) => m.playerId === action.playerId)) return this.fail('They are already a Mole.');
+          const extra = party.players[action.playerId];
+          if (!extra || extra.removed || !extra.creature) return this.fail('Pick a lad with a creature.');
+          party.mole.moles.push({ playerId: extra.id, missions: this.moleMissions(party.mole) });
+          direct.push({ to: extra.id, msg: { type: 'toast', text: '🕵️ YOU are a Mole now. Shh. Your secret missions are on the Challenges tab.', emoji: '🕵️', tone: 'warn' } });
+          return this.ok(party, { playerIds: party.mole.moles.map((m) => m.playerId) }, direct);
+        }
+        const ok = this.assignMole(party, action.playerId, direct, action.count);
         if (!ok) return this.fail('Need at least four lads with creatures (not the host or the groom) for a Mole.');
-        return this.ok(party, { playerId: party.mole!.playerId }, direct);
+        return this.ok(party, { playerIds: party.mole!.moles.map((m) => m.playerId) }, direct);
       }
       case 'revealMole': {
         const m = party.mole;
         if (!m || m.revealed) return this.fail('No Mole to reveal.');
-        const mole = party.players[m.playerId];
         const voters = Object.entries(m.votes).filter(([v]) => party.players[v] && !party.players[v].removed);
-        const correct = voters.filter(([, s]) => s === m.playerId).map(([v]) => v);
-        m.caught = voters.length > 0 && correct.length * 2 > voters.length;
-        m.revealed = true; m.revealedAt = this.now();
-        for (const v of correct) { const vp = party.players[v]; if (vp) this.grant(party, vp, MOLE_POINTS.correctGuess, 0, direct); }
-        if (mole) this.grant(party, mole, m.caught ? MOLE_POINTS.caught : MOLE_POINTS.escaped, 0, direct);
-        const done = m.missions.filter((x) => x.done).length;
-        this.feed(party, { kind: 'phase', text: `🕵️ THE MOLE WAS ${mole?.nickname?.toUpperCase() ?? '?'}. ${m.caught ? `Caught! ${correct.length} of ${voters.length} picked right (+${MOLE_POINTS.correctGuess} each).` : `Got away with it (+${MOLE_POINTS.escaped}). Only ${correct.length} of ${voters.length} picked right.`} ${done}/${m.missions.length} secret missions pulled off.`, emoji: '🕵️' });
-        direct.push({ to: 'party', msg: { type: 'toast', text: `🕵️ The Mole was ${mole?.nickname ?? '?'}! ${m.caught ? 'Caught.' : 'Got away with it.'}`, emoji: '🕵️', tone: 'warn' } });
-        return this.ok(party, { playerId: m.playerId, caught: m.caught, correct: correct.length, voters: voters.length }, direct);
+        const isMole = (id: string) => m.moles.some((x) => x.playerId === id);
+        m.caught = {}; m.revealed = true; m.revealedAt = this.now();
+        for (const mole of m.moles) { const named = voters.filter(([, s]) => s.includes(mole.playerId)).length; m.caught[mole.playerId] = voters.length > 0 && named * 2 > voters.length; }
+        // a point bonus per correct name: naming both Moles pays twice
+        const correct = voters.filter(([, s]) => s.some(isMole)).map(([v]) => v);
+        for (const [v, s] of voters) { const vp = party.players[v]; const n = s.filter(isMole).length; if (vp && n) this.grant(party, vp, MOLE_POINTS.correctGuess * n, 0, direct); }
+        let done = 0; const names: string[] = [];
+        for (const mole of m.moles) {
+          const mp = party.players[mole.playerId]; const c = m.caught[mole.playerId];
+          if (mp) this.grant(party, mp, c ? MOLE_POINTS.caught : MOLE_POINTS.escaped, 0, direct);
+          done += mole.missions.filter((x) => x.done).length;
+          names.push(`${mp?.nickname?.toUpperCase() ?? '?'} (${c ? 'caught' : 'got away with it'})`);
+        }
+        const total = m.moles.reduce((n, x) => n + x.missions.length, 0);
+        const plural = m.moles.length > 1;
+        this.feed(party, { kind: 'phase', text: `🕵️ THE MOLE${plural ? 'S WERE' : ' WAS'} ${names.join(' and ')}. ${correct.length} of ${voters.length} voters named ${plural ? 'at least one' : 'them'} (+${MOLE_POINTS.correctGuess} a name). ${done}/${total} secret missions pulled off.`, emoji: '🕵️' });
+        direct.push({ to: 'party', msg: { type: 'toast', text: `🕵️ The Mole${plural ? 's' : ''}: ${m.moles.map((x) => party.players[x.playerId]?.nickname ?? '?').join(' & ')}!`, emoji: '🕵️', tone: 'warn' } });
+        return this.ok(party, { moles: m.moles.map((x) => ({ playerId: x.playerId, caught: m.caught![x.playerId] })), correct: correct.length, voters: voters.length }, direct);
       }
       case 'liftXpCap': {
         if (party.capLifted) return this.fail('Final forms are already unlocked.');
@@ -2044,8 +2079,8 @@ export class Engine {
   }
 
   // ---------- Lucky Drops ----------
-  private addDrop(party: PartyState, p: PlayerState, source: Drop['source'], rarity: Rarity | undefined, direct: Outbound[]) {
-    const d = rollDrop(this.rng, p.unlocked, source, this.now(), rarity);
+  private addDrop(party: PartyState, p: PlayerState, source: Drop['source'], rarity: Rarity | undefined, direct: Outbound[], opts: { item?: boolean } = {}) {
+    const d = rollDrop(this.rng, p.unlocked, source, this.now(), rarity, opts);
     p.drops.push(d);
     if (p.drops.length > 40) p.drops = p.drops.filter((x) => !x.opened).concat(p.drops.filter((x) => x.opened).slice(-10));
     if (source === 'challenge') direct.push({ to: p.id, msg: { type: 'toast', text: '🎁 A Lucky Drop landed. Open it on your Lobby.', emoji: '🎁', tone: 'success' } });
@@ -2094,22 +2129,37 @@ export class Engine {
   }
 
   // ---------- The Mole ----------
-  private assignMole(party: PartyState, playerId: string | undefined, direct: Outbound[]): boolean {
+  private assignMole(party: PartyState, playerId: string | undefined, direct: Outbound[], count?: number): boolean {
     const pool = Object.values(party.players).filter((p) => !p.removed && p.creature && p.id !== party.hostId && p.id !== party.groomId);
-    const pick = playerId ? party.players[playerId] : pool[Math.floor(this.rng() * pool.length)];
-    if (!pick || (!playerId && pool.length < 4)) return false;
-    const missions = [...MOLE_MISSIONS].sort(() => this.rng() - 0.5).slice(0, 3).map((text) => ({ text, done: false }));
-    party.mole = { playerId: pick.id, assignedAt: this.now(), missions, votes: {}, revealed: false };
-    this.feed(party, { kind: 'phase', text: '🕵️ THERE IS A MOLE among you, with secret missions to mess with the weekend. Vote on who it is before the finale.', emoji: '🕵️' });
-    direct.push({ to: 'party', msg: { type: 'toast', text: '🕵️ There\'s a Mole in the party. Watch your mates. Vote on the Lobby.', emoji: '🕵️', tone: 'warn' } });
-    direct.push({ to: pick.id, msg: { type: 'toast', text: '🕵️ YOU are the Mole. Shh. Your secret missions are on the Challenges tab.', emoji: '🕵️', tone: 'warn' } });
+    let picks: PlayerState[];
+    if (playerId) { const p = party.players[playerId]; if (!p || p.removed || !p.creature) return false; picks = [p]; }
+    else {
+      if (pool.length < 4) return false;
+      const n = Math.max(1, Math.min(MOLE_MAX, Math.floor(pool.length / 4), count ?? molesFor(pool.length)));
+      picks = [...pool].sort(() => this.rng() - 0.5).slice(0, n);
+    }
+    party.mole = { moles: [], assignedAt: this.now(), votes: {}, revealed: false };
+    for (const p of picks) party.mole.moles.push({ playerId: p.id, missions: this.moleMissions(party.mole) });
+    const plural = picks.length > 1;
+    this.feed(party, { kind: 'phase', text: `🕵️ THERE ${plural ? `ARE ${picks.length} MOLES` : 'IS A MOLE'} among you, with secret missions to mess with the weekend. Vote on who before the finale.`, emoji: '🕵️' });
+    direct.push({ to: 'party', msg: { type: 'toast', text: `🕵️ There ${plural ? `are ${picks.length} Moles` : 'is a Mole'} in the party. Watch your mates. Vote on the Lobby.`, emoji: '🕵️', tone: 'warn' } });
+    for (const p of picks) direct.push({ to: p.id, msg: { type: 'toast', text: `🕵️ YOU are ${plural ? 'a' : 'the'} Mole. Shh. Your secret missions are on the Challenges tab.`, emoji: '🕵️', tone: 'warn' } });
     return true;
+  }
+
+  /** Three missions no other Mole in this room already has, so two Moles never chase the same gag. */
+  private moleMissions(state: MoleState) {
+    const taken = new Set(state.moles.flatMap((m) => m.missions.map((x) => x.text)));
+    const fresh = MOLE_MISSIONS.filter((t) => !taken.has(t));
+    const pool = fresh.length >= 3 ? fresh : MOLE_MISSIONS;
+    return [...pool].sort(() => this.rng() - 0.5).slice(0, 3).map((text) => ({ text, done: false }));
   }
 
   private moleDone(playerId: string, index: number): HandleResult {
     const party = this.partyOf(playerId); const p = party?.players[playerId]; const m = party?.mole;
-    if (!party || !p || !m || m.playerId !== playerId || m.revealed) return this.fail('Nice try.');
-    const mission = m.missions[index];
+    const mine = m?.moles.find((x) => x.playerId === playerId);
+    if (!party || !p || !m || !mine || m.revealed) return this.fail('Nice try.');
+    const mission = mine.missions[index];
     if (!mission) return this.fail('No such mission.');
     if (mission.done) return { ack: { ok: true, data: { already: true } }, changed: false, direct: [] };
     mission.done = true;
@@ -2118,14 +2168,17 @@ export class Engine {
     return this.ok(party, undefined, [...direct, { to: p.id, msg: { type: 'reward', points: MOLE_POINTS.mission, xp: 0, ...reward, title: 'Secret mission done', bonus: '🕵️ Nobody saw a thing', quiet: true } }]);
   }
 
+  /** Tap a suspect to name them, tap again to take it back. One name per Mole in play; a new name past that bumps the oldest. */
   private moleVote(playerId: string, suspectId: string): HandleResult {
     const party = this.partyOf(playerId); const p = party?.players[playerId]; const m = party?.mole;
     if (!party || !p || p.removed || !p.creature) return this.fail('Adopt a creature first.');
     if (!m || m.revealed) return this.fail('Voting is closed.');
     const s = party.players[suspectId];
     if (!s || s.removed || !s.creature || s.id === playerId) return this.fail('Pick a mate (not yourself).');
-    m.votes[playerId] = suspectId;
-    return this.ok(party, { suspectId });
+    const mine = m.votes[playerId] ?? [];
+    const next = mine.includes(suspectId) ? mine.filter((x) => x !== suspectId) : [...mine, suspectId].slice(-m.moles.length);
+    if (next.length) m.votes[playerId] = next; else delete m.votes[playerId];
+    return this.ok(party, { suspectIds: next });
   }
 
   // ---------- battle taunts ----------
@@ -2172,7 +2225,7 @@ function newPlayer(id: string, nickname: string, now: number, isHost: boolean, j
     id, nickname, creature: null, creatureName: '', level: 1, xp: 0, points: 0, equipped: { colorway: 0 }, unlocked: [], achievements: [], comeback: false,
     missionsCompleted: 0, wins: 0, losses: 0, title: 'Fresh Legend', online: true, isHost, joinedAt: now, lastSeen: now, categoryCounts: {}, witnessed: 0,
     rating: START_RATING, streak: 0, bestStreak: 0, bounties: 0, laughs: 0, fires: 0, groomLoves: 0, wallVotes: 0,
-    cellarCount: 0, cellarFires: 0, raidDamage: 0, raidsJoined: 0, lowKey: false, freshLegs: 0, catchUp: false, joinedPhase,
+    cellarCount: 0, cellarFires: 0, raidDamage: 0, raidsJoined: 0, lowKey: false, freshLegs: 0, catchUp: false, joinedPhase, morningDrop: null,
     h2h: {}, upsetLosses: 0, reactionsGiven: 0, autoBattles: true, epicsDone: 0,
     hand: [], completedMissionIds: [], rerollsLeft: REROLLS_PER_PHASE, scoredBattlesVs: {}, missedRounds: 0, lastHonourClaimAt: 0, flagged: [], rerollRefillAt: 0, drops: [], quests: [], lastTauntAt: 0,
     away: [], lastAutoAt: 0, recentAuto: [], codeTries: [],

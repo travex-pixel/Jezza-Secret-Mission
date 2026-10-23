@@ -44,6 +44,10 @@ More screenshots at every tested viewport live in [`docs/screenshots/`](docs/scr
 | **🎁 Up for grabs**: the host releases a few of any accessory for everyone; first in, first served, one each, stock enforced by the server | ✅ |
 | **Starter kit**: every creature starts with eight hats (gold cone, five coloured party hats, Santa hat, bunny ears) | ✅ |
 | 14 data-driven awards (The Jezza Legend, The Weekend Menace, Best Hype Man, Biggest Choke…) + live "Award race" tab; animated finale ceremony with podium and weekend recap | ✅ |
+| **🎁 Lucky Drops**: a crate every third challenge, for each quest, a wake-up chest on Saturday morning, and host gifts. Four rarities (50/30/15/5), 16 drop-only cosmetics, duplicates turn into points, full-screen opening animation | ✅ |
+| **📜 Saturday Quests**: three personal goals per lad, tracked from live stats, points + a drop each | ✅ |
+| **🕵️ The Mole**: one or two lads (host can add a third) get secret sabotage missions; everyone names suspects; host reveals; points for escaping, catching and right names. Only the host can see who they are | ✅ |
+| Battle taunts, boss **weak spot** (25 s of double damage at half health), **Comeback** boost (1.5× challenge points while well behind the leader) | ✅ |
 | Host PIN, leave/new room, join-by-link, link previews, persistence, keepsake photo export | ✅ |
 
 Deliberately **not** built: Wine Snob Championship, Mr & Mrs Hot Seat, Jezza Bingo, video uploads
@@ -228,6 +232,29 @@ a counter stance. It's tuned to win about 55% of fights: a groom's edge, but the
   The host can switch it on or off for anyone: Host → tap the lad → 🦵 Fresh Legs (🦵 shows in the roster).
 * Cosmetics are earned, never bought (the starter kit of hats aside): by level, by achievements (jester hat, karaoke mic for getting Jezza to sing, disco aura for Jezza Lore,
   groomsman sash…), and by raids (Bin Chicken Plume, Hydra Slayer Cape).
+
+### Saturday systems (Lucky Drops, Quests, The Mole)
+
+All three are generic: nothing in `shared/saturday.ts` knows whose party it is.
+
+* **Lucky Drops.** A crate lands every third real challenge (the intro selfie/roast/toast don't count), for every quest
+  finished, as a welcome gift with Fresh Legs, as the **Morning Drop** the first time a lad opens the game on Saturday
+  (rare, always holds an item; if they own every rare it steps up a tier), and whenever the host sends one
+  (Host → Hype → *Drop one on every lad*, or Players → tap a lad → *Gift a Lucky Drop*, with a rarity picker). Odds
+  are Common 50 / Rare 30 / Epic 15 / Legendary 5. Epics and legendaries always carry an item while one is left for
+  that lad; duplicates become points. Contents are decided server-side when the drop is earned, so opening is only a
+  reveal and can't be re-rolled. The 16 drop-only items (Bucket Hat, Koala Ears, Emu Plume, Cockatoo Crest, The Mullet,
+  Croc Jaws, Bintang Singlet, Batik Sarong, Gold Chain, Barong Mask, Zinc Stripes, Aviators, Bali Belly, Volcano Aura,
+  Garuda Wings, Southern Cross) never come from levels, codes or giveaways.
+* **Quests.** At the Saturday switch (or on join / server load if it's already Saturday) each lad gets three of ten
+  quests, with a baseline so only today's progress counts. They complete themselves off the stats the game already
+  tracks and pay points plus a drop of the quest's rarity.
+* **The Mole.** Picked at the Saturday switch: one Mole, or two when eight or more lads are eligible (host and groom
+  never are). Each gets three secret missions (no two Moles share one) ticked off privately with no feed line. Everyone
+  else names one suspect per Mole from the Lobby (tap again to take a name back). Host → Hype shows the Moles and their
+  progress to the host alone, offers *Pick 1 / Pick 2* before the switch, *Make them a Mole too* on any lad (max three)
+  and *Reveal*. At the reveal a Mole is **caught** if more than half the voters named them (+30) or **gets away**
+  (+100); every right name pays +30. Everyone also sees a one-time **Saturday briefing** sheet the first morning.
 
 ### Keeping it honest (anti-spam)
 

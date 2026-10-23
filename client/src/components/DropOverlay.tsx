@@ -39,7 +39,7 @@ export default function DropOverlay({ drop, onClose }: { drop: Drop; onClose: ()
       <div className="drop-glow" />
       {stage === 'open' && bursts.map((b, i) => <i key={i} className="drop-burst" style={{ ['--dx' as string]: b.dx, ['--dy' as string]: b.dy, animationDelay: b.d }} />)}
       {stage === 'open' && big && Array.from({ length: 10 }, (_, i) => <i key={`r${i}`} className="drop-ray" style={{ transform: `rotate(${i * 36}deg)` }} />)}
-      <div className="drop-rarity">{stage === 'open' ? meta.label.toUpperCase() : 'LUCKY DROP'}</div>
+      <div className="drop-rarity">{stage === 'open' ? meta.label.toUpperCase() : drop.source === 'morning' ? 'MORNING DROP' : 'LUCKY DROP'}</div>
       <div className="drop-crate" onClick={(e) => { if (stage === 'open') return; e.stopPropagation(); void open(); }} role="button" aria-label="Open the drop">
         {stage !== 'open' ? (
           <div className="crate">

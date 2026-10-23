@@ -171,10 +171,11 @@ check(players.every((x) => x.unlocked.length === new Set(x.unlocked).size && STA
 check(p.giveaways.every((g) => g.claims.length <= g.qty && new Set(g.claims.map((c) => c.playerId)).size === g.claims.length && g.status !== 'active'), 'giveaways never over-handed and all closed by the end');
 check(lateIds.size === [...lateIds].filter((id) => p.players[id]?.catchUp).length, 'the four Saturday arrivals got Fresh Legs');
 const drops = players.flatMap((x) => x.drops); const opened = drops.filter((d) => d.opened);
-console.log(`  drops: ${drops.length} earned, ${opened.length} opened · rarities ${['common', 'rare', 'epic', 'legendary'].map((r) => `${r} ${drops.filter((d) => d.rarity === r).length}`).join(', ')} · quests done ${players.reduce((n, x) => n + x.quests.filter((q) => q.done).length, 0)}/${players.reduce((n, x) => n + x.quests.length, 0)} · mole ${p.mole?.revealed ? (p.mole.caught ? 'caught' : 'escaped') : 'none'}`);
+console.log(`  drops: ${drops.length} earned, ${opened.length} opened · rarities ${['common', 'rare', 'epic', 'legendary'].map((r) => `${r} ${drops.filter((d) => d.rarity === r).length}`).join(', ')} · quests done ${players.reduce((n, x) => n + x.quests.filter((q) => q.done).length, 0)}/${players.reduce((n, x) => n + x.quests.length, 0)} · moles ${p.mole?.revealed ? p.mole.moles.map((m) => `${m.playerId.slice(-3)} ${p.mole!.caught?.[m.playerId] ? 'caught' : 'escaped'}`).join(', ') : 'none'}`);
 check(drops.length > 50 && drops.some((d) => d.rarity === 'legendary'), `drops flowed all weekend and a legendary turned up (${drops.length})`);
 check(players.every((x) => x.quests.length === 3) && players.some((x) => x.quests.some((q) => q.done)), 'everyone had quests and some got done');
 check(!!p.mole?.revealed, 'the Mole was revealed at the finale');
+check(players.filter((x) => x.morningDrop === 'saturday').length >= players.length - 2 && players.every((x) => x.drops.filter((d) => d.source === 'morning').length <= 1), `the wake-up drop landed once each (${players.filter((x) => x.morningDrop === 'saturday').length}/${players.length})`);
 check(players.every((x) => x.drops.every((d) => !d.item || !d.opened || x.unlocked.includes(d.item))), 'every opened drop item is actually owned');
 const awards = eng.publicView(p).awards;
 const empty = awards.filter((a) => !a.playerId).map((a) => a.name);

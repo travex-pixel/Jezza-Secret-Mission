@@ -25,6 +25,7 @@ export default function Host() {
   const isHost = useIsHost();
   const setTab = useStore((s) => s.setTab);
   const toast = useStore((s) => s.toast);
+  const priv = useStore((s) => s.priv);
   const [section, setSection] = useState<'event' | 'approvals' | 'players' | 'awards'>('event');
   const [target, setTarget] = useState<PlayerPublic | null>(null);
   const [rename, setRename] = useState('');
@@ -140,9 +141,17 @@ export default function Host() {
             </div>
             <div className="panel pad stack-6">
               <div className="small bold">🕵️ The Mole</div>
-              {!party.mole && <><div className="tiny faint">Picks a random lad (not you, not the groom) and gives them secret sabotage missions. Everyone votes. Starts on its own at 5am Saturday.</div><Button size="sm" variant="secondary" onClick={() => host({ kind: 'assignMole' })} data-testid="assign-mole">🕵️ Pick a Mole now</Button></>}
-              {party.mole && party.mole.voting && <><div className="tiny faint">A Mole is in play. {party.mole.votes} vote{party.mole.votes === 1 ? '' : 's'} in. Reveal at the finale, or whenever the room is ready.</div><Button size="sm" variant="danger" onClick={() => host({ kind: 'revealMole' })} data-testid="reveal-mole">🕵️ Reveal the Mole</Button></>}
-              {party.mole?.revealed && <div className="tiny bold">Revealed: {nickOf(party.mole.revealed.playerId)} · {party.mole.revealed.caught ? 'caught' : 'got away with it'}. <button className="tiny bold" style={{ color: 'var(--rose)' }} onClick={() => host({ kind: 'assignMole' })}>Pick another →</button></div>}
+              {!party.mole && <><div className="tiny faint">Picks lads at random (not you, not the groom) and gives them secret sabotage missions. Everyone votes. Starts on its own at 5am Saturday. Only you see who they are.</div><div className="row" style={{ gap: 6, flexWrap: 'wrap' }}><Button size="sm" variant="secondary" onClick={() => host({ kind: 'assignMole', count: 1 })} data-testid="assign-mole">🕵️ Pick 1 Mole</Button><Button size="sm" variant="secondary" onClick={() => host({ kind: 'assignMole', count: 2 })} data-testid="assign-moles">🕵️🕵️ Pick 2 Moles</Button></div></>}
+              {party.mole && party.mole.voting && <>
+                <div className="tiny faint">{party.mole.count > 1 ? `${party.mole.count} Moles are` : 'A Mole is'} in play. {party.mole.votes} lad{party.mole.votes === 1 ? ' has' : 's have'} voted. Reveal at the finale, or whenever the room is ready.</div>
+                <div className="panel pad stack-6" style={{ borderColor: 'var(--rose)' }} data-testid="mole-host">
+                  <div className="tiny bold">Only you can see this.</div>
+                  {(priv?.moleHost ?? []).map((m) => <div key={m.playerId} className="row small" style={{ gap: 8 }}><span>🕵️</span><span className="grow bold">{nickOf(m.playerId)}</span><span className="tiny faint">{m.done}/{m.total} missions done</span></div>)}
+                  {party.mole.count < 3 && <div className="tiny faint">Add another: Players → tap a lad → Make them a Mole.</div>}
+                </div>
+                <Button size="sm" variant="danger" onClick={() => host({ kind: 'revealMole' })} data-testid="reveal-mole">🕵️ Reveal the Mole{party.mole.count > 1 ? 's' : ''}</Button>
+              </>}
+              {party.mole?.revealed && <div className="tiny bold">Revealed: {party.mole.revealed.moles.map((m) => `${nickOf(m.playerId)} (${m.caught ? 'caught' : 'got away'})`).join(', ')}. <button className="tiny bold" style={{ color: 'var(--rose)' }} onClick={() => host({ kind: 'assignMole' })}>Pick again →</button></div>}
             </div>
             {!!party.xpBoostUntil && party.xpBoostUntil > party.serverTime && <div className="tiny bold">⚡ Double XP is on for another {Math.ceil((party.xpBoostUntil - party.serverTime) / 60_000)} min.</div>}
             <div className="divider" />
@@ -271,6 +280,12 @@ export default function Host() {
               <span><div className="bold small">🦵 Fresh Legs (late arrival)</div><div className="tiny faint">{target.catchUp ? `On: ${target.freshLegs} double-points challenges left, double XP till they catch up.` : 'Double points on 6 challenges, double XP till they catch the lads. Saturday turns it on by itself for anyone under 3 challenges.'}</div></span>
               <span className={`switch ${target.catchUp ? 'on' : ''}`} />
             </button>
+            {target.creature && <div className="panel pad stack-6" data-testid="gift-drop-panel">
+              <div className="bold small">🎁 Gift {target.nickname} a Lucky Drop</div>
+              <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>{(['any', 'common', 'rare', 'epic', 'legendary'] as const).map((r) => <button key={r} className={`pill pill-xs ${dropRarity === r ? 'pill-gold' : ''}`} onClick={() => setDropRarity(r)}>{r === 'any' ? 'lucky dip' : r}</button>)}</div>
+              <Button size="sm" variant="secondary" onClick={() => { host({ kind: 'giveDrops', rarity: dropRarity === 'any' ? undefined : dropRarity, playerId: target.id }); toast(`Sent ${target.nickname} a drop.`, '🎁', 'success'); }} data-testid="gift-drop">🎁 Send it</Button>
+            </div>}
+            {target.creature && party.mole?.voting && !target.isHost && !(priv?.moleHost ?? []).some((m) => m.playerId === target.id) && party.mole.count < 3 && <Button size="sm" variant="secondary" onClick={() => { host({ kind: 'assignMole', playerId: target.id }); setTarget(null); }} data-testid="make-mole">🕵️ Make them a Mole too</Button>}
             {party.groomId !== target.id && <Button size="sm" variant="secondary" onClick={() => { host({ kind: 'setGroom', playerId: target.id }); setTarget(null); }}>🤵 This is Jezza (the groom)</Button>}
             <div className="btn-row">
               {!target.isHost && <Button size="sm" variant="secondary" onClick={() => { host({ kind: 'transferHost', playerId: target.id }); setTarget(null); }}>Make host</Button>}
