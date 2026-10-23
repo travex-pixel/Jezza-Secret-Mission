@@ -402,7 +402,51 @@ img, svg { display: block; max-width: 100%; }
 .tv-feed { flex: 1 1 auto; min-height: 0; overflow: hidden; }
 .tv-feed .feed-item { pointer-events: none; }
 .tv-join { font-size: 14px; font-weight: 800; text-align: center; padding: 8px; border-radius: 12px; border: 1px dashed rgba(229,173,72,.5); }
+/* Wall cards: a roast or toast, big enough to read from the couch */
+.tv-wall { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; gap: clamp(12px, 2.5vh, 28px); padding: clamp(18px, 5vw, 64px); animation: tv-in .8s ease both; }
+.tv-wall.roast { background: radial-gradient(90% 70% at 30% 30%, rgba(240,120,66,.45), rgba(118,36,58,.35) 50%, #120d14 100%); }
+.tv-wall.toast { background: radial-gradient(90% 70% at 70% 30%, rgba(229,173,72,.4), rgba(118,36,58,.3) 50%, #120d14 100%); }
+.tv-wall-kind { font-family: var(--font-display); font-weight: 800; letter-spacing: .2em; font-size: clamp(12px, 1.6vw, 18px); color: var(--gold); }
+.tv-wall.roast .tv-wall-kind { color: #ffb48f; }
+.tv-wall-kind span { color: var(--text-dim); letter-spacing: .08em; font-family: var(--font-body); font-weight: 700; text-transform: none; }
+.tv-wall-text { flex: 0 0 auto; font-family: var(--font-display); font-weight: 800; line-height: 1.15; color: var(--cream); text-wrap: balance; text-shadow: 0 2px 18px rgba(0,0,0,.6); animation: tv-wall-text .9s cubic-bezier(.2,.8,.2,1) both; max-height: 62vh; overflow: hidden; }
+@keyframes tv-wall-text { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.tv-wall-by { display: flex; align-items: center; gap: 12px; }
+.tv-wall-by .avatar { width: clamp(40px, 5vw, 60px); height: clamp(40px, 5vw, 60px); border-radius: 16px; }
+.tv-wall-name { font-weight: 900; font-size: clamp(15px, 2vw, 22px); }
+.tv-wall-sub { font-size: clamp(11px, 1.3vw, 14px); color: var(--text-dim); font-weight: 700; }
+.tv-wall-votes { font-weight: 900; font-size: clamp(14px, 1.8vw, 20px); padding: 6px 12px; border-radius: 999px; background: rgba(0,0,0,.4); border: 1px solid var(--line); white-space: nowrap; }
+.tv-wall-love { color: #ff6b9d; font-size: .8em; }
+/* a fight card is up in the corner: the quote starts below it */
+.tv-wall.with-fights { justify-content: flex-start; padding-top: min(46vh, 290px); }
+.tv-wall.with-fights .tv-wall-text { font-size: clamp(18px, 2.7vw, 36px) !important; max-height: 38vh; }
+@media (orientation: portrait) {
+  /* a phone has no room for a full fight card and a quote: compact card, quote starts under it */
+  .tv-fights .tv-fighter .creature { width: 64px !important; } .tv-fights .tv-fighter-sub { display: none; } .tv-fights .tv-fight { padding: 6px 10px 8px; }
+  .tv-wall.with-fights { padding-top: 185px; gap: 8px; } .tv-wall.with-fights .tv-wall-kind { display: none; }
+  .tv-wall.with-fights .tv-wall-text { font-size: clamp(16px, 4.8vw, 24px) !important; max-height: none; }
+  .tv-wall.with-fights .tv-wall-by .avatar { width: 36px; height: 36px; }
+}
+/* Live fights in the corner */
+.tv-fights { position: absolute; top: 12px; left: 12px; z-index: 4; display: flex; flex-direction: column; gap: 8px; width: min(46%, 440px); }
+.tv-fight { border-radius: 16px; background: rgba(18,13,20,.86); border: 1px solid var(--line); padding: 8px 10px 10px; animation: tv-in .5s ease both; backdrop-filter: blur(6px); }
+.tv-fight.live { border-color: rgba(226,82,107,.7); box-shadow: 0 0 24px rgba(226,82,107,.25); }
+.tv-fight.done { border-color: rgba(229,173,72,.6); }
+.tv-fight-top { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+.tv-fight-tag { font-size: clamp(10px, 1.1vw, 12px); letter-spacing: .18em; font-weight: 900; color: #E2526B; }
+.tv-fight.done .tv-fight-tag { color: var(--gold); }
+.tv-fight-head { font-family: var(--font-display); font-weight: 800; font-size: clamp(13px, 1.6vw, 18px); }
+.tv-fight-reason { font-size: clamp(10px, 1.1vw, 12px); color: var(--text-dim); font-weight: 700; margin-left: auto; }
+.tv-fight-body { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; }
+.tv-fighter { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; }
+.tv-fighter.out { opacity: .55; filter: grayscale(.6); }
+.tv-fighter-name { font-weight: 900; font-size: clamp(12px, 1.4vw, 15px); max-width: 100%; }
+.tv-fighter-sub { font-size: clamp(9px, 1vw, 11px); color: var(--text-dim); font-weight: 700; }
+.tv-hp { width: 100%; height: 8px; border-radius: 999px; background: rgba(255,255,255,.12); overflow: hidden; }
+.tv-hp i { display: block; height: 100%; border-radius: 999px; transition: width .6s ease; }
+.tv-vs { font-family: var(--font-display); font-weight: 800; font-size: clamp(14px, 2vw, 22px); color: var(--gold); text-shadow: 0 0 12px rgba(229,173,72,.5); }
 @media (orientation: landscape) and (max-height: 520px) {
+  .tv-fights { width: min(52%, 360px); top: 6px; left: 6px; } .tv-fight { padding: 5px 8px 7px; } .tv-fighter .creature { width: 64px !important; }
   .tv-side { gap: 5px; padding-top: 8px; padding-bottom: 8px; }
   .tv-row { padding: 3px 6px; font-size: 12px; gap: 6px; } .tv-row .avatar.sm { width: 26px; height: 26px; border-radius: 8px; }
   .tv-join { padding: 5px; font-size: 12px; } .tv-side .eyebrow { font-size: 10px; }
@@ -410,6 +454,8 @@ img, svg { display: block; max-width: 100%; }
 }
 @media (orientation: portrait) {
   .tv { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; }
+  .tv-fights { width: calc(100% - 24px); } .tv-fights .tv-fight:nth-child(2) { display: none; }
+  .tv-wall-text { font-size: clamp(20px, 6vw, 34px) !important; }
   .tv-side { border-left: 0; border-top: 1px solid var(--line); max-height: 52vh; }
   .tv-feed { display: none; }
 }
