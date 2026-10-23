@@ -309,6 +309,8 @@ export interface PartyPublic {
   epics: Epic[];
   pendingPhotos: { claimId: string; playerId: string; missionId: string; url: string; at: number; up: string[]; down: string[] }[];
   giveaways: Giveaway[];      // live ones, plus any that closed in the last couple of hours
+  xpBoostUntil: number | null; // host-called double XP, server time it ends
+  capLifted: boolean;          // host let final forms unlock before Saturday
   autoSaturdayAt: number | null;
   nextGroupAt: number | null;
   phaseMissions: { friday: number; saturday: number };
@@ -438,7 +440,9 @@ export type HostAction =
   | { kind: 'makeCode'; item: string; uses?: number }
   | { kind: 'deleteCode'; code: string }
   | { kind: 'makeGiveaway'; item: string; qty?: number; title?: string; minutes?: number }
-  | { kind: 'endGiveaway'; giveawayId: string };
+  | { kind: 'endGiveaway'; giveawayId: string }
+  | { kind: 'xpBoost'; minutes?: number }
+  | { kind: 'liftXpCap' };
 
 export type ServerMessage =
   | { type: 'welcome'; playerId: string; serverTime: number; inParty: boolean }

@@ -5,6 +5,7 @@ import { seededRng } from '../shared/battle';
 import { MISSION_BY_ID, ACTIVE_MISSIONS } from '../shared/missions';
 import { keepsakeCsvs, keepsakeHtml, photoFileNames, safeFileName } from '../shared/keepsake';
 import { crc32 } from '../server/zip';
+import { LEVEL_XP, FRIDAY_MAX_LEVEL } from '../shared/progression';
 
 const PHOTO = 'data:image/jpeg;base64,AAAA';
 function setup() {
@@ -128,5 +129,36 @@ describe('keepsake export', () => {
   });
   it('the zip checksum matches the standard', () => {
     expect(crc32(Buffer.from('123456789'))).toBe(0xcbf43926);
+  });
+});
+
+describe('host hype levers', () => {
+  it('double XP doubles every XP gain until it runs out; only the host can call it', () => {
+    const { eng, ids, party, advance } = setup();
+    expect(eng.handle(ids[1], { type: 'host', reqId: 'h', action: { kind: 'xpBoost', minutes: 30 } }).ack?.ok).toBe(false);
+    // the same selfie (plus its badges) earns twice as much while the boost is on
+    const q = party().players[ids[2]]; const b2 = q.xp;
+    eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: 'm001', claimId: 'boost-claim-02', photo: PHOTO });
+    const plain = q.xp - b2;
+    eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'xpBoost', minutes: 30 } });
+    expect(eng.publicView(party()).xpBoostUntil).toBe(9_000_000 + 30 * 60_000);
+    const p = party().players[ids[1]]; const before = p.xp;
+    eng.handle(ids[1], { type: 'claimMission', reqId: 'x', missionId: 'm001', claimId: 'boost-claim-01', photo: PHOTO });
+    expect(p.xp - before).toBe(plain * 2);
+    advance(31 * 60_000);
+    expect(eng.publicView(party()).xpBoostUntil).toBeNull();
+  });
+  it('unlocking final forms early lifts the Friday cap, once', () => {
+    const { eng, ids, party } = setup();
+    const p = party().players[ids[1]];
+    p.xp = LEVEL_XP[FRIDAY_MAX_LEVEL] - 1; p.level = 7; // at the Friday ceiling
+    eng.handle(ids[1], { type: 'claimMission', reqId: 'x', missionId: 'm001', claimId: 'cap-claim-01', photo: PHOTO });
+    expect(p.level).toBe(7);
+    expect(eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'liftXpCap' } }).ack?.ok).toBe(true);
+    expect(eng.handle(ids[0], { type: 'host', reqId: 'h', action: { kind: 'liftXpCap' } }).ack?.ok).toBe(false);
+    const q = party().players[ids[2]]; q.xp = LEVEL_XP[FRIDAY_MAX_LEVEL] - 1; q.level = 7;
+    eng.handle(ids[2], { type: 'claimMission', reqId: 'x', missionId: 'm001', claimId: 'cap-claim-02', photo: PHOTO });
+    expect(q.level).toBeGreaterThanOrEqual(8);
+    expect(eng.publicView(party()).capLifted).toBe(true);
   });
 });

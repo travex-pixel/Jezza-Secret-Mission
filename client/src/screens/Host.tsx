@@ -123,6 +123,14 @@ export default function Host() {
               <Button size="sm" disabled={epicTitle.trim().length < 3} onClick={() => { host({ kind: 'postEpic', title: epicTitle, instruction: epicWhat, min: epicMax, max: epicMax, tier: epicTier }); setEpicTitle(''); setEpicWhat(''); }}>🟣 Post EPIC job</Button>
             </div>
             <div className="divider" />
+            <div className="eyebrow">⚡ Hype</div>
+            <div className="tiny faint">Quick lifts for the room. Everyone gets told.</div>
+            <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+              {[30, 60].map((m) => <Button key={m} size="sm" variant="secondary" disabled={!!party.xpBoostUntil && party.xpBoostUntil > party.serverTime} onClick={() => host({ kind: 'xpBoost', minutes: m })}>⚡ Double XP · {m} min</Button>)}
+              {!party.capLifted && (party.phase === 'friday' || party.phase === 'lobby') && <Button size="sm" variant="secondary" onClick={() => host({ kind: 'liftXpCap' })}>🧬 Unlock final forms tonight</Button>}
+            </div>
+            {!!party.xpBoostUntil && party.xpBoostUntil > party.serverTime && <div className="tiny bold">⚡ Double XP is on for another {Math.ceil((party.xpBoostUntil - party.serverTime) / 60_000)} min.</div>}
+            <div className="divider" />
             <div className="eyebrow">🎁 Up for grabs</div>
             <div className="tiny faint">Release a few of an accessory for everyone to grab. First in, first served, one each. It shows on every lad's Lobby and Me screen.</div>
             <div className="panel pad stack-6">

@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { Battle, PartyPublic, PlayerPrivate, PlayerPublic, HostView, ServerMessage } from '@shared/types';
 import { loadIdentity } from './identity';
 
-export type Tab = 'home' | 'missions' | 'battle' | 'ranks' | 'party' | 'profile' | 'host' | 'raid' | 'wall' | 'cellar' | 'gallery';
+export type Tab = 'home' | 'missions' | 'battle' | 'ranks' | 'party' | 'profile' | 'host' | 'raid' | 'wall' | 'cellar' | 'gallery' | 'tv';
 export type Flow = 'opening' | 'join' | 'choose' | 'reveal' | 'firstMission' | 'main';
 export type ConnStatus = 'connecting' | 'online' | 'offline' | 'demo';
 

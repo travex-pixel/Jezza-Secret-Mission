@@ -17,6 +17,7 @@ import Raid from './screens/Raid';
 import Wall from './screens/Wall';
 import Cellar from './screens/Cellar';
 import Gallery from './screens/Gallery';
+import TV from './screens/TV';
 import { BottomNav, RewardOverlay, Toasts } from './components/ui';
 import IncomingChallenge from './components/IncomingChallenge';
 import AwaySummary, { useAwayAutoOpen } from './components/AwaySummary';
@@ -51,10 +52,11 @@ export default function App() {
       case 'wall': screen = <Wall />; break;
       case 'cellar': screen = <Cellar />; break;
       case 'gallery': screen = <Gallery />; break;
+      case 'tv': screen = <TV />; break;
       default: screen = <Home />;
     }
   }
-  const showNav = flow === 'main' && !!party && !!me?.creature;
+  const showNav = flow === 'main' && !!party && !!me?.creature && tab !== 'tv'; // TV mode is the whole screen
   return (
     <div className="app">
       {screen}

@@ -55,7 +55,7 @@ export default function Home() {
   const feed = [...party.feed].reverse().filter((f) => f.kind !== 'achievement' && f.kind !== 'levelup' && f.id !== voteEv?.id).slice(0, Math.max(0, slots - (alert ? 1 : 0)));
   // Evolution nudge, only when it's close
   const evoAt = nextEvolveLevel(me.level);
-  const lockedTilSaturday = evoAt === 8 && me.level >= FRIDAY_MAX_LEVEL && (party.phase === 'friday' || party.phase === 'lobby');
+  const lockedTilSaturday = evoAt === 8 && me.level >= FRIDAY_MAX_LEVEL && (party.phase === 'friday' || party.phase === 'lobby') && !party.capLifted;
   const xpToEvo = evoAt ? LEVEL_XP[evoAt - 1] - me.xp : 0;
   const twitching = !!evoAt && !lockedTilSaturday && xpToEvo <= 80;
   const challenger = incoming && party.players.find((p) => p.id === incoming.challengerId)?.nickname;
@@ -67,6 +67,7 @@ export default function Home() {
         <span className="row" style={{ gap: 8 }}>
           <span className="brand">PROJECT JEZZA</span>
           <span className={`pill pill-xs ${party.phase === 'lobby' ? '' : 'pill-gold'}`}>{PHASE_LABEL[party.phase]}</span>
+          {party.xpBoostUntil && party.xpBoostUntil > party.serverTime && <span className="pill pill-xs pill-ember" data-testid="xp-boost">⚡ 2× XP · {Math.max(1, Math.ceil((party.xpBoostUntil - party.serverTime) / 60_000))} min</span>}
         </span>
         <span className="row" style={{ gap: 8 }}>
           {conn !== 'online' && <ConnectionPill />}

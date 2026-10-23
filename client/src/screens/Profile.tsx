@@ -29,6 +29,7 @@ export default function Profile() {
   };
   const players = useStore((s) => s.party?.players);
   const giveaways = useStore((s) => s.party?.giveaways);
+  const capLifted = !!useStore((s) => s.party?.capLifted);
   if (!me?.creature) return null;
   const riv = rivalries(me);
   const nickOf = (id: string) => players?.find((p) => p.id === id)?.nickname ?? '?';
@@ -46,7 +47,7 @@ export default function Profile() {
   const phase = useStore((s) => s.party?.phase);
   const stage = stageForLevel(me.level);
   const evoAt = nextEvolveLevel(me.level);
-  const lockedSat = evoAt === 8 && me.level >= FRIDAY_MAX_LEVEL && (phase === 'friday' || phase === 'lobby');
+  const lockedSat = evoAt === 8 && me.level >= FRIDAY_MAX_LEVEL && (phase === 'friday' || phase === 'lobby') && !capLifted;
   const nextUnlockLevel = Object.keys(LEVEL_UNLOCKS).map(Number).find((l) => l > me.level && (LEVEL_UNLOCKS[l].cosmetics.length || LEVEL_UNLOCKS[l].colorways > colorwaysUnlocked(l - 1)));
 
   return (

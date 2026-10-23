@@ -68,6 +68,8 @@ export interface PartyState {
   codes: RewardCode[];
   giveaways: Giveaway[];
   log: FeedEvent[];      // every feed line of the weekend (the feed itself keeps only the latest few)
+  xpBoostUntil: number | null;
+  capLifted: boolean;
 }
 
 export interface EngineState {
@@ -187,7 +189,7 @@ export class Engine {
       party.raids ??= []; party.wall ??= []; party.cellar ??= [];
       party.phaseMissions ??= { friday: 0, saturday: 0 };
       party.photoMode ??= 'vote';
-      party.epics ??= []; party.codes ??= []; party.giveaways ??= []; party.log ??= [...party.feed];
+      party.epics ??= []; party.codes ??= []; party.giveaways ??= []; party.log ??= [...party.feed]; party.xpBoostUntil ??= null; party.capLifted ??= false;
       for (const e of party.epics) { e.tier ??= 'medium'; e.points ??= EPIC_TIERS[e.tier].points; e.xp ??= EPIC_TIERS[e.tier].xp; }
       for (const b of Object.values(party.battles)) if (b.status === 'active' && !b.quick && !b.auto) { b.quick = true; b.roundDeadline = Math.min(b.roundDeadline ?? Infinity, this.now() + PLAN_SECONDS * 1000); }
       party.nextAutoAt ??= this.now() + FIRST_AUTO_DELAY_MS;
@@ -270,6 +272,8 @@ export class Engine {
       epics: party.epics.filter((e) => e.status === 'open' || (e.status === 'done' && now - (e.doneAt ?? 0) < 3 * 3600_000)).slice(-20),
       pendingPhotos: Object.values(party.claims).filter((c) => c.status === 'pending' && c.review === 'vote' && c.photoUrl)
         .map((c) => ({ claimId: c.id, playerId: c.playerId, missionId: c.missionId, url: c.photoUrl!, at: c.createdAt, up: c.votesUp ?? [], down: c.votesDown ?? [] })),
+      xpBoostUntil: party.xpBoostUntil && party.xpBoostUntil > now ? party.xpBoostUntil : null,
+      capLifted: party.capLifted,
       giveaways: party.giveaways.filter((g) => g.status === 'active' || now - (g.closedAt ?? 0) < 2 * 3600_000).slice(-10),
       autoSaturdayAt: party.autoSaturdayAt,
       nextGroupAt: party.nextGroupAt,
@@ -386,7 +390,7 @@ export class Engine {
       code, name: (partyName ?? '').trim().slice(0, 40) || "Jezza's Bucks Weekend", hostId: playerId, phase: 'friday', missionsOpen: true,
       createdAt: now, players: {}, feed: [], claims: {}, revealedGroupMissions: [], battles: {}, awardOverrides: {}, finalized: false, fridayPoints: null, seq: 0,
       groomId: isJezza(v.name) ? playerId : null, autoSaturdayAt: nextSaturdayMorning(now), nextGroupAt: now + FIRST_GROUP_DELAY_MS,
-      raids: [], wall: [], cellar: [], phaseMissions: { friday: 0, saturday: 0 }, photoMode: 'vote', nextAutoAt: now + FIRST_AUTO_DELAY_MS, epics: [], codes: [], giveaways: [], log: [],
+      raids: [], wall: [], cellar: [], phaseMissions: { friday: 0, saturday: 0 }, photoMode: 'vote', nextAutoAt: now + FIRST_AUTO_DELAY_MS, epics: [], codes: [], giveaways: [], log: [], xpBoostUntil: null, capLifted: false,
     };
     party.players[playerId] = newPlayer(playerId, v.name, now, true, 'friday');
     if (pin) party.hostPinHash = hashPin(code, pin);
@@ -692,8 +696,9 @@ export class Engine {
 
   /** Add XP respecting the phase cap (one evolution max on Friday). Handles levels, unlocks and titles. */
   private applyXp(party: PartyState, p: PlayerState, xp: number): { unlocked: string[]; capped: boolean } {
-    const cap = xpCapFor(party.phase);
+    const cap = party.capLifted ? Infinity : xpCapFor(party.phase);
     const before = p.level;
+    if (xp > 0 && party.xpBoostUntil && this.now() < party.xpBoostUntil) xp *= 2; // host-called double XP
     const target = p.xp + xp;
     const capped = xp > 0 && target > cap;
     p.xp = Math.max(0, xp > 0 ? Math.min(target, Math.max(p.xp, cap)) : target);
@@ -1888,6 +1893,21 @@ export class Engine {
         this.feed(party, { kind: 'unlock', text: `🎁 UP FOR GRABS: ${qty}× ${cos.name}. First in, first served.`, emoji: '🎁' });
         direct.push({ to: 'party', msg: { type: 'toast', text: action.title?.trim() ? `🎁 ${title}: ${qty}× ${cos.name} up for grabs. Quick!` : `🎁 ${qty}× ${cos.name} up for grabs. Quick!`, emoji: '🎁', tone: 'info' } });
         return this.ok(party, { id: g.id }, direct);
+      }
+      case 'xpBoost': {
+        const minutes = Math.max(5, Math.min(180, Math.round(Number(action.minutes ?? 30)) || 30));
+        const now = this.now();
+        party.xpBoostUntil = now + minutes * 60_000;
+        this.feed(party, { kind: 'phase', text: `⚡ DOUBLE XP for the next ${minutes} minutes. Everything you do counts twice for your creature.`, emoji: '⚡' });
+        direct.push({ to: 'party', msg: { type: 'toast', text: `⚡ Double XP for ${minutes} minutes. Go!`, emoji: '⚡', tone: 'success' } });
+        return this.ok(party, { until: party.xpBoostUntil }, direct);
+      }
+      case 'liftXpCap': {
+        if (party.capLifted) return this.fail('Final forms are already unlocked.');
+        party.capLifted = true;
+        this.feed(party, { kind: 'phase', text: '🧬 The host has unlocked FINAL FORMS early. Level 8 is open tonight.', emoji: '🧬' });
+        direct.push({ to: 'party', msg: { type: 'toast', text: '🧬 Final forms unlocked early. Level 8 is open tonight!', emoji: '🧬', tone: 'success' } });
+        return this.ok(party, undefined, direct);
       }
       case 'endGiveaway': {
         const g = party.giveaways.find((x) => x.id === action.giveawayId);

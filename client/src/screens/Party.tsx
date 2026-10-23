@@ -57,6 +57,7 @@ export default function Party() {
         {view === 'roster' && (
           <div className="col" style={{ gap: 0, paddingTop: 6 }}>
             {!amHost && party.hasHostPin && <Button variant="ghost" onClick={() => { setErr(null); setSheet('claim'); }}>🔑 Host lost their phone? Claim host</Button>}
+            <Button variant="ghost" onClick={() => setTab('tv')} data-testid="tv-mode">📺 TV mode: mirror your phone to the telly</Button>
             <Button variant="ghost" onClick={() => setSheet('leave')}>🚪 Leave this party</Button>
           </div>
         )}
