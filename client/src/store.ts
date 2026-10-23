@@ -22,6 +22,8 @@ interface State {
   rewardQueue: Reward[];
   focusBattleId: string | null;
   partyView: 'roster' | 'feed';
+  taunt: { battleId: string; from: string; emoji: string; at: number } | null;
+  missionsTab: 'mine' | 'group' | 'done' | 'quests' | null;
   kicked: string | null;
   pendingCode: string | null;
   replay: Battle | null;   // battle being replayed in the overlay
@@ -69,6 +71,8 @@ export const useStore = create<State>((set, get) => ({
   rewardQueue: [],
   focusBattleId: null,
   partyView: 'roster',
+  taunt: null,
+  missionsTab: null,
   kicked: null,
   replay: null,
   awayOpen: false,
@@ -111,6 +115,7 @@ export const useStore = create<State>((set, get) => ({
         break;
       }
       case 'toast': get().toast(m.text, m.emoji, m.tone); break;
+      case 'taunt': set({ taunt: { battleId: m.battleId, from: m.from, emoji: m.emoji, at: Date.now() } }); break;
       case 'kicked': set({ kicked: m.reason, party: null, priv: null, flow: 'join' }); break;
       default: break;
     }

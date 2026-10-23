@@ -6,6 +6,9 @@ import { Creature } from '../components/Creature';
 import { MissionCard } from '../components/MissionCard';
 import { EpicCard } from '../components/EpicCard';
 import { GiveawayCard } from '../components/GiveawayCard';
+import DropOverlay from '../components/DropOverlay';
+import MoleVote from '../components/MoleVote';
+import { RARITY } from '@shared/saturday';
 import HowItWorksSheet from '../components/HowItWorks';
 import { Button, ConnectionPill, FeedItem, XPBar, useCountdown } from '../components/ui';
 import { useStore, useMe, useIsHost } from '../store';
@@ -42,6 +45,12 @@ export default function Home() {
   // Something up for grabs you haven't got yet, newest first: it's the one the host just announced (stock runs out, so it sits near the top)
   const grab = [...(party?.giveaways ?? [])].reverse().find((g) => g.status === 'active' && g.claims.length < g.qty && (!g.endsAt || (party?.serverTime ?? 0) < g.endsAt) && !g.claims.some((c) => c.playerId === me?.id) && !me?.unlocked.includes(g.item));
   const slots = useSlots();
+  const [opening, setOpening] = useState<import('@shared/saturday').Drop | null>(null); // our own copy: the server's list drops it the moment it opens
+  const [voting, setVoting] = useState(false);
+  const drop = priv?.drops?.[0];
+  const quests = priv?.quests ?? [];
+  const questsDone = quests.filter((q) => q.done).length;
+  const moleOpen = !!party?.mole?.voting && !priv?.mole; // the Mole doesn't vote on themselves
   if (!party || !me?.creature) return null;
   const board = sortLeaderboard(party.players);
   const rank = board.findIndex((p) => p.id === me.id) + 1;
@@ -51,7 +60,7 @@ export default function Home() {
   const nextMission = next ? MISSION_BY_ID[next.missionId] : undefined;
   const pinnedSelfie = next?.missionId !== 'm001' && activeHand.some((h) => h.missionId === 'm001');
   // One alert at a time, most urgent first. Everything else is a tab away.
-  const alert = fighting ? 'fight' : incoming ? 'incoming' : raid ? 'raid' : witnessReq ? 'witness' : voteEv ? 'vote' : grab ? 'grab' : epic?.crew.includes(me.id) ? 'epic' : awayN > 0 ? 'away' : epic ? 'epic' : null;
+  const alert = fighting ? 'fight' : incoming ? 'incoming' : raid ? 'raid' : witnessReq ? 'witness' : drop ? 'drop' : voteEv ? 'vote' : grab ? 'grab' : epic?.crew.includes(me.id) ? 'epic' : awayN > 0 ? 'away' : epic ? 'epic' : null;
   const feed = [...party.feed].reverse().filter((f) => f.kind !== 'achievement' && f.kind !== 'levelup' && f.id !== voteEv?.id).slice(0, Math.max(0, slots - (alert ? 1 : 0)));
   // Evolution nudge, only when it's close
   const evoAt = nextEvolveLevel(me.level);
@@ -97,7 +106,22 @@ export default function Home() {
         )}
         {alert === 'witness' && witnessReq && <button className="panel panel-gold pad row alert" onClick={() => setTab('missions')}><span style={{ fontSize: 22 }}>👀</span><span className="grow bold ellipsis">{witnessReq.fromNickname} reckons you saw “{MISSION_BY_ID[witnessReq.missionId]?.title}”</span><span className="pill pill-ember pill-xs">DID YOU?</span></button>}
         {alert === 'vote' && voteEv && <FeedItem f={voteEv} compact />}
+        {alert === 'drop' && drop && (
+          <button className={`drop-card r-${drop.rarity}`} style={{ ['--rc' as string]: RARITY[drop.rarity].color }} onClick={() => setOpening(drop)} data-testid="drop-card">
+            <span className="drop-card-crate">🎁</span>
+            <span className="grow" style={{ minWidth: 0, textAlign: 'left' }}><div className="bold">Lucky Drop waiting{(priv?.drops?.length ?? 0) > 1 ? ` · ${priv!.drops.length} of them` : ''}</div><div className="tiny" style={{ opacity: .85 }}>{drop.source === 'quest' ? 'Quest reward' : drop.source === 'gift' ? 'Welcome gift' : drop.source === 'host' ? 'From the host' : 'Every third challenge drops one'}</div></span>
+            <span className="pill pill-gold">OPEN</span>
+          </button>
+        )}
+        {opening && <DropOverlay drop={opening} onClose={() => setOpening(null)} />}
+        {voting && <MoleVote onClose={() => setVoting(false)} />}
         {alert === 'grab' && grab && <GiveawayCard g={grab} />}
+        {(quests.length > 0 || moleOpen) && (
+          <div className="row" style={{ gap: 6 }}>
+            {quests.length > 0 && <button className="panel quest-strip grow" onClick={() => { useStore.setState({ missionsTab: 'quests' }); setTab('missions'); }} data-testid="quest-strip"><span>📜</span><span className="grow ellipsis"><b>Saturday Quests</b> · {questsDone}/{quests.length} done</span><span className="tiny bold" style={{ color: 'var(--rose)' }}>→</span></button>}
+            {moleOpen && <button className={`panel quest-strip ${priv?.moleVote ? '' : 'alert'}`} style={{ flex: '0 0 auto' }} onClick={() => setVoting(true)} data-testid="mole-strip"><span>🕵️</span><span className="bold">{priv?.moleVote ? 'Change vote' : 'Who\'s the Mole?'}</span></button>}
+          </div>
+        )}
         {alert === 'epic' && epic && <EpicCard epic={epic} compact />}
         {alert === 'away' && <button className="panel pad row alert" onClick={() => setAwayOpen(true)}><span style={{ fontSize: 22 }}>🤖</span><span className="grow bold">{me.creatureName} auto-battled {awayN} time{awayN === 1 ? '' : 's'} while you were away</span><span className="pill pill-xs">SEE</span></button>}
 

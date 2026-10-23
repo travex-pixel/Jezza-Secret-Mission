@@ -7,11 +7,16 @@ import { useMe } from '../store';
 import { useStore } from '../store';
 import { request } from '../net';
 import { sfx } from '../audio';
+import { QUEST_BY_ID, RARITY } from '@shared/saturday';
 
 export default function Missions() {
   const priv = useStore((s) => s.priv);
   const party = useStore((s) => s.party);
-  const [tab, setTab] = useState<'mine' | 'group' | 'done'>('mine');
+  const [tab, setTab] = useState<'mine' | 'group' | 'done' | 'quests'>(() => { const t = useStore.getState().missionsTab; useStore.setState({ missionsTab: null }); return t ?? 'mine'; });
+  const quests = priv?.quests ?? [];
+  const mole = priv?.mole;
+  const [moleBusy, setMoleBusy] = useState(false);
+  const moleDone = async (index: number) => { if (moleBusy) return; setMoleBusy(true); try { await request({ type: 'moleDone', index }); sfx.mission(); } catch (e) { toast((e as Error).message, '⚠️', 'warn'); } finally { setMoleBusy(false); } };
   const me = useMe();
   const hand = (priv?.hand ?? []).filter((h) => h.status !== 'done');
   const done = priv?.completedMissionIds ?? [];
@@ -40,6 +45,7 @@ export default function Missions() {
       <div className="tabs" style={{ marginBottom: 10 }}>
         <button className={`tab ${tab === 'mine' ? 'on' : ''}`} onClick={() => setTab('mine')}>Mine ({hand.length})</button>
         <button className={`tab ${tab === 'group' ? 'on' : ''}`} onClick={() => setTab('group')}>Group ({revealed.length})</button>
+        {quests.length > 0 && <button className={`tab ${tab === 'quests' ? 'on' : ''}`} onClick={() => setTab('quests')} data-testid="quests-tab">📜 Quests ({quests.filter((q) => q.done).length}/{quests.length})</button>}
         <button className={`tab ${tab === 'done' ? 'on' : ''}`} onClick={() => setTab('done')}>Done ({done.length})</button>
       </div>
       <div className="screen-body scroll-y stack-10">
@@ -64,6 +70,33 @@ export default function Missions() {
               <span className={`switch ${me?.lowKey ? 'on' : ''}`} aria-label="Low-key mode" />
             </button>
           </>
+        )}
+        {tab === 'quests' && (
+          <>
+            <div className="tiny faint center">Fresh for Saturday. Each one pays points and a Lucky Drop. They tick over on their own as you play.</div>
+            {quests.map((q) => { const d = QUEST_BY_ID[q.defId]; if (!d) return null; const pct = Math.min(100, Math.round((q.progress / d.target) * 100)); return (
+              <div key={q.defId} className={`quest-card ${q.done ? 'done' : ''}`} data-testid="quest">
+                <span className="quest-emoji">{q.done ? '✅' : d.emoji}</span>
+                <span className="grow" style={{ minWidth: 0 }}>
+                  <div className="row-between"><span className="bold">{d.title}</span><span className="tiny bold" style={{ color: RARITY[d.drop].color }}>+{d.points} · {RARITY[d.drop].label} drop</span></div>
+                  <div className="tiny dim">{d.blurb}</div>
+                  <div className="quest-bar"><i style={{ width: `${pct}%` }} /></div>
+                  <div className="tiny faint">{q.done ? 'Done. Drop\'s on your Lobby.' : `${q.progress} / ${d.target}`}</div>
+                </span>
+              </div>); })}
+          </>
+        )}
+        {tab === 'mine' && mole && (
+          <div className="panel mole-panel pad stack-6" data-testid="mole-panel">
+            <div className="row-between"><span className="eyebrow" style={{ color: '#ffb48f' }}>🕵️ You are the Mole</span><span className="tiny faint">shh</span></div>
+            <div className="tiny dim">Secret missions. Tick them off yourself (+40 each, no feed line). The lads vote on who you are; get to the reveal uncaught for +100.</div>
+            {mole.missions.map((m, i) => (
+              <div key={i} className="row" style={{ gap: 8, alignItems: 'flex-start' }}>
+                <span className="small grow" style={{ textDecoration: m.done ? 'line-through' : 'none', opacity: m.done ? .6 : 1 }}>{m.text}</span>
+                {m.done ? <span className="pill pill-xs pill-ok">done</span> : <Button size="xs" variant="secondary" disabled={moleBusy} onClick={() => void moleDone(i)}>Did it</Button>}
+              </div>
+            ))}
+          </div>
         )}
         {tab === 'group' && (
           <>

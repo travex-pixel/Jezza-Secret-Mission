@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { HostAction, Phase, PlayerPublic } from '@shared/types';
 import { GROUP_MISSIONS, MISSION_BY_ID } from '@shared/missions';
 import { AWARDS } from '@shared/progression';
@@ -46,6 +46,9 @@ export default function Host() {
   const [confirmGrab, setConfirmGrab] = useState(false);
   const [grabBusy, setGrabBusy] = useState(false);
   const [closing, setClosing] = useState<string | null>(null);
+  const [dropRarity, setDropRarity] = useState<'common' | 'rare' | 'epic' | 'legendary' | 'any'>('any');
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  useEffect(() => { setConfirmRemove(false); }, [target?.id]);
   const releaseGiveaway = async () => {
     if (grabBusy) return; setGrabBusy(true); // one release per confirm, however many times the button is hit
     try {
@@ -129,6 +132,18 @@ export default function Host() {
               {[30, 60].map((m) => <Button key={m} size="sm" variant="secondary" disabled={!!party.xpBoostUntil && party.xpBoostUntil > party.serverTime} onClick={() => host({ kind: 'xpBoost', minutes: m })}>⚡ Double XP · {m} min</Button>)}
               {!party.capLifted && (party.phase === 'friday' || party.phase === 'lobby') && <Button size="sm" variant="secondary" onClick={() => host({ kind: 'liftXpCap' })}>🧬 Unlock final forms tonight</Button>}
             </div>
+            <div className="panel pad stack-6">
+              <div className="small bold">🎁 Lucky Drop for everyone</div>
+              <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>{(['any', 'common', 'rare', 'epic', 'legendary'] as const).map((r) => <button key={r} className={`pill pill-xs ${dropRarity === r ? 'pill-gold' : ''}`} onClick={() => setDropRarity(r)}>{r === 'any' ? 'lucky dip' : r}</button>)}</div>
+              <Button size="sm" variant="secondary" onClick={() => host({ kind: 'giveDrops', rarity: dropRarity === 'any' ? undefined : dropRarity })} data-testid="give-drops">🎁 Drop one on every lad</Button>
+              <div className="tiny faint">Everyone also earns one every third challenge and for each quest. Legendary for all is a big moment; save it.</div>
+            </div>
+            <div className="panel pad stack-6">
+              <div className="small bold">🕵️ The Mole</div>
+              {!party.mole && <><div className="tiny faint">Picks a random lad (not you, not the groom) and gives them secret sabotage missions. Everyone votes. Starts on its own at 5am Saturday.</div><Button size="sm" variant="secondary" onClick={() => host({ kind: 'assignMole' })} data-testid="assign-mole">🕵️ Pick a Mole now</Button></>}
+              {party.mole && party.mole.voting && <><div className="tiny faint">A Mole is in play. {party.mole.votes} vote{party.mole.votes === 1 ? '' : 's'} in. Reveal at the finale, or whenever the room is ready.</div><Button size="sm" variant="danger" onClick={() => host({ kind: 'revealMole' })} data-testid="reveal-mole">🕵️ Reveal the Mole</Button></>}
+              {party.mole?.revealed && <div className="tiny bold">Revealed: {nickOf(party.mole.revealed.playerId)} · {party.mole.revealed.caught ? 'caught' : 'got away with it'}. <button className="tiny bold" style={{ color: 'var(--rose)' }} onClick={() => host({ kind: 'assignMole' })}>Pick another →</button></div>}
+            </div>
             {!!party.xpBoostUntil && party.xpBoostUntil > party.serverTime && <div className="tiny bold">⚡ Double XP is on for another {Math.ceil((party.xpBoostUntil - party.serverTime) / 60_000)} min.</div>}
             <div className="divider" />
             <div className="eyebrow">🎁 Up for grabs</div>
@@ -137,7 +152,7 @@ export default function Host() {
               <div className="row" style={{ gap: 8 }}>
                 <ItemIcon id={grabItem} size={40} />
                 <select className="input grow" style={{ minHeight: 44, fontSize: 16 }} value={grabItem} onChange={(e) => setGrabItem(e.target.value)} aria-label="Item to release">
-                  {COSMETICS.filter((c) => !STARTER_COSMETICS.includes(c.id)).map((c) => <option key={c.id} value={c.id}>{/^Reward code/.test(c.description) ? '⭐ ' : ''}{c.name}</option>)}
+                  {COSMETICS.filter((c) => !STARTER_COSMETICS.includes(c.id)).map((c) => <option key={c.id} value={c.id}>{/^(Reward code|Lucky Drop)/.test(c.description) ? '⭐ ' : ''}{c.name}</option>)}
                 </select>
               </div>
               <div className="row-between"><span className="small">How many</span><span className="row" style={{ gap: 6 }}>{[...new Set([1, 3, 5, Math.max(1, party.players.length)])].sort((x, y) => x - y).map((n) => <button key={n} className={`pill ${grabQty === n ? 'pill-gold' : ''}`} onClick={() => setGrabQty(n)}>{n === party.players.length ? `all ${n}` : n}</button>)}</span></div>
@@ -159,7 +174,7 @@ export default function Host() {
             <div className="tiny faint">Make a code for an accessory and give it to whoever you reckon deserves it. They type it in on their Me screen. Only you can see these.</div>
             <div className="panel pad stack-6">
               <select className="input" style={{ minHeight: 44, fontSize: 16 }} value={codeItem} onChange={(e) => setCodeItem(e.target.value)} aria-label="Accessory">
-                {COSMETICS.filter((c) => !STARTER_COSMETICS.includes(c.id)).map((c) => <option key={c.id} value={c.id}>{/^Reward code/.test(c.description) ? '⭐ ' : ''}{c.name}</option>)}
+                {COSMETICS.filter((c) => !STARTER_COSMETICS.includes(c.id)).map((c) => <option key={c.id} value={c.id}>{/^(Reward code|Lucky Drop)/.test(c.description) ? '⭐ ' : ''}{c.name}</option>)}
               </select>
               <div className="tiny faint">{COSMETIC_BY_ID[codeItem]?.description}</div>
               <div className="row-between"><span className="small">Can be used by</span><span className="row" style={{ gap: 6 }}>{[1, 3, 15].map((n) => <button key={n} className={`pill ${codeUses === n ? 'pill-gold' : ''}`} onClick={() => setCodeUses(n)}>{n === 1 ? '1 lad' : n === 15 ? 'everyone' : `${n} lads`}</button>)}</span></div>
@@ -259,7 +274,8 @@ export default function Host() {
             {party.groomId !== target.id && <Button size="sm" variant="secondary" onClick={() => { host({ kind: 'setGroom', playerId: target.id }); setTarget(null); }}>🤵 This is Jezza (the groom)</Button>}
             <div className="btn-row">
               {!target.isHost && <Button size="sm" variant="secondary" onClick={() => { host({ kind: 'transferHost', playerId: target.id }); setTarget(null); }}>Make host</Button>}
-              {!target.isHost && <Button size="sm" variant="danger" onClick={() => { host({ kind: 'removePlayer', playerId: target.id }); setTarget(null); }}>Remove</Button>}
+              {!target.isHost && !confirmRemove && <Button size="sm" variant="danger" onClick={() => setConfirmRemove(true)}>Remove</Button>}
+              {!target.isHost && confirmRemove && <Button size="sm" variant="danger" onClick={() => { host({ kind: 'removePlayer', playerId: target.id }); setTarget(null); setConfirmRemove(false); }} data-testid="confirm-remove">Sure? Remove {target.nickname}</Button>}
             </div>
           </div>
         </Sheet>

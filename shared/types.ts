@@ -17,6 +17,7 @@ export interface Cosmetic {
   slot: CosmeticSlot;
   name: string;
   description: string;
+  rarity?: 'common' | 'rare' | 'epic' | 'legendary'; // set on items that fall out of Lucky Drops
 }
 
 export interface Equipped {
@@ -66,6 +67,7 @@ export interface PlayerPublic {
   raidsJoined: number;
   lowKey: boolean;     // no performing missions
   freshLegs: number;   // Saturday arrivals: double-points missions left
+  comeback: boolean;   // well behind the leader: 1.5× points until back in touch
   catchUp: boolean;    // gets Saturday catch-up: double XP until at the group's middle level (Saturday joiners, late arrivals, or the host's call)
   joinedPhase: Phase;
   h2h: Record<string, { w: number; l: number }>; // head-to-head record vs each mate
@@ -92,6 +94,10 @@ export interface PlayerPrivate {
   pendingWitness: WitnessRequest[]; // requests where this player is the witness
   honourCooldownUntil: number;      // server time after which the next honour-system claim is allowed
   scoredVs: Record<string, number>; // points-scoring fights already had against each mate (3 max each)
+  drops: import('./saturday').Drop[];          // Lucky Drops waiting to be opened
+  quests: (import('./saturday').Quest & { progress: number })[]; // today's quests
+  mole?: { missions: { text: string; done: boolean }[] };      // only the Mole gets this
+  moleVote?: string;                                            // who I reckon it is
   flagged: string[];                // claim ids this player has already called BS on
   secret: string;
 }
@@ -189,6 +195,8 @@ export interface Raid {
   log: RaidLogLine[];
   finishedAt?: number;
   cosmetic: string;
+  weakUntil?: number;   // the weak-spot window (double damage) after the boss drops to half
+  weakDone?: boolean;
 }
 
 export interface WallPost {
@@ -310,6 +318,7 @@ export interface PartyPublic {
   pendingPhotos: { claimId: string; playerId: string; missionId: string; url: string; at: number; up: string[]; down: string[] }[];
   giveaways: Giveaway[];      // live ones, plus any that closed in the last couple of hours
   xpBoostUntil: number | null; // host-called double XP, server time it ends
+  mole: { active: boolean; voting: boolean; votes: number; revealed?: { playerId: string; caught: boolean; correct: string[] } } | null;
   capLifted: boolean;          // host let final forms unlock before Saturday
   autoSaturdayAt: number | null;
   nextGroupAt: number | null;
@@ -403,6 +412,10 @@ export type ClientMessage =
   | { type: 'joinEpic'; reqId: string; epicId: string }
   | { type: 'redeemCode'; reqId: string; code: string }
   | { type: 'claimGiveaway'; reqId: string; giveawayId: string }
+  | { type: 'openDrop'; reqId: string; dropId: string }
+  | { type: 'moleDone'; reqId: string; index: number }
+  | { type: 'moleVote'; reqId: string; suspectId: string }
+  | { type: 'taunt'; reqId: string; battleId: string; emoji: string }
   | { type: 'leaveEpic'; reqId: string; epicId: string }
   | { type: 'finishEpic'; reqId: string; epicId: string }
   | { type: 'setAutoBattles'; reqId: string; on: boolean }
@@ -442,6 +455,9 @@ export type HostAction =
   | { kind: 'makeGiveaway'; item: string; qty?: number; title?: string; minutes?: number }
   | { kind: 'endGiveaway'; giveawayId: string }
   | { kind: 'xpBoost'; minutes?: number }
+  | { kind: 'giveDrops'; rarity?: 'common' | 'rare' | 'epic' | 'legendary'; playerId?: string }
+  | { kind: 'assignMole'; playerId?: string }
+  | { kind: 'revealMole' }
   | { kind: 'liftXpCap' };
 
 export type ServerMessage =
@@ -452,5 +468,6 @@ export type ServerMessage =
   | { type: 'ack'; reqId: string; ok: false; error: string }
   | { type: 'reward'; points: number; xp: number; levelUp?: number; unlocked?: string[]; achievements?: string[]; title: string; evolved?: { from: number; to: number }; capped?: boolean; bonus?: string; battleId?: string; quiet?: boolean } // quiet: it landed later (a mate confirmed, a vote passed), so a toast, not a takeover
   | { type: 'toast'; text: string; emoji?: string; tone?: 'info' | 'success' | 'warn' }
+  | { type: 'taunt'; battleId: string; from: string; emoji: string }
   | { type: 'kicked'; reason: string }
   | { type: 'pong'; t: number; serverTime: number };

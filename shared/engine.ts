@@ -7,6 +7,7 @@ import type {
   Raid, Reaction, WallPost, CellarEntry, GalleryPhoto, PhotoMode, AwayEvent, Keepsake, Epic, RewardCode, Giveaway,
 } from './types';
 import { EPIC_CUSTOM_ITEM, EPIC_MAX_CREW, EPIC_PRESET_BY_ID, EPIC_TIERS, isEpicTier } from './epics';
+import { DROP_EVERY, MOLE_MISSIONS, MOLE_POINTS, QUESTS_PER_DAY, QUEST_BY_ID, QUEST_DEFS, RARITIES, RARITY, questProgress, rollDrop, type Drop, type MoleState, type Quest, type Rarity } from './saturday';
 import { CREATURES, CREATURE_IDS, FORMS, GROOM_CREATURE, starterTrio } from './creatures';
 import { MISSIONS, MISSION_BY_ID, STARTER_MISSION, TUTORIAL_MISSIONS, TUTORIAL_IDS, GROUP_MISSIONS, missionAvailableInPhase, rookieLeft, type Mission } from './missions';
 import {
@@ -34,6 +35,9 @@ export interface PlayerState extends PlayerPublic {
   lastAutoAt: number;      // when this avatar last auto-battled
   recentAuto: string[];    // last few auto-battle opponents (avoid repeats)
   codeTries: number[];     // recent wrong reward-code guesses (rate limit)
+  drops: Drop[];           // Lucky Drops (unopened first, opened ones kept a while for the keepsake)
+  quests: Quest[];         // today's quests
+  lastTauntAt: number;
   creatureBefore?: CreatureId; // the groom's creature before it became the Golden Stag (given back if the host moves the title)
 }
 
@@ -70,6 +74,7 @@ export interface PartyState {
   log: FeedEvent[];      // every feed line of the weekend (the feed itself keeps only the latest few)
   xpBoostUntil: number | null;
   capLifted: boolean;
+  mole: MoleState | null;
 }
 
 export interface EngineState {
@@ -156,6 +161,10 @@ export function nextSaturdayMorning(from: number): number {
 }
 const isJezza = (nick: string) => nick.toLowerCase().replace(/[^a-z]/g, '').includes('jezza');
 const FEED_LIMIT = 60;
+const RAID_WEAK_MS = 25_000;
+const TAUNT_GAP_MS = 2500;
+const COMEBACK_BELOW = 0.6, COMEBACK_UNTIL = 0.8, COMEBACK_MIN_LEAD = 200;
+const TAUNTS = ['😂', '🔥', '😴', '💪', '👀', '🫡', '🤡', '🍻'];
 const FREE_PHOTO_GAP_MS = 3 * 60_000;   // photo drops per lad
 const LOG_LIMIT = 5000;   // the keepsake's full weekend record
 const MAX_PHOTO_CHARS = 1_400_000; // ~1MB jpeg as base64 (phones send ~1600px, usually 250-500KB)
@@ -190,7 +199,7 @@ export class Engine {
       party.raids ??= []; party.wall ??= []; party.cellar ??= [];
       party.phaseMissions ??= { friday: 0, saturday: 0 };
       party.photoMode ??= 'vote';
-      party.epics ??= []; party.codes ??= []; party.giveaways ??= []; party.log ??= [...party.feed]; party.xpBoostUntil ??= null; party.capLifted ??= false;
+      party.epics ??= []; party.codes ??= []; party.giveaways ??= []; party.log ??= [...party.feed]; party.xpBoostUntil ??= null; party.capLifted ??= false; party.mole ??= null;
       for (const e of party.epics) { e.tier ??= 'medium'; e.points ??= EPIC_TIERS[e.tier].points; e.xp ??= EPIC_TIERS[e.tier].xp; }
       for (const b of Object.values(party.battles)) if (b.status === 'active' && !b.quick && !b.auto) { b.quick = true; b.roundDeadline = Math.min(b.roundDeadline ?? Infinity, this.now() + PLAN_SECONDS * 1000); }
       party.nextAutoAt ??= this.now() + FIRST_AUTO_DELAY_MS;
@@ -201,12 +210,14 @@ export class Engine {
         p.rerollRefillAt ??= 0;
         p.h2h ??= {}; p.upsetLosses ??= 0; p.reactionsGiven ??= 0; p.autoBattles ??= true;
         p.away ??= []; p.lastAutoAt ??= 0; p.recentAuto ??= []; p.epicsDone ??= 0; p.codeTries ??= [];
+        p.drops ??= []; p.quests ??= []; p.lastTauntAt ??= 0; p.comeback ??= false;
         // Starter kit added after the save: back-fill it (a set, so running this again changes nothing)
         if (p.creature) p.unlocked = unique([...p.unlocked, ...cosmeticsForLevel(1)]);
         // Challenges retired (or missing) since the save leave the hand; anything already sent for checking finishes as normal.
         const keep = (p.hand ?? []).filter((h) => h.status !== 'active' || (MISSION_BY_ID[h.missionId] && !MISSION_BY_ID[h.missionId].retired));
         if (keep.length !== (p.hand ?? []).length) { p.hand = keep; if (p.creature) this.refillHand(party, p); }
       }
+      if (party.phase === 'saturday') { for (const p of Object.values(party.players)) if (p.creature && !p.removed && !p.quests.length) this.assignQuests(party, p); if (!party.mole) this.assignMole(party, undefined, []); }
     }
   }
 
@@ -275,6 +286,7 @@ export class Engine {
         .map((c) => ({ claimId: c.id, playerId: c.playerId, missionId: c.missionId, url: c.photoUrl!, at: c.createdAt, up: c.votesUp ?? [], down: c.votesDown ?? [] })),
       xpBoostUntil: party.xpBoostUntil && party.xpBoostUntil > now ? party.xpBoostUntil : null,
       capLifted: party.capLifted,
+      mole: party.mole ? { active: true, voting: !party.mole.revealed, votes: Object.keys(party.mole.votes).length, revealed: party.mole.revealed ? { playerId: party.mole.playerId, caught: !!party.mole.caught, correct: Object.entries(party.mole.votes).filter(([, s]) => s === party.mole!.playerId).map(([v]) => v) } : undefined } : null,
       giveaways: party.giveaways.filter((g) => g.status === 'active' || now - (g.closedAt ?? 0) < 2 * 3600_000).slice(-10),
       autoSaturdayAt: party.autoSaturdayAt,
       nextGroupAt: party.nextGroupAt,
@@ -297,6 +309,10 @@ export class Engine {
       pendingWitness,
       honourCooldownUntil: (p.lastHonourClaimAt ?? 0) + HONOUR_COOLDOWN_MS,
       scoredVs: p.scoredBattlesVs,
+      drops: p.drops.filter((d) => !d.opened),
+      quests: p.quests.map((q) => ({ ...q, progress: questProgress(q, p) })),
+      mole: party.mole && party.mole.playerId === playerId && !party.mole.revealed ? { missions: party.mole.missions } : undefined,
+      moleVote: party.mole?.votes[playerId],
       flagged: p.flagged ?? [],
       away: p.away,
       awayBattles: unique(p.away.map((e) => e.battleId)).map((id) => party.battles[id]).filter(Boolean).map((b) => redactBattle(b, playerId)),
@@ -317,6 +333,15 @@ export class Engine {
 
   // ---------- main dispatcher ----------
   handle(playerId: string, msg: ClientMessage): HandleResult {
+    const res = this.handleInner(playerId, msg);
+    // Quests count whatever just happened (a win, a photo, a reaction) the moment it lands
+    const party = res.ack?.ok ? this.partyOf(playerId) : undefined;
+    const p = party?.players[playerId];
+    if (party && p && p.quests.length && msg.type !== 'openDrop') { const n = res.direct.length; this.checkQuests(party, p, res.direct); if (res.direct.length !== n) res.changed = true; }
+    return res;
+  }
+
+  private handleInner(playerId: string, msg: ClientMessage): HandleResult {
     const res: HandleResult = { changed: false, direct: [] };
     try {
       switch (msg.type) {
@@ -351,6 +376,10 @@ export class Engine {
         case 'joinEpic': return this.joinEpic(playerId, msg.epicId);
         case 'redeemCode': return this.redeemCode(playerId, msg.code);
         case 'claimGiveaway': return this.claimGiveaway(playerId, msg.giveawayId);
+        case 'openDrop': return this.openDrop(playerId, msg.dropId);
+        case 'moleDone': return this.moleDone(playerId, msg.index);
+        case 'moleVote': return this.moleVote(playerId, msg.suspectId);
+        case 'taunt': return this.taunt(playerId, msg.battleId, msg.emoji);
         case 'leaveEpic': return this.leaveEpic(playerId, msg.epicId);
         case 'finishEpic': return this.finishEpic(playerId, msg.epicId);
         case 'surrender': return this.surrender(playerId, msg.battleId);
@@ -391,7 +420,7 @@ export class Engine {
       code, name: (partyName ?? '').trim().slice(0, 40) || "Jezza's Bucks Weekend", hostId: playerId, phase: 'friday', missionsOpen: true,
       createdAt: now, players: {}, feed: [], claims: {}, revealedGroupMissions: [], battles: {}, awardOverrides: {}, finalized: false, fridayPoints: null, seq: 0,
       groomId: isJezza(v.name) ? playerId : null, autoSaturdayAt: nextSaturdayMorning(now), nextGroupAt: now + FIRST_GROUP_DELAY_MS,
-      raids: [], wall: [], cellar: [], phaseMissions: { friday: 0, saturday: 0 }, photoMode: 'vote', nextAutoAt: now + FIRST_AUTO_DELAY_MS, epics: [], codes: [], giveaways: [], log: [], xpBoostUntil: null, capLifted: false,
+      raids: [], wall: [], cellar: [], phaseMissions: { friday: 0, saturday: 0 }, photoMode: 'vote', nextAutoAt: now + FIRST_AUTO_DELAY_MS, epics: [], codes: [], giveaways: [], log: [], xpBoostUntil: null, capLifted: false, mole: null,
     };
     party.players[playerId] = newPlayer(playerId, v.name, now, true, 'friday');
     if (pin) party.hostPinHash = hashPin(code, pin);
@@ -500,6 +529,7 @@ export class Engine {
     p.creature = creature; p.creatureName = nm.name;
     p.unlocked = unique([...p.unlocked, ...cosmeticsForLevel(1)]);
     p.equipped = { colorway: 0, hat: 'hat_party' };
+    if (party.phase === 'saturday' && !p.quests.length) this.assignQuests(party, p);
     p.title = titleForLevel(1);
     // The intro straight away, regardless of phase: your selfie, roast Jezza, toast Jezza. The groom just gets the selfie.
     p.hand = (isGroom ? [STARTER_MISSION] : TUTORIAL_MISSIONS).map((m) => ({ missionId: m.id, assignedAt: this.now(), status: 'active' as const }));
@@ -690,10 +720,13 @@ export class Engine {
     p.categoryCounts[mission.category] = (p.categoryCounts[mission.category] ?? 0) + 1;
     const fresh = p.freshLegs > 0;
     if (fresh) p.freshLegs -= 1;
-    const points = mission.points * (fresh ? 2 : 1) + (newCategory ? VARIETY_BONUS : 0);
+    this.updateComeback(party); // decided before the points land, so the first boosted challenge counts
+    const comeback = p.comeback && !fresh;
+    const points = Math.round(mission.points * (fresh ? 2 : comeback ? 1.5 : 1)) + (newCategory ? VARIETY_BONUS : 0);
     const xp = mission.xp * (rookie ? 2 : 1);
-    const bonus = [rookie ? '🚀 Rookie boost: double XP' : '', fresh ? '🦵 Fresh Legs: double points' : '', newCategory ? `+${VARIETY_BONUS} new category` : ''].filter(Boolean).join(' · ') || undefined;
+    const bonus = [rookie ? '🚀 Rookie boost: double XP' : '', fresh ? '🦵 Fresh Legs: double points' : '', comeback ? '🔥 Comeback: 1.5× points' : '', newCategory ? `+${VARIETY_BONUS} new category` : ''].filter(Boolean).join(' · ') || undefined;
     const reward = this.grant(party, p, points, xp, direct);
+    if (!mission.tutorial && p.missionsCompleted % DROP_EVERY === 0) this.addDrop(party, p, 'challenge', undefined, direct);
     const label = mission.secret ? 'a sneaky one' : `"${mission.title}"`;
     this.feed(party, { kind: 'mission', text: `${p.nickname} did ${label} (+${points})`, playerId: p.id, photoUrl: claim.photoUrl, emoji: mission.secret ? '🕵️' : CATEGORY_EMOJI[mission.category], claimId: claim.id, flags: 0 });
     direct.push({ to: p.id, msg: { type: 'reward', points, xp, ...reward, title: mission.title, bonus, quiet: !immediate || undefined } });
@@ -732,6 +765,7 @@ export class Engine {
   private grant(party: PartyState, p: PlayerState, points: number, xp: number, direct: Outbound[]) {
     const before = p.level; const stageBefore = stageForLevel(before);
     p.points = Math.max(0, p.points + points);
+    this.updateComeback(party);
     // Saturday arrivals earn double XP until they've caught up to the group.
     const boosted = xp > 0 && p.catchUp && p.level < this.medianLevel(party, p.id) ? xp * 2 : xp;
     const { unlocked, capped } = this.applyXp(party, p, boosted);
@@ -1331,13 +1365,21 @@ export class Engine {
   }
 
   private damageRaid(party: PartyState, raid: Raid, p: PlayerState, dmg: number, crit: boolean, source: 'hit' | 'mission', direct: Outbound[]) {
+    const now = this.now();
+    if (raid.weakUntil && now < raid.weakUntil) dmg *= 2; // the weak spot: everything lands double
     const dealt = Math.min(raid.hp, Math.max(1, Math.round(dmg)));
     raid.hp -= dealt;
     raid.damage[p.id] = (raid.damage[p.id] ?? 0) + dealt;
     p.raidDamage += dealt;
     raid.log.push({ at: this.now(), playerId: p.id, dmg: dealt, crit, source });
     if (raid.log.length > 14) raid.log = raid.log.slice(-14);
-    if (raid.hp <= 0) this.endRaid(party, raid, 'won', direct);
+    if (raid.hp <= 0) { this.endRaid(party, raid, 'won', direct); return; }
+    // Half health, once: the boss staggers and every hit for the next 25 seconds does double
+    if (!raid.weakDone && raid.hp <= raid.maxHp / 2) {
+      raid.weakDone = true; raid.weakUntil = now + RAID_WEAK_MS;
+      this.feed(party, { kind: 'raid', text: `🎯 WEAK SPOT! ${BOSSES[raid.boss].name} is staggered: double damage for ${RAID_WEAK_MS / 1000} seconds. EVERYONE HIT IT.`, emoji: '🎯' });
+      direct.push({ to: 'party', msg: { type: 'toast', text: `🎯 WEAK SPOT: double damage for ${RAID_WEAK_MS / 1000}s. Hit it now!`, emoji: '🎯', tone: 'warn' } });
+    }
   }
 
   private raidHit(playerId: string, raidId: string, tap?: TapQuality, power?: number): HandleResult {
@@ -1492,6 +1534,7 @@ export class Engine {
     if (!w || !l || b.rewards) return; // settled exactly once
     w.wins += 1; l.losses += 1;
     b.rewards = {};
+    this.checkQuests(party, w, direct); this.checkQuests(party, l, direct);
     const rivalry = b.reason === 'disconnect' ? undefined : this.recordH2H(w, l);
     if (b.auto) { this.settleAuto(party, b, w, l, rivalry, direct); return; }
     const scored = b.scored && b.reason !== 'disconnect';
@@ -1641,16 +1684,17 @@ export class Engine {
     for (const p of Object.values(party.players)) {
       if (p.removed || !p.creature || p.catchUp) continue;
       if (p.completedMissionIds.filter((id) => !TUTORIAL_IDS.has(id)).length >= LATE_ARRIVAL_BELOW) continue;
-      this.giveCatchUp(p);
+      this.giveCatchUp(p, party, direct);
       names.push(p.nickname);
       direct.push({ to: p.id, msg: { type: 'toast', text: `🦵 Fresh Legs: double points on your next ${FRESH_LEGS} challenges, double XP till you catch the lads.`, emoji: '🦵', tone: 'success' } });
     }
     if (names.length) this.feed(party, { kind: 'host', text: `🦵 Fresh Legs for ${names.join(', ')}: double points on their first ${FRESH_LEGS} challenges.`, emoji: '🦵' });
   }
 
-  private giveCatchUp(p: PlayerState) {
+  private giveCatchUp(p: PlayerState, party?: PartyState, direct?: Outbound[]) {
     p.catchUp = true;
     p.freshLegs = Math.max(p.freshLegs, FRESH_LEGS);
+    if (party && direct) this.addDrop(party, p, 'gift', 'rare', direct); // a welcome drop for the late lads
   }
 
   private applyPhase(party: PartyState, phase: Phase, direct: Outbound[], auto = false) {
@@ -1664,7 +1708,12 @@ export class Engine {
     }
     if (phase === 'finale' || phase === 'ended' || phase === 'lobby') party.missionsOpen = false;
     if (phase === 'saturday') party.autoSaturdayAt = null;
-    if (phase === 'saturday' && prev !== 'saturday') this.lateArrivalsCatchUp(party, direct);
+    if (phase === 'saturday' && prev !== 'saturday') {
+      this.lateArrivalsCatchUp(party, direct);
+      for (const p of Object.values(party.players)) if (p.creature && !p.removed) this.assignQuests(party, p);
+      this.feed(party, { kind: 'phase', text: '📜 SATURDAY QUESTS are out: three each, big points and a Lucky Drop for every one you finish.', emoji: '📜' });
+      if (!party.mole) this.assignMole(party, undefined, direct);
+    }
     const labels: Record<Phase, string> = {
       lobby: 'The game is paused in the lobby.',
       friday: 'FRIDAY is live. Challenges are on.',
@@ -1811,7 +1860,7 @@ export class Engine {
         const t = party.players[action.playerId];
         if (!t || t.removed) return this.fail('No such player.');
         if (action.on) {
-          this.giveCatchUp(t);
+          this.giveCatchUp(t, party, direct);
           this.feed(party, { kind: 'host', text: `🦵 The host gave ${t.nickname} Fresh Legs: double points on their next ${FRESH_LEGS} challenges.`, emoji: '🦵' });
           direct.push({ to: t.id, msg: { type: 'toast', text: `🦵 Fresh Legs from the host: double points on your next ${FRESH_LEGS} challenges, double XP till you catch the lads.`, emoji: '🦵', tone: 'success' } });
         } else { t.catchUp = false; t.freshLegs = 0; }
@@ -1914,6 +1963,35 @@ export class Engine {
         direct.push({ to: 'party', msg: { type: 'toast', text: `⚡ Double XP for ${minutes} minutes. Go!`, emoji: '⚡', tone: 'success' } });
         return this.ok(party, { until: party.xpBoostUntil }, direct);
       }
+      case 'giveDrops': {
+        const rarity = action.rarity && RARITIES.includes(action.rarity) ? action.rarity : undefined;
+        const targets = Object.values(party.players).filter((p) => !p.removed && p.creature && (!action.playerId || p.id === action.playerId));
+        if (!targets.length) return this.fail('Nobody to give it to.');
+        for (const p of targets) this.addDrop(party, p, 'host', rarity, direct);
+        if (targets.length > 1) { this.feed(party, { kind: 'unlock', text: `🎁 The host dropped a ${rarity ? RARITY[rarity].label : 'Lucky'} Drop on everyone. Check your Lobby.`, emoji: '🎁' }); direct.push({ to: 'party', msg: { type: 'toast', text: '🎁 A Lucky Drop just landed for everyone. Tap it on your Lobby.', emoji: '🎁', tone: 'success' } }); }
+        return this.ok(party, { given: targets.length }, direct);
+      }
+      case 'assignMole': {
+        if (party.mole && !party.mole.revealed) return this.fail('There is already a Mole. Reveal them first.');
+        const ok = this.assignMole(party, action.playerId, direct);
+        if (!ok) return this.fail('Need at least four lads with creatures (not the host or the groom) for a Mole.');
+        return this.ok(party, { playerId: party.mole!.playerId }, direct);
+      }
+      case 'revealMole': {
+        const m = party.mole;
+        if (!m || m.revealed) return this.fail('No Mole to reveal.');
+        const mole = party.players[m.playerId];
+        const voters = Object.entries(m.votes).filter(([v]) => party.players[v] && !party.players[v].removed);
+        const correct = voters.filter(([, s]) => s === m.playerId).map(([v]) => v);
+        m.caught = voters.length > 0 && correct.length * 2 > voters.length;
+        m.revealed = true; m.revealedAt = this.now();
+        for (const v of correct) { const vp = party.players[v]; if (vp) this.grant(party, vp, MOLE_POINTS.correctGuess, 0, direct); }
+        if (mole) this.grant(party, mole, m.caught ? MOLE_POINTS.caught : MOLE_POINTS.escaped, 0, direct);
+        const done = m.missions.filter((x) => x.done).length;
+        this.feed(party, { kind: 'phase', text: `🕵️ THE MOLE WAS ${mole?.nickname?.toUpperCase() ?? '?'}. ${m.caught ? `Caught! ${correct.length} of ${voters.length} picked right (+${MOLE_POINTS.correctGuess} each).` : `Got away with it (+${MOLE_POINTS.escaped}). Only ${correct.length} of ${voters.length} picked right.`} ${done}/${m.missions.length} secret missions pulled off.`, emoji: '🕵️' });
+        direct.push({ to: 'party', msg: { type: 'toast', text: `🕵️ The Mole was ${mole?.nickname ?? '?'}! ${m.caught ? 'Caught.' : 'Got away with it.'}`, emoji: '🕵️', tone: 'warn' } });
+        return this.ok(party, { playerId: m.playerId, caught: m.caught, correct: correct.length, voters: voters.length }, direct);
+      }
       case 'liftXpCap': {
         if (party.capLifted) return this.fail('Final forms are already unlocked.');
         party.capLifted = true;
@@ -1965,6 +2043,118 @@ export class Engine {
     }
   }
 
+  // ---------- Lucky Drops ----------
+  private addDrop(party: PartyState, p: PlayerState, source: Drop['source'], rarity: Rarity | undefined, direct: Outbound[]) {
+    const d = rollDrop(this.rng, p.unlocked, source, this.now(), rarity);
+    p.drops.push(d);
+    if (p.drops.length > 40) p.drops = p.drops.filter((x) => !x.opened).concat(p.drops.filter((x) => x.opened).slice(-10));
+    if (source === 'challenge') direct.push({ to: p.id, msg: { type: 'toast', text: '🎁 A Lucky Drop landed. Open it on your Lobby.', emoji: '🎁', tone: 'success' } });
+    void party;
+  }
+
+  private openDrop(playerId: string, dropId: string): HandleResult {
+    const party = this.partyOf(playerId); const p = party?.players[playerId];
+    if (!party || !p || p.removed || !p.creature) return this.fail('Adopt a creature first.');
+    const d = p.drops.find((x) => x.id === dropId);
+    if (!d) return this.fail('That drop isn\'t yours.');
+    if (d.opened) return { ack: { ok: true, data: { drop: d, already: true } }, changed: false, direct: [] };
+    d.opened = true;
+    const direct: Outbound[] = [];
+    // The item was decided when the drop was earned; if it's been picked up elsewhere since, it's points instead
+    if (d.item && p.unlocked.includes(d.item)) { d.points += RARITY[d.rarity].dupPoints; d.item = undefined; }
+    if (d.item) p.unlocked.push(d.item);
+    const reward = this.grant(party, p, d.points, d.xp, direct);
+    const cos = d.item ? COSMETIC_BY_ID[d.item] : undefined;
+    if (d.rarity === 'epic' || d.rarity === 'legendary') this.feed(party, { kind: 'unlock', text: `${d.rarity === 'legendary' ? '🌟 LEGENDARY' : '💜 EPIC'} drop for ${p.nickname}${cos ? `: ${theItem(cos)}` : ''}!`, playerId: p.id, emoji: d.rarity === 'legendary' ? '🌟' : '💜' });
+    return this.ok(party, { drop: d, levelUp: reward.levelUp, evolved: reward.evolved }, direct);
+  }
+
+  // ---------- Saturday Quests ----------
+  private assignQuests(party: PartyState, p: PlayerState) {
+    const pool = [...QUEST_DEFS];
+    p.quests = [];
+    while (p.quests.length < QUESTS_PER_DAY && pool.length) {
+      const i = Math.floor(this.rng() * pool.length); const def = pool.splice(i, 1)[0];
+      if (def.id === 'jezza3' && party.groomId === p.id) continue; // the groom can't get the groom in
+      p.quests.push({ defId: def.id, baseline: def.stat(p), done: false });
+    }
+  }
+
+  private checkQuests(party: PartyState, p: PlayerState, direct: Outbound[]) {
+    for (const q of p.quests) {
+      if (q.done) continue;
+      const def = QUEST_BY_ID[q.defId]; if (!def) continue;
+      if (questProgress(q, p) < def.target) continue;
+      q.done = true; q.doneAt = this.now();
+      const reward = this.grant(party, p, def.points, 0, direct);
+      this.addDrop(party, p, 'quest', def.drop, direct);
+      this.feed(party, { kind: 'achievement', text: `${p.nickname} finished the quest "${def.title}" (+${def.points})`, playerId: p.id, emoji: def.emoji });
+      direct.push({ to: p.id, msg: { type: 'reward', points: def.points, xp: 0, ...reward, title: `Quest done: ${def.title}`, bonus: `🎁 A ${RARITY[def.drop].label} drop is waiting on your Lobby`, quiet: true } });
+    }
+  }
+
+  // ---------- The Mole ----------
+  private assignMole(party: PartyState, playerId: string | undefined, direct: Outbound[]): boolean {
+    const pool = Object.values(party.players).filter((p) => !p.removed && p.creature && p.id !== party.hostId && p.id !== party.groomId);
+    const pick = playerId ? party.players[playerId] : pool[Math.floor(this.rng() * pool.length)];
+    if (!pick || (!playerId && pool.length < 4)) return false;
+    const missions = [...MOLE_MISSIONS].sort(() => this.rng() - 0.5).slice(0, 3).map((text) => ({ text, done: false }));
+    party.mole = { playerId: pick.id, assignedAt: this.now(), missions, votes: {}, revealed: false };
+    this.feed(party, { kind: 'phase', text: '🕵️ THERE IS A MOLE among you, with secret missions to mess with the weekend. Vote on who it is before the finale.', emoji: '🕵️' });
+    direct.push({ to: 'party', msg: { type: 'toast', text: '🕵️ There\'s a Mole in the party. Watch your mates. Vote on the Lobby.', emoji: '🕵️', tone: 'warn' } });
+    direct.push({ to: pick.id, msg: { type: 'toast', text: '🕵️ YOU are the Mole. Shh. Your secret missions are on the Challenges tab.', emoji: '🕵️', tone: 'warn' } });
+    return true;
+  }
+
+  private moleDone(playerId: string, index: number): HandleResult {
+    const party = this.partyOf(playerId); const p = party?.players[playerId]; const m = party?.mole;
+    if (!party || !p || !m || m.playerId !== playerId || m.revealed) return this.fail('Nice try.');
+    const mission = m.missions[index];
+    if (!mission) return this.fail('No such mission.');
+    if (mission.done) return { ack: { ok: true, data: { already: true } }, changed: false, direct: [] };
+    mission.done = true;
+    const direct: Outbound[] = [];
+    const reward = this.grant(party, p, MOLE_POINTS.mission, 0, direct); // no feed line: that would blow the cover
+    return this.ok(party, undefined, [...direct, { to: p.id, msg: { type: 'reward', points: MOLE_POINTS.mission, xp: 0, ...reward, title: 'Secret mission done', bonus: '🕵️ Nobody saw a thing', quiet: true } }]);
+  }
+
+  private moleVote(playerId: string, suspectId: string): HandleResult {
+    const party = this.partyOf(playerId); const p = party?.players[playerId]; const m = party?.mole;
+    if (!party || !p || p.removed || !p.creature) return this.fail('Adopt a creature first.');
+    if (!m || m.revealed) return this.fail('Voting is closed.');
+    const s = party.players[suspectId];
+    if (!s || s.removed || !s.creature || s.id === playerId) return this.fail('Pick a mate (not yourself).');
+    m.votes[playerId] = suspectId;
+    return this.ok(party, { suspectId });
+  }
+
+  // ---------- battle taunts ----------
+  private taunt(playerId: string, battleId: string, emoji: string): HandleResult {
+    const party = this.partyOf(playerId); const p = party?.players[playerId];
+    if (!party || !p) return this.fail('Join a party first.');
+    const b = party.battles[battleId];
+    if (!b || b.status !== 'active' || (b.a.playerId !== playerId && b.b.playerId !== playerId)) return this.fail('No fight to taunt in.');
+    if (!TAUNTS.includes(emoji)) return this.fail('Not that one.');
+    const now = this.now();
+    if (now - p.lastTauntAt < TAUNT_GAP_MS) return this.fail('Easy on the taunts.');
+    p.lastTauntAt = now;
+    const other = b.a.playerId === playerId ? b.b.playerId : b.a.playerId;
+    const msg = { type: 'taunt' as const, battleId, from: playerId, emoji };
+    return { ack: { ok: true }, changed: false, direct: [{ to: playerId, msg }, { to: other, msg }], partyCode: party.code };
+  }
+
+  // ---------- comeback ----------
+  /** Well behind the leader (under 60% of their points, once the leader has 200+): 1.5× on challenges until back to 80%. */
+  private updateComeback(party: PartyState) {
+    const live = Object.values(party.players).filter((p) => !p.removed && p.creature);
+    const lead = Math.max(0, ...live.map((p) => p.points));
+    for (const p of live) {
+      if (lead < COMEBACK_MIN_LEAD) { p.comeback = false; continue; }
+      if (!p.comeback && p.points < lead * COMEBACK_BELOW) p.comeback = true;
+      else if (p.comeback && p.points >= lead * COMEBACK_UNTIL) p.comeback = false;
+    }
+  }
+
   // ---------- helpers ----------
   private feed(party: PartyState, ev: Omit<FeedEvent, 'id' | 'at'>) {
     const line: FeedEvent = { id: `f_${party.feed.length}_${Math.floor(this.rng() * 1e6).toString(36)}`, at: this.now(), ...ev };
@@ -1979,18 +2169,18 @@ const CATEGORY_EMOJI: Record<string, string> = { laugh: '😂', dance: '🕺', s
 
 function newPlayer(id: string, nickname: string, now: number, isHost: boolean, joinedPhase: Phase = 'friday'): PlayerState {
   return {
-    id, nickname, creature: null, creatureName: '', level: 1, xp: 0, points: 0, equipped: { colorway: 0 }, unlocked: [], achievements: [],
+    id, nickname, creature: null, creatureName: '', level: 1, xp: 0, points: 0, equipped: { colorway: 0 }, unlocked: [], achievements: [], comeback: false,
     missionsCompleted: 0, wins: 0, losses: 0, title: 'Fresh Legend', online: true, isHost, joinedAt: now, lastSeen: now, categoryCounts: {}, witnessed: 0,
     rating: START_RATING, streak: 0, bestStreak: 0, bounties: 0, laughs: 0, fires: 0, groomLoves: 0, wallVotes: 0,
     cellarCount: 0, cellarFires: 0, raidDamage: 0, raidsJoined: 0, lowKey: false, freshLegs: 0, catchUp: false, joinedPhase,
     h2h: {}, upsetLosses: 0, reactionsGiven: 0, autoBattles: true, epicsDone: 0,
-    hand: [], completedMissionIds: [], rerollsLeft: REROLLS_PER_PHASE, scoredBattlesVs: {}, missedRounds: 0, lastHonourClaimAt: 0, flagged: [], rerollRefillAt: 0,
+    hand: [], completedMissionIds: [], rerollsLeft: REROLLS_PER_PHASE, scoredBattlesVs: {}, missedRounds: 0, lastHonourClaimAt: 0, flagged: [], rerollRefillAt: 0, drops: [], quests: [], lastTauntAt: 0,
     away: [], lastAutoAt: 0, recentAuto: [], codeTries: [],
   };
 }
 
 function toPublic(p: PlayerState): PlayerPublic {
-  const { hand, completedMissionIds, rerollsLeft, scoredBattlesVs, missedRounds, lastHonourClaimAt, flagged, rerollRefillAt, away, lastAutoAt, recentAuto, codeTries, creatureBefore, ...pub } = p;
+  const { hand, completedMissionIds, rerollsLeft, scoredBattlesVs, missedRounds, lastHonourClaimAt, flagged, rerollRefillAt, away, lastAutoAt, recentAuto, codeTries, creatureBefore, drops, quests, lastTauntAt, ...pub } = p;
   return pub;
 }
 

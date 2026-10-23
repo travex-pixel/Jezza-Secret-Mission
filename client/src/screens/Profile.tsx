@@ -102,7 +102,7 @@ export default function Profile() {
               <button className={`chip ${!me.equipped[slot] ? 'on' : ''}`} onClick={() => equip({ [slot]: '' })}><span className="ico">∅</span><span>None</span></button>
               {COSMETICS.filter((c) => c.slot === slot).map((c) => { const owned = me.unlocked.includes(c.id); const src = Object.entries(LEVEL_UNLOCKS).find(([, u]) => u.cosmetics.includes(c.id))?.[0]; const ach = ACHIEVEMENTS.find((a) => a.cosmetic === c.id); return (
                 <button key={c.id} className={`chip ${me.equipped[slot] === c.id ? 'on' : ''} ${owned ? '' : 'locked'}`} onClick={() => owned ? equip({ [slot]: c.id }) : toast(`${c.name}: ${src ? `reach level ${src}` : ach ? `earn "${ach.name}"` : c.description}`, '🔒')} title={c.description}>
-                  <span className="ico">{slot === 'hat' ? <HatIcon id={c.id} size={30} /> : owned ? SLOTS.find((s) => s.slot === slot)?.ico : '🔒'}</span><span>{c.name}</span>{!owned && <span className="tiny faint">{src ? `Lv ${src}` : ach ? 'Badge' : /^EPIC/.test(c.description) ? 'EPIC' : /Reward code/.test(c.description) ? 'Code' : ''}</span>}
+                  <span className="ico">{slot === 'hat' ? <HatIcon id={c.id} size={30} /> : owned ? SLOTS.find((s) => s.slot === slot)?.ico : '🔒'}</span><span>{c.name}</span>{!owned && <span className="tiny faint">{src ? `Lv ${src}` : ach ? 'Badge' : /^EPIC/.test(c.description) ? 'EPIC' : /Reward code/.test(c.description) ? 'Code' : /^Lucky Drop/.test(c.description) ? '🎁 Drop' : ''}</span>}
                 </button>); })}
             </div>
           )}

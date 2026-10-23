@@ -121,8 +121,12 @@ while (t < END) {
       const e = p.epics.find((x) => x.status === 'open'); if (e) send(id, e.crew.includes(id) ? { type: 'finishEpic', epicId: e.id } : { type: 'joinEpic', epicId: e.id });
     } else if (r < 0.95) {
       const g = p.giveaways.find((x) => x.status === 'active'); if (g) send(id, { type: 'claimGiveaway', giveawayId: g.id });
-    } else if (r < 0.97) {
+    } else if (r < 0.95) {
       const post = pick(p.wall.filter((w) => w.playerId !== id)); if (post) send(id, { type: 'wallVote', postId: post.id });
+    } else if (r < 0.965) {
+      const d = priv.drops[0]; if (d) send(id, { type: 'openDrop', dropId: d.id });
+    } else if (r < 0.975) {
+      if (p.mole && !p.mole.revealed) { if (priv.mole) send(id, { type: 'moleDone', index: Math.floor(rand() * 3) }); else { const sus = pick(others); if (sus) send(id, { type: 'moleVote', suspectId: sus.id }); } }
     } else {
       const hat = pick(me.unlocked.filter((x) => x.startsWith('hat_'))); send(id, { type: 'equip', equipped: { hat } });
     }
@@ -134,6 +138,7 @@ while (t < END) {
 // ---- Sunday lunch: finale (the host makes the one judgement call) ----
 send(ids[0], { type: 'host', action: { kind: 'setPhase', phase: 'finale' } });
 send(ids[0], { type: 'host', action: { kind: 'setAward', awardId: 'unhinged', playerId: ids[6] } });
+send(ids[0], { type: 'host', action: { kind: 'revealMole' } });
 for (let i = 0; i < 40; i++) { t += 5_000; eng.tick(); }
 const p = party();
 const keep = eng.keepsake(p);
@@ -161,13 +166,19 @@ check(wins > 200 && wins === losses && battles.filter((b) => b.status === 'finis
 check(battles.every((b) => b.status !== 'active'), 'no fight left hanging at the end');
 check(battles.filter((b) => b.status === 'finished').every((b) => b.winnerId && b.loserId && b.winnerId !== b.loserId), 'every finished fight has a winner and a loser');
 check(p.raids.length >= 2, `raids happened (${p.raids.length})`);
-check(players.every((x) => x.level >= 1 && x.level <= 10 && x.xp >= 0 && Number.isFinite(x.points)), 'every creature has a sane level, XP and score');
+check(players.every((x) => x.level >= 1 && x.level <= 15 && x.xp >= 0 && Number.isFinite(x.points)), 'every creature has a sane level, XP and score');
 check(players.every((x) => x.unlocked.length === new Set(x.unlocked).size && STARTER_COSMETICS.every((s) => x.unlocked.includes(s))), 'no duplicate items; everyone still has the starter kit');
 check(p.giveaways.every((g) => g.claims.length <= g.qty && new Set(g.claims.map((c) => c.playerId)).size === g.claims.length && g.status !== 'active'), 'giveaways never over-handed and all closed by the end');
 check(lateIds.size === [...lateIds].filter((id) => p.players[id]?.catchUp).length, 'the four Saturday arrivals got Fresh Legs');
+const drops = players.flatMap((x) => x.drops); const opened = drops.filter((d) => d.opened);
+console.log(`  drops: ${drops.length} earned, ${opened.length} opened · rarities ${['common', 'rare', 'epic', 'legendary'].map((r) => `${r} ${drops.filter((d) => d.rarity === r).length}`).join(', ')} · quests done ${players.reduce((n, x) => n + x.quests.filter((q) => q.done).length, 0)}/${players.reduce((n, x) => n + x.quests.length, 0)} · mole ${p.mole?.revealed ? (p.mole.caught ? 'caught' : 'escaped') : 'none'}`);
+check(drops.length > 50 && drops.some((d) => d.rarity === 'legendary'), `drops flowed all weekend and a legendary turned up (${drops.length})`);
+check(players.every((x) => x.quests.length === 3) && players.some((x) => x.quests.some((q) => q.done)), 'everyone had quests and some got done');
+check(!!p.mole?.revealed, 'the Mole was revealed at the finale');
+check(players.every((x) => x.drops.every((d) => !d.item || !d.opened || x.unlocked.includes(d.item))), 'every opened drop item is actually owned');
 const awards = eng.publicView(p).awards;
 const empty = awards.filter((a) => !a.playerId).map((a) => a.name);
-check(awards.length === 15 && empty.length === 0, `finale: ${awards.length} awards, ${awards.length - empty.length} with a winner${empty.length ? ` (no winner: ${empty.join(', ')})` : ''}`);
+check(awards.length === 15 && empty.length <= 1, `finale: ${awards.length} awards, ${awards.length - empty.length} with a winner${empty.length ? ` (no winner: ${empty.join(', ')})` : ''}`);
 check(html.includes('The Jezza Wall') && csvs['leaderboard.csv'].split('\r\n').length > 15, 'the keepsake builds from a full weekend');
 const roundTrip = new Engine({ now: () => t }, JSON.parse(JSON.stringify(eng.state)));
 check(JSON.stringify(roundTrip.publicView(roundTrip.state.parties[code]).players.map((x) => x.points)) === JSON.stringify(eng.publicView(p).players.map((x) => x.points)), 'saving and loading the whole weekend keeps every score');

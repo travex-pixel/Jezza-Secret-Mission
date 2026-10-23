@@ -53,6 +53,7 @@ export default function Raid() {
       <div className="screen-body" style={{ gap: 8 }}>
         <div className="center"><div className="display title-md gold-text">{boss.name}</div><div className="tiny dim bold">{active ? boss.taunt : raid.status === 'won' ? boss.defeat : boss.escape}</div></div>
         <div className="raid-bar"><i style={{ width: `${pct * 100}%` }} /><span>{raid.hp} / {raid.maxHp}</span></div>
+        {active && raid.weakUntil && raid.weakUntil > party.serverTime && <div className="weak-banner" data-testid="weak-banner">🎯 WEAK SPOT · double damage · {Math.max(1, Math.ceil((raid.weakUntil - party.serverTime) / 1000))}s</div>}
         <div className="stage grow" style={{ minHeight: 0, alignItems: 'center' }}>
           <div className="stage-pool" />
           <Boss boss={raid.boss} hitKey={hitKey} dead={raid.status === 'won'} style={{ height: '100%', maxHeight: 260, aspectRatio: '1', zIndex: 1 }} />

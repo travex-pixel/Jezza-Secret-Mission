@@ -46,6 +46,12 @@ function Arena({ battle, meId, names, onPlan, onSurrender, onRematch, onExit, pr
   const lastLog = shownRounds > 0 ? battle.log[Math.min(shownRounds, battle.log.length) - 1] : undefined;
   const won = battle.winnerId === meId;
   const locked = !!mine.plan || !!mine.locked;
+  // taunts: a tap sends an emoji to both phones; it pops over the sender's creature for a couple of seconds
+  const taunt = useStore((s) => s.taunt);
+  const liveTaunt = taunt && taunt.battleId === battle.id && Date.now() - taunt.at < 2600 ? taunt : null;
+  const [, tick] = useState(0);
+  useEffect(() => { if (!liveTaunt) return; const t = setTimeout(() => tick((n) => n + 1), 2700); return () => clearTimeout(t); }, [liveTaunt?.at]); // eslint-disable-line react-hooks/exhaustive-deps
+  const sendTaunt = (emoji: string) => { if (practice) return; request({ type: 'taunt', battleId: battle.id, emoji }).catch(() => undefined); };
 
   return (
     <div className="screen-body" style={{ gap: 8 }}>
@@ -57,8 +63,9 @@ function Arena({ battle, meId, names, onPlan, onSurrender, onRematch, onExit, pr
         status={(who) => finished ? null : who === 'far'
           ? <span className="pill pill-xs status">{foe.locked || foe.plan ? '🔒 ready' : '🤔 picking'}</span>
           : <span className="pill pill-xs status">{locked ? '🔒 locked in' : 'your call'}</span>}
-        overlay={charging && <PowerTap label={`${PLANS[charging].emoji} Charge up!`} onDone={(power, q) => commit(charging, power, q)} />}
+        overlay={<>{charging && <PowerTap label={`${PLANS[charging].emoji} Charge up!`} onDone={(power, q) => commit(charging, power, q)} />}{liveTaunt && <span key={liveTaunt.at} className="taunt-bubble" style={liveTaunt.from === meId ? { left: '12%', bottom: '28%' } : { right: '12%', top: '22%' }}>{liveTaunt.emoji}</span>}</>}
       />
+      {!finished && !practice && battle.status === 'active' && <div className="taunt-bar" data-testid="taunt-bar">{['😂', '🔥', '😴', '💪', '👀', '🫡', '🤡', '🍻'].map((e) => <button key={e} onClick={() => sendTaunt(e)} aria-label={`Taunt ${e}`}>{e}</button>)}</div>}
       {finished ? (
         <div className="arena-log">{lastLog ? lastLog.lines.slice(-2).map((l, i) => <div key={`${lastLog.round}-${i}`} className="log-line ellipsis">{l}</div>) : <div className="log-line">Here we go…</div>}</div>
       ) : null}

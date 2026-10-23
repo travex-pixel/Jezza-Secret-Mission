@@ -413,6 +413,61 @@ img, svg { display: block; max-width: 100%; }
   .tv-side { border-left: 0; border-top: 1px solid var(--line); max-height: 52vh; }
   .tv-feed { display: none; }
 }
+/* ===== Lucky Drops ===== */
+.drop-card { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--rc) 70%, transparent); background: linear-gradient(160deg, color-mix(in srgb, var(--rc) 22%, transparent), rgba(118,36,58,.3) 70%); box-shadow: 0 0 22px color-mix(in srgb, var(--rc) 30%, transparent); color: var(--cream); width: 100%; animation: drop-pulse 1.8s ease-in-out infinite; }
+.drop-card-crate { font-size: 30px; line-height: 1; animation: crate-wiggle 2.2s ease-in-out infinite; }
+@keyframes drop-pulse { 0%, 100% { box-shadow: 0 0 14px color-mix(in srgb, var(--rc) 25%, transparent); } 50% { box-shadow: 0 0 30px color-mix(in srgb, var(--rc) 55%, transparent); } }
+@keyframes crate-wiggle { 0%, 80%, 100% { transform: rotate(0); } 85% { transform: rotate(-12deg); } 90% { transform: rotate(10deg); } 95% { transform: rotate(-6deg); } }
+.drop-overlay { position: fixed; inset: 0; z-index: 75; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; background: rgba(12,8,14,.92); color: var(--cream); overflow: hidden; }
+.drop-glow { position: absolute; width: 70vmin; height: 70vmin; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--rc) 55%, transparent), transparent 65%); filter: blur(10px); transition: transform .6s, opacity .6s; transform: scale(.6); opacity: .5; }
+.s-shaking .drop-glow { animation: glow-breathe .5s ease-in-out infinite alternate; }
+.s-cracking .drop-glow { transform: scale(1.1); opacity: 1; }
+.s-open .drop-glow { transform: scale(1.6); opacity: .9; }
+@keyframes glow-breathe { from { transform: scale(.7); opacity: .5; } to { transform: scale(.95); opacity: .9; } }
+.drop-rarity { font-family: var(--font-display); font-weight: 800; letter-spacing: .32em; font-size: 13px; color: var(--rc); text-shadow: 0 0 14px color-mix(in srgb, var(--rc) 80%, transparent); z-index: 2; }
+.s-open .drop-rarity { font-size: 22px; animation: reward-pop 600ms cubic-bezier(.2,.9,.2,1.3) both; }
+.drop-crate { position: relative; z-index: 2; display: flex; align-items: center; justify-content: center; min-height: 200px; }
+.crate { position: relative; width: 150px; height: 130px; filter: drop-shadow(0 18px 24px rgba(0,0,0,.6)); }
+.crate-box { position: absolute; left: 10px; right: 10px; bottom: 0; height: 92px; border-radius: 12px; background: linear-gradient(180deg, #8a5a33, #5c3a1e); border: 3px solid var(--rc); box-shadow: inset 0 0 0 6px rgba(0,0,0,.18); }
+.crate-lid { position: absolute; left: 0; right: 0; top: 18px; height: 34px; border-radius: 10px; background: linear-gradient(180deg, #a56e3f, #7a4b27); border: 3px solid var(--rc); transform-origin: left bottom; }
+.crate-lock { position: absolute; left: 50%; top: 40px; transform: translateX(-50%); width: 40px; height: 40px; border-radius: 50%; background: var(--rc); color: #2a1a10; font-size: 22px; font-weight: 900; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 18px var(--rc); }
+.s-shaking .crate { animation: crate-shake .35s ease-in-out infinite; }
+.r-epic.s-shaking .crate, .r-legendary.s-shaking .crate { animation-duration: .22s; }
+@keyframes crate-shake { 0%, 100% { transform: rotate(0) translateY(0); } 25% { transform: rotate(-6deg) translateY(-6px); } 75% { transform: rotate(6deg) translateY(-4px); } }
+.s-cracking .crate-lid { animation: lid-pop .7s cubic-bezier(.3,1.4,.5,1) both; }
+.s-cracking .crate-lock { animation: lock-blow .5s ease-out both; }
+.crate-crack { position: absolute; inset: 0; border-radius: 12px; background: radial-gradient(circle at 50% 60%, #fff 0%, var(--rc) 25%, transparent 60%); animation: crack-flash .7s ease-out both; }
+@keyframes lid-pop { to { transform: rotate(-70deg) translate(-10px, -30px); opacity: 0; } }
+@keyframes lock-blow { to { transform: translate(-50%, -90px) scale(2.2); opacity: 0; } }
+@keyframes crack-flash { 0% { opacity: 0; transform: scale(.6); } 40% { opacity: 1; } 100% { opacity: 0; transform: scale(1.8); } }
+.drop-prize { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
+.drop-item { width: 120px; height: 120px; display: flex; align-items: center; justify-content: center; border-radius: 30px; background: radial-gradient(circle, color-mix(in srgb, var(--rc) 45%, transparent), transparent 70%); animation: prize-float 2.6s ease-in-out infinite; filter: drop-shadow(0 0 18px var(--rc)); }
+.drop-item .hat-icon { width: 110px !important; height: 110px !important; font-size: 72px !important; }
+.drop-points-big { font-family: var(--font-display); font-weight: 800; font-size: 72px; line-height: 1; color: var(--rc); text-shadow: 0 0 24px var(--rc); animation: reward-pop 700ms cubic-bezier(.2,.9,.2,1.3) both; }
+.drop-name { color: var(--rc); text-shadow: 0 0 18px color-mix(in srgb, var(--rc) 70%, transparent); }
+@keyframes prize-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+.drop-burst { position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; border-radius: 50%; background: var(--rc); animation: burst 1.1s ease-out both; }
+.drop-ray { position: absolute; left: 50%; top: 50%; width: 3px; height: 70vmax; margin-top: -35vmax; transform-origin: 50% 50%; background: linear-gradient(transparent, color-mix(in srgb, var(--rc) 35%, transparent), transparent); animation: rays-spin 14s linear infinite; }
+@keyframes rays-spin { to { transform: rotate(360deg); } }
+.drop-foot { z-index: 2; font-size: 12px; font-weight: 800; letter-spacing: .08em; opacity: .7; }
+@media (prefers-reduced-motion: reduce) { .drop-card, .drop-card-crate, .s-shaking .crate, .drop-item, .drop-ray, .s-shaking .drop-glow { animation: none !important; } }
+/* ===== Quests + Mole ===== */
+.quest-strip { display: flex; align-items: center; gap: 8px; padding: 8px 10px; font-size: 13px; text-align: left; }
+.quest-strip.alert { border-color: rgba(240,120,66,.6); box-shadow: 0 0 14px rgba(240,120,66,.25); }
+.quest-card { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line); }
+.quest-card.done { opacity: .7; }
+.quest-emoji { font-size: 22px; line-height: 1.2; }
+.quest-bar { height: 8px; border-radius: 999px; background: rgba(255,255,255,.08); overflow: hidden; margin: 6px 0 3px; }
+.quest-bar i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #B9832C, #E5AD48, #F8DFA0); transition: width .4s; }
+.mole-panel { border-color: rgba(240,120,66,.55); background: linear-gradient(160deg, rgba(240,120,66,.14), var(--panel) 60%); }
+/* ===== Battle taunts + raid weak spot ===== */
+.taunt-bar { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
+.taunt-bar button { width: 40px; height: 36px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); font-size: 20px; }
+.taunt-bar button:active { transform: scale(.92); }
+.taunt-bubble { position: absolute; z-index: 5; font-size: 40px; line-height: 1; padding: 6px 10px; border-radius: 18px; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.2); animation: taunt-in 2.4s ease-out both; pointer-events: none; }
+@keyframes taunt-in { 0% { transform: scale(.3); opacity: 0; } 12% { transform: scale(1.2); opacity: 1; } 20% { transform: scale(1); } 80% { opacity: 1; } 100% { transform: translateY(-20px) scale(.9); opacity: 0; } }
+.weak-banner { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 12px; border-radius: 14px; border: 1px solid #ffb347; background: linear-gradient(90deg, rgba(255,120,66,.35), rgba(255,200,80,.25)); font-weight: 900; letter-spacing: .04em; animation: weak-flash .6s ease-in-out infinite alternate; }
+@keyframes weak-flash { from { box-shadow: 0 0 8px rgba(255,180,70,.3); } to { box-shadow: 0 0 26px rgba(255,180,70,.75); } }
 /* ===== Up for grabs (host giveaways) ===== */
 .grab-card { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 16px; border: 1px solid rgba(229,173,72,.6); background: linear-gradient(160deg, rgba(229,173,72,.22), rgba(118,36,58,.35) 70%); box-shadow: var(--glow-gold); }
 .grab-card .btn { flex: 0 0 auto; white-space: nowrap; }
@@ -565,6 +620,10 @@ img, svg { display: block; max-width: 100%; }
 .creature .aura-toxic .fume { animation: fume-rise 3.2s ease-out infinite; }
 .creature .aura-love .heart { animation: heart-rise 3s ease-out infinite; }
 .creature .aura-shadow .smoke { animation: smoke 4.5s ease-in-out infinite; }
+.creature .aura-volcano .lava { animation: lava-blast 1.6s ease-out infinite; }
+.creature .aura-volcano .ash { animation: fume-rise 4s ease-out infinite; }
+.creature .aura-cross { transform-origin: 100px 118px; animation: spin 60s linear infinite; }
+@keyframes lava-blast { 0% { transform: translateY(0); opacity: 0; } 15% { opacity: 1; } 100% { transform: translateY(-130px) translateX(6px); opacity: 0; } }
 .creature .wings .wing-flap { transform-box: fill-box; transform-origin: 90% 20%; animation: flap 2.4s ease-in-out infinite; }
 .creature .halo { animation: cre-float 3.2s ease-in-out infinite; }
 @keyframes flake-fall { 0% { transform: translateY(-20px) rotate(0); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(110px) rotate(180deg); opacity: 0; } }
@@ -668,7 +727,7 @@ img, svg { display: block; max-width: 100%; }
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
   .creature .body-g, .creature .wing, .creature .tail, .creature .lid, .creature .aura-g, .creature .stag-rays, .creature .aura-rainbow-ring, .creature .aura-rays, .creature .aura-disco, .creature .ember, .creature .bubble, .creature .twinkle, .creature .pose-wind path { animation: none !important; }
   .creature .bolt, .creature .pose-zzz text { animation: none !important; opacity: .8; }
-  .creature .flake, .creature .fume, .creature .heart, .creature .smoke, .creature .wing-flap, .creature .halo { animation: none !important; }
+  .creature .flake, .creature .fume, .creature .heart, .creature .smoke, .creature .wing-flap, .creature .halo, .creature .lava, .creature .ash, .creature .aura-cross { animation: none !important; }
   .creature .stag-twinkle { animation: none !important; opacity: .8; }
 }
 
