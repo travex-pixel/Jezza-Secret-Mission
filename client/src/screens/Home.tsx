@@ -118,6 +118,13 @@ export default function Home() {
         {voting && <MoleVote onClose={() => setVoting(false)} />}
         {party.phase === 'saturday' && !opening && <SaturdayBriefing code={party.code} moles={party.mole?.count ?? 0} isMole={!!priv?.mole} />}
         {alert === 'grab' && grab && <GiveawayCard g={grab} />}
+        {priv?.mole && (
+          <button className="panel quest-strip hot mole-me" onClick={() => { useStore.setState({ missionsTab: 'mine' }); setTab('missions'); }} data-testid="mole-me-strip">
+            <span style={{ fontSize: 22 }}>🤫</span>
+            <span className="grow" style={{ minWidth: 0, textAlign: 'left' }}><div className="bold">You are the Mole. Shh.</div><div className="tiny" style={{ opacity: .85 }}>{priv.mole.missions.filter((m) => m.done).length}/{priv.mole.missions.length} secret missions done · only you can see this</div></span>
+            <span className="tiny bold" style={{ color: 'var(--rose)' }}>→</span>
+          </button>
+        )}
         {(quests.length > 0 || moleOpen) && (
           <div className="row" style={{ gap: 6 }}>
             {quests.length > 0 && <button className="panel quest-strip grow" onClick={() => { useStore.setState({ missionsTab: 'quests' }); setTab('missions'); }} data-testid="quest-strip"><span>📜</span><span className="grow ellipsis"><b>Quests</b> · {questsDone}/{quests.length} done</span><span className="tiny bold" style={{ color: 'var(--rose)' }}>→</span></button>}
