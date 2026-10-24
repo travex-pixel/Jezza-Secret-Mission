@@ -527,6 +527,7 @@ img, svg { display: block; max-width: 100%; }
 .weak-banner { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 12px; border-radius: 14px; border: 1px solid #ffb347; background: linear-gradient(90deg, rgba(255,120,66,.35), rgba(255,200,80,.25)); font-weight: 900; letter-spacing: .04em; }
 .weak-banner::after { content: ''; position: absolute; inset: -1px; border-radius: inherit; box-shadow: 0 0 24px rgba(255,180,71,.8); animation: drop-pulse .6s ease-in-out infinite alternate; pointer-events: none; }
 .pill-tap { min-height: 36px; padding: 0 12px; }
+.drink-chips { gap: 6px; flex-wrap: wrap; max-height: 132px; overflow-y: auto; }
 @keyframes weak-flash { from { box-shadow: 0 0 8px rgba(255,180,70,.3); } to { box-shadow: 0 0 26px rgba(255,180,70,.75); } }
 /* ===== Up for grabs (host giveaways) ===== */
 .grab-card { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 16px; border: 1px solid rgba(229,173,72,.6); background: linear-gradient(160deg, rgba(229,173,72,.22), rgba(118,36,58,.35) 70%); box-shadow: var(--glow-gold); }

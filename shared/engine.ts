@@ -7,6 +7,7 @@ import type {
   Raid, Reaction, WallPost, CellarEntry, GalleryPhoto, PhotoMode, AwayEvent, Keepsake, Epic, RewardCode, Giveaway,
 } from './types';
 import { EPIC_CUSTOM_ITEM, EPIC_MAX_CREW, EPIC_PRESET_BY_ID, EPIC_TIERS, isEpicTier } from './epics';
+import { drinkEmoji } from './drinks';
 import { DROP_EVERY, MOLE_MAX, MOLE_MISSIONS, MOLE_POINTS, molesFor, QUESTS_PER_DAY, QUEST_BY_ID, QUEST_DEFS, RARITIES, RARITY, questProgress, rollDrop, type Drop, type MoleState, type Quest, type Rarity } from './saturday';
 import { CREATURES, CREATURE_IDS, FORMS, GROOM_CREATURE, starterTrio } from './creatures';
 import { MISSIONS, MISSION_BY_ID, STARTER_MISSION, TUTORIAL_MISSIONS, TUTORIAL_IDS, GROUP_MISSIONS, missionAvailableInPhase, rookieLeft, type Mission } from './missions';
@@ -1087,9 +1088,9 @@ export class Engine {
     const rewarded = party.cellar.filter((e) => e.playerId === playerId && e.phase === party.phase).length <= CELLAR_REWARDED_PER_PHASE;
     p.cellarCount += 1;
     const direct: Outbound[] = [];
-    if (rewarded) { this.grant(party, p, 5, 10, direct); direct.push({ to: playerId, msg: { type: 'toast', text: 'Reviewed (+5). Very sophisticated.', emoji: '🍷', tone: 'success' } }); }
+    if (rewarded) { this.grant(party, p, 5, 10, direct); direct.push({ to: playerId, msg: { type: 'toast', text: 'Reviewed (+5). Very sophisticated.', emoji: drinkEmoji(drink), tone: 'success' } }); }
     else { this.checkAchievements(party, p, direct); direct.push({ to: playerId, msg: { type: 'toast', text: 'Logged. (Only your first 3 reviews a day score: the game never rewards drinking more.)', emoji: '🍷', tone: 'info' } }); }
-    this.feed(party, { kind: 'cellar', text: `${p.nickname} reviewed ${drink} ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}`, playerId: p.id, emoji: '🍷' });
+    this.feed(party, { kind: 'cellar', text: `${p.nickname} reviewed ${drink} ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}`, playerId: p.id, emoji: drinkEmoji(drink) });
     return this.ok(party, { id: entry.id }, direct);
   }
 

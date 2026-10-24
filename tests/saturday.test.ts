@@ -420,3 +420,19 @@ describe('review fixes: things a cheeky lad or a fat-thumbed host could do', () 
     expect(party().mole!.moles.length).toBe(1);
   });
 });
+
+describe('the Cellar menu', () => {
+  it('every quick-pick drink maps to its own group, and free text gets a sensible emoji', async () => {
+    const { DRINK_GROUPS, drinkGroup, drinkEmoji } = await import('../shared/drinks');
+    for (const g of DRINK_GROUPS) for (const d of g.items) expect(drinkGroup(d), d).toBe(g.id);
+    expect(drinkEmoji('schooner of Tooheys')).toBe('🍺'); expect(drinkEmoji('pepsi max')).toBe('🥤'); expect(drinkEmoji('2019 Hunter Semillon')).toBe('🍷');
+    expect(drinkEmoji('bourbon and coke')).toBe('🥃'); expect(drinkEmoji('tap water')).toBe('🥤'); expect(drinkEmoji('mystery juice')).toBe('🥤'); expect(drinkEmoji('something odd')).toBe('🍷');
+  });
+  it('the feed line for a review carries the drink emoji', () => {
+    const { eng, ids, party } = setup();
+    eng.handle(ids[1], { type: 'cellarAdd', reqId: 'c', drink: 'Great Northern', stars: 4 });
+    expect(party().feed.at(-1)!.emoji).toBe('🍺');
+    eng.handle(ids[1], { type: 'cellarAdd', reqId: 'c', drink: 'Solo', stars: 5 });
+    expect(party().feed.at(-1)!.emoji).toBe('🥤');
+  });
+});
