@@ -908,3 +908,7 @@ img, svg { display: block; max-width: 100%; }
   .hero-creature { width: min(40vw, 160px); bottom: 42%; }
   .screen { padding-top: calc(var(--sat) + 6px); }
 }
+
+.toggle2 { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 3px; border-radius: 12px; background: rgba(0,0,0,.3); border: 1px solid var(--line); }
+.toggle2 > button { min-height: 32px; border-radius: 9px; border: 0; background: transparent; color: var(--text-dim); font-weight: 800; font-size: 12px; }
+.toggle2 > button.on { background: var(--panel); color: var(--cream); border: 1px solid var(--line); }

@@ -31,6 +31,7 @@ export default function Scorer() {
   const [pick, setPick] = useState<string | null>(null);
   const [pts, setPts] = useState<number>(60);
   const [custom, setCustom] = useState('');
+  const [minus, setMinus] = useState(false); // phones have no − key: a toggle flips the amount to a take-back
   const [busy, setBusy] = useState(false);
   const ev = party?.olympics?.current ?? null;
   useEffect(() => { if (!ev?.timer) return; const t = setInterval(() => tick((n) => n + 1), 100); return () => clearInterval(t); }, [ev?.timer?.startedAt]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -48,7 +49,7 @@ export default function Scorer() {
   const timerMs = ev?.timer ? Math.max(0, Date.now() - ev.timer.startedAt) : 0;
   const preview = ev ? placeAwards(ev.unit, ev.results) : [];
   const table = [...lads].filter((p) => p.olympics !== 0).sort((a, b) => b.olympics - a.olympics);
-  const amount = custom.trim() ? Math.round(Number(custom)) : pts;
+  const amount = (minus ? -1 : 1) * Math.abs(custom.trim() ? Math.round(Number(custom)) : pts);
 
   return (
     <div className="screen with-nav">
@@ -114,11 +115,12 @@ export default function Scorer() {
             {mode === 'quick' && (
               <div className="panel pad stack-6" data-testid="scorer-pad">
                 <label><span className="label">Event</span><input className="input" style={{ minHeight: 44, fontSize: 16 }} value={event} maxLength={40} onChange={(e) => setEvent(e.target.value)} placeholder="Plank, Beer pong, Bonus…" data-testid="scorer-event" /></label>
-                <span className="label">Points</span>
+                <div className="row-between"><span className="label" style={{ margin: 0 }}>Points</span><span className="toggle2" style={{ width: 170 }}><button className={!minus ? 'on' : ''} onClick={() => setMinus(false)} data-testid="sign-plus">+ Give</button><button className={minus ? 'on' : ''} onClick={() => setMinus(true)} data-testid="sign-minus">− Take back</button></span></div>
                 <div className="row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-                  {PRESETS.map((n) => <button key={n} className={`pill pill-tap ${!custom && pts === n ? 'pill-gold' : ''}`} onClick={() => { setPts(n); setCustom(''); }}>{n}</button>)}
-                  <input className="input" style={{ minHeight: 40, fontSize: 15, width: 88, flex: '0 0 88px' }} type="number" inputMode="numeric" placeholder="other" value={custom} onChange={(e) => setCustom(e.target.value)} aria-label="Custom points" data-testid="scorer-custom" />
+                  {(minus ? [100, 60, 40, 25, 10] : PRESETS).map((n) => <button key={n} className={`pill pill-tap ${!custom && pts === n ? 'pill-gold' : ''}`} onClick={() => { setPts(n); setCustom(''); }}>{minus ? '−' : ''}{n}</button>)}
+                  <input className="input" style={{ minHeight: 40, fontSize: 15, width: 88, flex: '0 0 88px' }} type="number" inputMode="numeric" placeholder="other" value={custom} onChange={(e) => setCustom(e.target.value.replace('-', ''))} aria-label="Custom points" data-testid="scorer-custom" />
                 </div>
+                {minus && <div className="tiny" style={{ color: '#ff8a8a' }}>Taking points back. Up to 100 per tap; tap again for more.</div>}
                 <span className="label">Who</span>
                 <div className="scroll-y stack-6" style={{ maxHeight: '34vh' }}>
                   {lads.map((p) => <button key={p.id} className={`list-row ${pick === p.id ? 'me' : ''}`} style={{ width: '100%', textAlign: 'left' }} onClick={() => setPick(p.id)} data-testid="scorer-lad"><span className="avatar sm"><LadPic p={p} /></span><span className="grow bold ellipsis">{p.nickname}</span><span className="tiny faint">🏅 {p.olympics}</span></button>)}
