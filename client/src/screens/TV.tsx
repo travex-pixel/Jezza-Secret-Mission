@@ -7,6 +7,7 @@ import type { Battle, PartyPublic, WallPost } from '@shared/types';
 import { CREATURES } from '@shared/creatures';
 import { fmtClock, fmtTime, orderAwards, spotlightPhase } from '@shared/ceremony';
 import { ROWDY_KINDS } from '@shared/rowdy';
+import { OLY_UNITS, ordinal, placeAwards } from '@shared/olympics';
 import { sortLeaderboard } from '@shared/progression';
 import { useStore } from '../store';
 import { Creature, LadPic } from '../components/Creature';
@@ -163,6 +164,55 @@ function RowdyView({ party }: { party: PartyPublic }) {
   );
 }
 
+function OlyEventView({ party }: { party: PartyPublic }) {
+  const ev = party.olympics.current!; const u = OLY_UNITS[ev.unit];
+  const [, tick] = useState(0);
+  useEffect(() => { if (!ev.timer) return; const t = setInterval(() => tick((n) => n + 1), 100); return () => clearInterval(t); }, [ev.timer?.startedAt]); // eslint-disable-line react-hooks/exhaustive-deps
+  const who = (id: string) => party.players.find((p) => p.id === id);
+  const lads = party.players.filter((p) => p.creature).length;
+  if (ev.status === 'locked') {
+    const awards = [...(ev.awards ?? [])].sort((a, b) => a.place - b.place || b.points - a.points);
+    const podium = [awards[1], awards[0], awards[2]]; // the first three lads in finishing order, ties included (centre step is the best)
+    return (
+      <div className="tv-cer tv-cer-legend" data-testid="tv-oly-event">
+        <div className="tv-cer-eyebrow">🏅 BUCKS OLYMPICS · {ev.name.toUpperCase()} · RESULT</div>
+        {ev.unit !== 'points' ? (
+          <div className="tv-podium">
+            {podium.map((a, i) => { const p = a ? who(a.playerId) : undefined; return p?.creature ? (
+              <div key={a!.playerId} className={`tv-podium-step step-${i === 1 ? 1 : i === 0 ? 2 : 3}`}>
+                {a!.place === 1 && <div className="tv-crown">🥇</div>}
+                {p.avatarUrl && <span className="tv-podium-face"><LadPic p={p} /></span>}
+                <Creature creature={p.creature} level={p.level} colorway={p.equipped.colorway} equipped={p.equipped} state={i === 1 ? 'victory' : 'happy'} />
+                <div className="tv-podium-block"><b>{a!.place}</b><span className="ellipsis">{p.nickname}</span><small>{u.fmt(a!.value)} · +{a!.points}</small></div>
+              </div>) : <div key={i} />; })}
+          </div>
+        ) : null}
+        <div className="tv-oly-table">{awards.slice(ev.unit === 'points' ? 0 : 3, 11).map((a) => { const p = who(a.playerId); return <div key={a.playerId} className="tv-oly-row"><span className="tv-oly-medal">{a.place ? ordinal(a.place) : '•'}</span><span className="avatar sm">{p ? <LadPic p={p} /> : '?'}</span><span className="ellipsis bold">{p?.nickname ?? '?'} <span className="tv-oly-val">{u.fmt(a.value)}</span></span><span className="gold-text bold">+{a.points}</span></div>; })}</div>
+        <div className="tv-confetti" aria-hidden>{Array.from({ length: 30 }, (_, i) => <i key={i} style={{ left: `${(i * 37) % 100}%`, background: ['#E5AD48', '#F6EBDD', '#76243A', '#a8e58f', '#f07842'][i % 5], animationDelay: `${(i % 7) * 0.18}s`, animationDuration: `${2.4 + (i % 5) * 0.3}s` }} />)}</div>
+      </div>
+    );
+  }
+  const live = placeAwards(ev.unit, ev.results);
+  const timerWho = ev.timer ? who(ev.timer.playerId) : undefined;
+  const ms = ev.timer ? Math.max(0, Date.now() - ev.timer.startedAt) : 0;
+  const best = ev.results.length && ev.unit === 'seconds' ? Math.max(...ev.results.map((r) => r.value)) : null;
+  return (
+    <div className="tv-oly" data-testid="tv-oly-event">
+      <div className="tv-cer-eyebrow">🏅 BUCKS OLYMPICS · EVENT {party.olympics.done.length + 1}</div>
+      <div className="tv-rowdy-prompt">{ev.name}</div>
+      {timerWho ? (
+        <div className="tv-oly-sw" data-testid="tv-oly-stopwatch">
+          {timerWho.avatarUrl ? <span className="tv-cer-face"><LadPic p={timerWho} /></span> : timerWho.creature ? <Creature creature={timerWho.creature} level={timerWho.level} colorway={timerWho.equipped.colorway} equipped={timerWho.equipped} state="idle" style={{ width: 'min(14vw, 130px)' }} /> : null}
+          <div><div className="tv-cer-sub">{timerWho.nickname}</div><div className="tv-spot-clock" style={{ fontSize: 'clamp(56px, 12vw, 150px)' }}>{`${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}.${Math.floor((ms % 1000) / 100)}`}</div>{best !== null && <div className="tv-cer-sub dim">to beat: {u.fmt(best)}</div>}</div>
+        </div>
+      ) : <div className="tv-cer-sub">{u.emoji} {u.label} · {ev.results.length} of {lads} in{ev.results.length ? '' : ' · results land here as the scorer types them'}</div>}
+      <div className="tv-oly-table">
+        {live.slice(0, 8).map((a) => { const p = who(a.playerId); return <div key={a.playerId} className={`tv-oly-row ${a.place === 1 ? 'hot' : ''}`}><span className="tv-oly-medal">{a.place ? ordinal(a.place) : '•'}</span><span className="avatar sm">{p ? <LadPic p={p} /> : '?'}</span><span className="ellipsis bold">{p?.nickname ?? '?'}</span><span className="gold-text bold">{u.fmt(a.value)}</span></div>; })}
+      </div>
+    </div>
+  );
+}
+
 const SCORE_SHOW_MS = 12_000;
 function OlympicsView({ party }: { party: PartyPublic }) {
   const ls = party.lastScore!; const who = party.players.find((p) => p.id === ls.playerId);
@@ -272,16 +322,17 @@ export default function TV({ code }: { code?: string }) {
   const reelOn = party.tvMode === 'reel' && spotState !== 'running' && spotState !== 'done';
   const rowdyOn = !!party.rowdy && spotState !== 'running' && spotState !== 'done';
   const scoreOn = !!party.lastScore && now - party.lastScore.at < SCORE_SHOW_MS && spotState !== 'running' && spotState !== 'done';
+  const olyOn = !!party.olympics?.current && spotState !== 'running' && spotState !== 'done';
   const board = sortLeaderboard(party.players.filter((p) => p.creature)).slice(0, 5);
   const latest = [...party.feed].reverse().filter((f) => f.kind !== 'join' && f.kind !== 'levelup').slice(0, 4);
   const parade = party.players.filter((p) => p.creature).slice(0, 8);
   return (
     <div className={`tv ${code ? 'standalone' : ''} ${reelOn ? 'reel-mode' : ''}`} onClick={() => { if (!code) setTab('party'); }} data-testid="tv">
       <div className="tv-photo">
-        {scoreOn ? <OlympicsView party={party} /> : rowdyOn ? <RowdyView party={party} /> : reelOn && <ReelView party={party} />}
-        {!reelOn && !rowdyOn && !scoreOn && spotState !== 'running' && spotState !== 'done' && fights.length > 0 && <div className="tv-fights">{fights.map((b) => <FightCard key={b.id} b={b} party={party} now={now} />)}</div>}
-        {spotState === 'upcoming' && !ceremonyOn && !reelOn && !rowdyOn && !scoreOn && <SpotlightView party={party} now={now} />}
-        {spotState === 'running' || spotState === 'done' ? <SpotlightView party={party} now={now} /> : scoreOn || rowdyOn || reelOn ? null : ceremonyOn ? <CeremonyView party={party} now={now} /> : wallPost ? <WallCard post={wallPost} party={party} withFights={fights.length > 0} /> : photo ? (
+        {olyOn ? <OlyEventView party={party} /> : scoreOn ? <OlympicsView party={party} /> : rowdyOn ? <RowdyView party={party} /> : reelOn && <ReelView party={party} />}
+        {!reelOn && !rowdyOn && !scoreOn && !olyOn && spotState !== 'running' && spotState !== 'done' && fights.length > 0 && <div className="tv-fights">{fights.map((b) => <FightCard key={b.id} b={b} party={party} now={now} />)}</div>}
+        {spotState === 'upcoming' && !ceremonyOn && !reelOn && !rowdyOn && !scoreOn && !olyOn && <SpotlightView party={party} now={now} />}
+        {spotState === 'running' || spotState === 'done' ? <SpotlightView party={party} now={now} /> : olyOn || scoreOn || rowdyOn || reelOn ? null : ceremonyOn ? <CeremonyView party={party} now={now} /> : wallPost ? <WallCard post={wallPost} party={party} withFights={fights.length > 0} /> : photo ? (
           <>
             <img key={photo.id} src={photo.url} alt="" className="tv-img" />
             <div className="tv-cap">

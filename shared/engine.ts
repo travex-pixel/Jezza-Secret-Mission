@@ -8,6 +8,7 @@ import type { Spotlight,
 } from './types';
 import { EPIC_CUSTOM_ITEM, EPIC_MAX_CREW, EPIC_PRESET_BY_ID, EPIC_TIERS, isEpicTier } from './epics';
 import { drinkEmoji } from './drinks';
+import { OLY_UNITS, placeAwards, type OlyEvent, type OlyUnit } from './olympics';
 import { ROWDY_KINDS, ROWDY_PROMPTS, ROWDY_VOTE_POINTS, type RowdyKind, type RowdyPublic, type RowdyState } from './rowdy';
 import { DROP_EVERY, MOLE_MAX, MOLE_MISSIONS, MOLE_POINTS, molesFor, QUESTS_PER_DAY, QUEST_BY_ID, QUEST_DEFS, RARITIES, RARITY, questProgress, rollDrop, type Drop, type MoleState, type Quest, type Rarity } from './saturday';
 import { CREATURES, CREATURE_IDS, FORMS, GROOM_CREATURE, starterTrio } from './creatures';
@@ -85,6 +86,7 @@ export interface PartyState {
   tvMode: 'auto' | 'reel';
   rowdy: RowdyState | null;
   lastScore: { playerId: string; points: number; reason: string; by: string; at: number } | null;
+  olympics: { current: OlyEvent | null; done: { id: string; name: string; unit: OlyUnit; winnerId?: string; lockedAt: number }[] };
   rowdyUsed: Partial<Record<RowdyKind, string[]>>;
 }
 
@@ -213,7 +215,7 @@ export class Engine {
       party.raids ??= []; party.wall ??= []; party.cellar ??= [];
       party.phaseMissions ??= { friday: 0, saturday: 0 };
       party.photoMode ??= 'vote';
-      party.epics ??= []; party.codes ??= []; party.giveaways ??= []; party.log ??= [...party.feed]; party.xpBoostUntil ??= null; party.capLifted ??= false; party.mole ??= null; party.spotlight ??= null; party.ceremony ??= 0; party.tvMode ??= 'auto'; party.rowdy ??= null; party.rowdyUsed ??= {}; party.lastScore ??= null;
+      party.epics ??= []; party.codes ??= []; party.giveaways ??= []; party.log ??= [...party.feed]; party.xpBoostUntil ??= null; party.capLifted ??= false; party.mole ??= null; party.spotlight ??= null; party.ceremony ??= 0; party.tvMode ??= 'auto'; party.rowdy ??= null; party.rowdyUsed ??= {}; party.lastScore ??= null; party.olympics ??= { current: null, done: [] };
       for (const e of party.epics) { e.tier ??= 'medium'; e.points ??= EPIC_TIERS[e.tier].points; e.xp ??= EPIC_TIERS[e.tier].xp; }
       for (const b of Object.values(party.battles)) if (b.status === 'active' && !b.quick && !b.auto) { b.quick = true; b.roundDeadline = Math.min(b.roundDeadline ?? Infinity, this.now() + PLAN_SECONDS * 1000); }
       party.nextAutoAt ??= this.now() + FIRST_AUTO_DELAY_MS;
@@ -309,6 +311,7 @@ export class Engine {
       tvMode: party.tvMode,
       rowdy: this.rowdyPublic(party),
       lastScore: party.lastScore,
+      olympics: party.olympics,
       build: this.build,
       hasHostPin: !!party.hostPinHash,
       groomId: party.groomId,
@@ -420,6 +423,11 @@ export class Engine {
         case 'moleVote': return this.moleVote(playerId, msg.suspectId);
         case 'rowdyVote': return this.rowdyVote(playerId, msg.targetId);
         case 'scorerGrant': return this.scorerGrant(playerId, msg.playerId, msg.points, msg.reason);
+        case 'olyStart': return this.olyStart(playerId, msg.name, msg.unit);
+        case 'olyResult': return this.olyResult(playerId, msg.playerId, msg.value);
+        case 'olyTimer': return this.olyTimer(playerId, msg.playerId);
+        case 'olyLock': return this.olyLock(playerId);
+        case 'olyScrap': return this.olyScrap(playerId);
         case 'taunt': return this.taunt(playerId, msg.battleId, msg.emoji);
         case 'leaveEpic': return this.leaveEpic(playerId, msg.epicId);
         case 'finishEpic': return this.finishEpic(playerId, msg.epicId);
@@ -461,7 +469,7 @@ export class Engine {
       code, name: (partyName ?? '').trim().slice(0, 40) || "Jezza's Bucks Weekend", hostId: playerId, phase: 'friday', missionsOpen: true,
       createdAt: now, players: {}, feed: [], claims: {}, revealedGroupMissions: [], battles: {}, awardOverrides: {}, finalized: false, fridayPoints: null, seq: 0,
       groomId: isJezza(v.name) ? playerId : null, autoSaturdayAt: nextSaturdayMorning(now), nextGroupAt: now + FIRST_GROUP_DELAY_MS,
-      raids: [], wall: [], cellar: [], phaseMissions: { friday: 0, saturday: 0 }, photoMode: 'vote', nextAutoAt: now + FIRST_AUTO_DELAY_MS, epics: [], codes: [], giveaways: [], log: [], xpBoostUntil: null, capLifted: false, mole: null, spotlight: null, ceremony: 0, tvMode: 'auto', rowdy: null, rowdyUsed: {}, lastScore: null,
+      raids: [], wall: [], cellar: [], phaseMissions: { friday: 0, saturday: 0 }, photoMode: 'vote', nextAutoAt: now + FIRST_AUTO_DELAY_MS, epics: [], codes: [], giveaways: [], log: [], xpBoostUntil: null, capLifted: false, mole: null, spotlight: null, ceremony: 0, tvMode: 'auto', rowdy: null, rowdyUsed: {}, lastScore: null, olympics: { current: null, done: [] },
     };
     party.players[playerId] = newPlayer(playerId, v.name, now, true, 'friday');
     if (pin) party.hostPinHash = hashPin(code, pin);
@@ -1685,6 +1693,7 @@ export class Engine {
       if (raid && raid.status === 'active' && now >= raid.endsAt) { this.endRaid(party, raid, 'escaped', direct); dirty = true; }
       if (party.rowdy && !party.rowdy.revealed && now >= party.rowdy.endsAt) { this.revealRowdy(party, direct); dirty = true; }
       if (party.rowdy?.revealed && now - party.rowdy.endsAt > 90_000) { party.rowdy = null; dirty = true; }
+      if (party.olympics.current?.status === 'locked' && now - (party.olympics.current.lockedAt ?? now) > 40_000) { party.olympics.current = null; dirty = true; }
       // Saturday turns up on its own at 5am Sydney time
       if (party.autoSaturdayAt && now >= party.autoSaturdayAt) {
         if (party.phase === 'friday' || party.phase === 'lobby') { this.applyPhase(party, 'saturday', direct, true); }
@@ -2298,6 +2307,82 @@ export class Engine {
     this.feed(party, { kind: 'host', text: `🏅 ${reason}: ${t.nickname} ${pts > 0 ? '+' : ''}${pts} (scored by ${by.nickname})`, playerId: t.id, emoji: '🏅' });
     direct.push({ to: t.id, msg: { type: 'toast', text: `🏅 ${reason}: ${pts > 0 ? '+' : ''}${pts} points`, emoji: '🏅', tone: pts > 0 ? 'success' : 'warn' } });
     return this.ok(party, { points: pts, total: t.olympics }, direct);
+  }
+
+  // ---------- Bucks Olympics events ----------
+  private scorerOf(playerId: string): { party: PartyState; by: PlayerState; fail?: undefined } | { fail: HandleResult } {
+    const party = this.partyOf(playerId); const by = party?.players[playerId];
+    if (!party || !by || by.removed) return { fail: this.fail('Join a party first.') };
+    if (!by.isScorer && party.hostId !== playerId) return { fail: this.fail('Only a Scorer (or the host) can run events.') };
+    return { party, by };
+  }
+  private olyStart(playerId: string, nameRaw: string, unit: OlyUnit): HandleResult {
+    const sc = this.scorerOf(playerId); if (sc.fail) return sc.fail; const { party, by } = sc;
+    if (party.olympics.current && party.olympics.current.status === 'open') return this.fail('An event is already open. Lock it or scrap it first.');
+    const name = String(nameRaw ?? '').replace(/\s+/g, ' ').trim().slice(0, 30);
+    if (name.length < 2) return this.fail('Name the event.');
+    if (!isClean(name)) return this.fail('Keep it clean.');
+    if (!OLY_UNITS[unit]) return this.fail('Pick how it is measured.');
+    const now = this.now();
+    party.olympics.current = { id: `oe_${now.toString(36)}_${Math.floor(this.rng() * 1e6).toString(36)}`, name, unit, scorerId: by.id, startedAt: now, results: [], timer: null, status: 'open' };
+    const direct: Outbound[] = [];
+    this.feed(party, { kind: 'phase', text: `🏅 BUCKS OLYMPICS · ${name.toUpperCase()} is on. ${OLY_UNITS[unit].blurb.split('.')[0]}. Eyes on the TV.`, emoji: '🏅' });
+    direct.push({ to: 'party', msg: { type: 'toast', text: `🏅 Olympics: ${name}. Eyes on the TV.`, emoji: '🏅', tone: 'warn' } });
+    return this.ok(party, { id: party.olympics.current.id }, direct);
+  }
+  private olyResult(playerId: string, targetId: string, valueRaw: number | null): HandleResult {
+    const sc = this.scorerOf(playerId); if (sc.fail) return sc.fail; const { party } = sc;
+    const ev = party.olympics.current;
+    if (!ev || ev.status !== 'open') return this.fail('No event open.');
+    const t = party.players[targetId];
+    if (!t || t.removed || !t.creature) return this.fail('Pick a lad with a creature.');
+    ev.results = ev.results.filter((r) => r.playerId !== targetId);
+    if (valueRaw !== null && valueRaw !== undefined) {
+      const v = Number(valueRaw);
+      if (!Number.isFinite(v) || v < 0 || v > 100000) return this.fail('That number does not look right.');
+      if (ev.unit === 'place' && (v < 1 || !Number.isInteger(v))) return this.fail('Placing is 1, 2, 3…');
+      ev.results.push({ playerId: targetId, value: ev.unit === 'seconds' || ev.unit === 'metres' ? Math.round(v * 10) / 10 : Math.round(v), at: this.now() });
+    }
+    if (ev.timer?.playerId === targetId) ev.timer = null;
+    return this.ok(party, { results: ev.results.length });
+  }
+  private olyTimer(playerId: string, targetId: string | null): HandleResult {
+    const sc = this.scorerOf(playerId); if (sc.fail) return sc.fail; const { party } = sc;
+    const ev = party.olympics.current;
+    if (!ev || ev.status !== 'open') return this.fail('No event open.');
+    if (targetId === null) { ev.timer = null; return this.ok(party); }
+    const t = party.players[targetId];
+    if (!t || t.removed || !t.creature) return this.fail('Pick a lad with a creature.');
+    ev.timer = { playerId: targetId, startedAt: this.now() };
+    return this.ok(party, { startedAt: ev.timer.startedAt });
+  }
+  private olyLock(playerId: string): HandleResult {
+    const sc = this.scorerOf(playerId); if (sc.fail) return sc.fail; const { party, by } = sc;
+    const ev = party.olympics.current;
+    if (!ev || ev.status !== 'open') return this.fail('No event open.');
+    if (!ev.results.length) return this.fail('Enter at least one result first.');
+    const direct: Outbound[] = [];
+    ev.awards = placeAwards(ev.unit, ev.results); ev.status = 'locked'; ev.lockedAt = this.now(); ev.timer = null;
+    for (const a of ev.awards) {
+      const t = party.players[a.playerId]; if (!t || !a.points) continue;
+      this.grant(party, t, a.points, 0, direct); t.olympics += a.points;
+      direct.push({ to: t.id, msg: { type: 'toast', text: `🏅 ${ev.name}: ${a.place ? `${a.place === 1 ? '🥇' : a.place === 2 ? '🥈' : a.place === 3 ? '🥉' : `${a.place}th`} · ` : ''}+${a.points} points`, emoji: '🏅', tone: 'success' } });
+    }
+    const top = ev.awards.filter((a) => a.place === 1 || (ev.unit === 'points' && a.points === Math.max(...ev.awards!.map((x) => x.points))));
+    const winnerId = top[0]?.playerId;
+    party.olympics.done.push({ id: ev.id, name: ev.name, unit: ev.unit, winnerId, lockedAt: ev.lockedAt });
+    if (party.olympics.done.length > 40) party.olympics.done = party.olympics.done.slice(-40);
+    const names = top.map((a) => party.players[a.playerId]?.nickname?.toUpperCase() ?? '?').join(' & ');
+    this.feed(party, { kind: 'phase', text: `🏅 ${ev.name.toUpperCase()}: ${names} take${top.length > 1 ? '' : 's'} it${top[0] && ev.unit !== 'points' ? ` (${OLY_UNITS[ev.unit].fmt(top[0].value)})` : ''}. ${ev.awards.length} lads scored. Locked by ${by.nickname}.`, emoji: '🏅' });
+    direct.push({ to: 'party', msg: { type: 'toast', text: `🏅 ${ev.name}: ${names} on top.`, emoji: '🏅', tone: 'success' } });
+    return this.ok(party, { awards: ev.awards }, direct);
+  }
+  private olyScrap(playerId: string): HandleResult {
+    const sc = this.scorerOf(playerId); if (sc.fail) return sc.fail; const { party } = sc;
+    const ev = party.olympics.current;
+    if (!ev) return this.fail('Nothing to scrap.');
+    party.olympics.current = null; // an open event is binned without points; a locked one just leaves the TV
+    return this.ok(party);
   }
 
   // ---------- Rowdy Rounds ----------

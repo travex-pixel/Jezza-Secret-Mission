@@ -548,3 +548,48 @@ describe("the scorer's pad", () => {
     expect(eng.handle(ids[1], { type: 'scorerGrant', reqId: 's', playerId: ids[2], points: 10, reason: 'Plank' }).ack?.ok).toBe(false);
   });
 });
+
+describe('Bucks Olympics events', () => {
+  it('a scorer runs an event: start, results, stopwatch, lock with placing points and ties; lads cannot', async () => {
+    const { placeAwards } = await import('../shared/olympics');
+    const { eng, ids, party, host, advance } = setup(8);
+    host({ kind: 'setScorer', playerId: ids[1], on: true });
+    const sc = (msg: any) => eng.handle(ids[1], { reqId: 'o', ...msg });
+    expect(eng.handle(ids[2], { type: 'olyStart', reqId: 'o', name: 'Plank', unit: 'seconds' }).ack?.ok).toBe(false);
+    expect(sc({ type: 'olyStart', name: 'P', unit: 'seconds' }).ack?.ok).toBe(false);
+    expect(sc({ type: 'olyStart', name: 'Plank', unit: 'seconds' }).ack?.ok).toBe(true);
+    let ev = eng.publicView(party()).olympics.current!;
+    expect(ev.name).toBe('Plank'); expect(ev.status).toBe('open'); expect(party().feed.at(-1)!.text).toMatch(/PLANK is on/);
+    expect(sc({ type: 'olyStart', name: 'Wall sit', unit: 'seconds' }).ack?.ok).toBe(false); // one at a time
+    // stopwatch mirrored to the TV, then the result
+    expect(sc({ type: 'olyTimer', playerId: ids[2] }).ack?.ok).toBe(true); expect(eng.publicView(party()).olympics.current!.timer!.playerId).toBe(ids[2]);
+    expect(sc({ type: 'olyResult', playerId: ids[2], value: 95.26 }).ack?.ok).toBe(true);
+    ev = eng.publicView(party()).olympics.current!; expect(ev.timer).toBeNull(); expect(ev.results[0]).toMatchObject({ playerId: ids[2], value: 95.3 });
+    sc({ type: 'olyResult', playerId: ids[3], value: 120 }); sc({ type: 'olyResult', playerId: ids[4], value: 120 }); sc({ type: 'olyResult', playerId: ids[5], value: 40 });
+    sc({ type: 'olyResult', playerId: ids[6], value: 10 }); sc({ type: 'olyResult', playerId: ids[6], value: null }); // cleared
+    expect(sc({ type: 'olyResult', playerId: ids[6], value: -3 }).ack?.ok).toBe(false);
+    expect(sc({ type: 'olyResult', playerId: ids[3], value: 125 }).ack?.ok).toBe(true); // a fix replaces, no duplicate rows
+    ev = eng.publicView(party()).olympics.current!; expect(ev.results.length).toBe(4);
+    const before = Object.fromEntries(ids.map((id) => [id, party().players[id].points]));
+    expect(eng.handle(ids[2], { type: 'olyLock', reqId: 'o' }).ack?.ok).toBe(false);
+    const r = sc({ type: 'olyLock' }); expect(r.ack?.ok).toBe(true);
+    ev = eng.publicView(party()).olympics.current!; expect(ev.status).toBe('locked');
+    const by = Object.fromEntries(ev.awards!.map((a) => [a.playerId, a]));
+    expect(by[ids[3]]).toMatchObject({ place: 1, points: 60 }); expect(by[ids[4]]).toMatchObject({ place: 2, points: 40 }); expect(by[ids[2]]).toMatchObject({ place: 3, points: 25 }); expect(by[ids[5]]).toMatchObject({ place: 4, points: 15 });
+    for (const id of [ids[3], ids[4], ids[2], ids[5]]) expect(party().players[id].points - before[id]).toBe(by[id].points);
+    expect(party().players[ids[6]].points - before[ids[6]]).toBe(0);
+    expect(party().players[ids[3]].olympics).toBe(60);
+    expect(party().feed.at(-1)!.text).toMatch(/PLANK: .* takes it \(2:05\)/);
+    expect(eng.publicView(party()).olympics.done).toHaveLength(1);
+    expect(sc({ type: 'olyLock' }).ack?.ok).toBe(false); // not twice
+    advance(41_000); eng.tick(); expect(eng.publicView(party()).olympics.current).toBeNull(); // leaves the TV on its own
+    // ties share, placing counts low-is-good, points unit is direct, scrap gives nothing
+    expect(placeAwards('reps', [{ playerId: 'a', value: 30, at: 0 }, { playerId: 'b', value: 30, at: 0 }, { playerId: 'c', value: 12, at: 0 }]).map((a) => [a.playerId, a.place, a.points])).toEqual([['a', 1, 60], ['b', 1, 60], ['c', 3, 25]]);
+    expect(placeAwards('place', [{ playerId: 'a', value: 2, at: 0 }, { playerId: 'b', value: 1, at: 0 }]).map((a) => [a.playerId, a.place])).toEqual([['b', 1], ['a', 2]]);
+    expect(placeAwards('points', [{ playerId: 'a', value: 33, at: 0 }])[0].points).toBe(33);
+    sc({ type: 'olyStart', name: 'Flip cup', unit: 'place' }); sc({ type: 'olyResult', playerId: ids[2], value: 1 });
+    expect(sc({ type: 'olyResult', playerId: ids[3], value: 1.5 }).ack?.ok).toBe(false);
+    const b2 = party().players[ids[2]].points; expect(sc({ type: 'olyScrap' }).ack?.ok).toBe(true);
+    expect(party().players[ids[2]].points).toBe(b2); expect(eng.publicView(party()).olympics.current).toBeNull();
+  });
+});

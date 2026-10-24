@@ -492,6 +492,15 @@ img, svg { display: block; max-width: 100%; }
 .tv-oly-row .avatar.sm { width: 36px; height: 36px; border-radius: 10px; }
 .tv-oly-row.hot { border-color: var(--gold); box-shadow: 0 0 14px rgba(229,173,72,.3); }
 .tv-oly-medal { text-align: center; font-weight: 800; color: var(--text-dim); }
+/* Olympics on the scorer's phone and the TV */
+.oly-row { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto 66px auto auto; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); }
+.oly-row .btn, .oly-row button.btn { padding-left: 10px; padding-right: 10px; min-width: 0; }
+.oly-row.has { border-color: rgba(229,173,72,.5); }
+.oly-row .avatar.sm { width: 36px; height: 36px; }
+.oly-in { min-height: 40px; font-size: 15px; width: 66px; padding: 0 6px; }
+.oly-sw { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--rose); background: rgba(226,82,107,.12); }
+.tv-oly-sw { display: flex; align-items: center; gap: clamp(12px, 3vw, 32px); text-align: left; }
+.tv-oly-val { color: var(--text-dim); font-weight: 700; font-size: .85em; margin-left: 6px; }
 /* faces beside creatures in the ceremony */
 .tv-cer-face { width: clamp(70px, 10vw, 130px); height: clamp(70px, 10vw, 130px); border-radius: 22px; overflow: hidden; border: 2px solid var(--gold); box-shadow: 0 8px 30px rgba(0,0,0,.5); flex: 0 0 auto; display: block; }
 .tv-cer-face.big { width: clamp(60px, 7vw, 96px); height: clamp(60px, 7vw, 96px); }

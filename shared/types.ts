@@ -327,6 +327,7 @@ export interface PartyPublic {
   tvMode: 'auto' | 'reel';   // the host can switch the TV to the photo reel (every photo, oldest first, no sidebar)
   rowdy: import('./rowdy').RowdyPublic | null; // the Rowdy Round in play, if any
   lastScore: { playerId: string; points: number; reason: string; by: string; at: number } | null; // the latest scorer entry, for the TV
+  olympics: { current: import('./olympics').OlyEvent | null; done: { id: string; name: string; unit: import('./olympics').OlyUnit; winnerId?: string; lockedAt: number }[] };
   build: string;               // which build this server is running (short commit + deploy time)
   hasHostPin: boolean;
   groomId: string | null;
@@ -440,6 +441,11 @@ export type ClientMessage =
   | { type: 'taunt'; reqId: string; battleId: string; emoji: string }
   | { type: 'rowdyVote'; reqId: string; targetId: string }
   | { type: 'scorerGrant'; reqId: string; playerId: string; points: number; reason: string }
+  | { type: 'olyStart'; reqId: string; name: string; unit: import('./olympics').OlyUnit }
+  | { type: 'olyResult'; reqId: string; playerId: string; value: number | null }
+  | { type: 'olyTimer'; reqId: string; playerId: string | null }
+  | { type: 'olyLock'; reqId: string }
+  | { type: 'olyScrap'; reqId: string }
   | { type: 'leaveEpic'; reqId: string; epicId: string }
   | { type: 'finishEpic'; reqId: string; epicId: string }
   | { type: 'setAutoBattles'; reqId: string; on: boolean }
