@@ -1,0 +1,12 @@
+# What gcloud uploads for a source deploy. Mirrors .gitignore except build.json, which the deploy script writes
+# just before uploading so the running server can show which commit it is.
+.git
+node_modules
+dist
+data/
+test-results/
+*.log
+.env
+.env.*
+.DS_Store
+*.tsbuildinfo
