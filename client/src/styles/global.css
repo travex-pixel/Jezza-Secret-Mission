@@ -508,6 +508,15 @@ img, svg { display: block; max-width: 100%; }
 .quest-bar { height: 8px; border-radius: 999px; background: rgba(255,255,255,.08); overflow: hidden; margin: 6px 0 3px; }
 .quest-bar i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #B9832C, #E5AD48, #F8DFA0); transition: width .4s; }
 .mole-panel { border-color: rgba(240,120,66,.55); background: linear-gradient(160deg, rgba(240,120,66,.14), var(--panel) 60%); }
+.mole-mission { padding: 8px 10px; border-radius: 12px; background: rgba(0,0,0,.25); border: 1px solid var(--line); }
+/* the Mole briefing: full screen, dark, orange edge */
+.mole-reveal { position: fixed; inset: 0; z-index: 76; overflow-y: auto; background: radial-gradient(90% 60% at 50% 20%, rgba(240,120,66,.35), rgba(21,18,26,0) 70%), #15121a; animation: tv-in .5s ease both; }
+.mole-reveal-inner { max-width: 440px; margin: 0 auto; padding: calc(var(--sat, 0px) + 28px) 18px calc(var(--sab, 0px) + 28px); }
+.mole-reveal-badge { font-size: 64px; text-align: center; line-height: 1; animation: mole-badge .9s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes mole-badge { 0% { transform: scale(.4) rotate(-20deg); opacity: 0; } 60% { transform: scale(1.15) rotate(4deg); opacity: 1; } 100% { transform: none; } }
+.mole-reveal-card { border-color: rgba(255,180,143,.5); background: rgba(0,0,0,.35); text-align: left; }
+.mole-reveal .title-xl { color: #ffb48f; text-shadow: 0 0 24px rgba(240,120,66,.5); line-height: 1; }
+@media (prefers-reduced-motion: reduce) { .mole-reveal, .mole-reveal-badge { animation: none !important; } }
 /* ===== Battle taunts + raid weak spot ===== */
 .taunt-bar { display: flex; gap: 6px; justify-content: center; flex-wrap: nowrap; transition: opacity .2s; }
 .taunt-bar.cooling { opacity: .45; }

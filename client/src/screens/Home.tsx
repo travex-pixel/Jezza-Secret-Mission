@@ -9,6 +9,7 @@ import { GiveawayCard } from '../components/GiveawayCard';
 import DropOverlay from '../components/DropOverlay';
 import MoleVote from '../components/MoleVote';
 import SaturdayBriefing from '../components/SaturdayBriefing';
+import MoleReveal, { useMoleReveal } from '../components/MoleReveal';
 import { RARITY } from '@shared/saturday';
 import HowItWorksSheet from '../components/HowItWorks';
 import { Button, ConnectionPill, FeedItem, XPBar, useCountdown } from '../components/ui';
@@ -52,6 +53,7 @@ export default function Home() {
   const quests = priv?.quests ?? [];
   const questsDone = quests.filter((q) => q.done).length;
   const moleOpen = !!party?.mole?.voting && !priv?.mole && !priv?.moleHost; // the Mole doesn't vote on themselves, and the host can see the answer
+  const reveal = useMoleReveal(party?.code, priv?.mole?.missions);
   if (!party || !me?.creature) return null;
   const board = sortLeaderboard(party.players);
   const rank = board.findIndex((p) => p.id === me.id) + 1;
@@ -118,10 +120,11 @@ export default function Home() {
         {voting && <MoleVote onClose={() => setVoting(false)} />}
         {party.phase === 'saturday' && !opening && <SaturdayBriefing code={party.code} moles={party.mole?.count ?? 0} isMole={!!priv?.mole} />}
         {alert === 'grab' && grab && <GiveawayCard g={grab} />}
+        {priv?.mole && reveal.open && <MoleReveal missions={priv.mole.missions} onClose={reveal.close} />}
         {priv?.mole && (
           <button className="panel quest-strip hot mole-me" onClick={() => { useStore.setState({ missionsTab: 'mine' }); setTab('missions'); }} data-testid="mole-me-strip">
             <span style={{ fontSize: 22 }}>🤫</span>
-            <span className="grow" style={{ minWidth: 0, textAlign: 'left' }}><div className="bold">You are the Mole. Shh.</div><div className="tiny" style={{ opacity: .85 }}>{priv.mole.missions.filter((m) => m.done).length}/{priv.mole.missions.length} secret missions done · only you can see this</div></span>
+            <span className="grow" style={{ minWidth: 0, textAlign: 'left' }}><div className="bold">You are the Mole. Shh.</div><div className="tiny" style={{ opacity: .85 }}>{priv.mole.missions.filter((m) => m.done).length}/{priv.mole.missions.length} secret missions done · tap for your missions · only you see this</div></span>
             <span className="tiny bold" style={{ color: 'var(--rose)' }}>→</span>
           </button>
         )}

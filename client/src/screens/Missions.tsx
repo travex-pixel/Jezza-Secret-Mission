@@ -7,7 +7,8 @@ import { useMe } from '../store';
 import { useStore } from '../store';
 import { request } from '../net';
 import { sfx } from '../audio';
-import { QUEST_BY_ID, RARITY } from '@shared/saturday';
+import { MOLE_POINTS, QUEST_BY_ID, RARITY } from '@shared/saturday';
+import MoleReveal from '../components/MoleReveal';
 
 export default function Missions() {
   const priv = useStore((s) => s.priv);
@@ -17,6 +18,7 @@ export default function Missions() {
   const quests = priv?.quests ?? [];
   const mole = priv?.mole;
   const [moleBusy, setMoleBusy] = useState(false);
+  const [moleHelp, setMoleHelp] = useState(false);
   const moleDone = async (index: number) => { if (moleBusy) return; setMoleBusy(true); try { await request({ type: 'moleDone', index }); sfx.mission(); } catch (e) { toast((e as Error).message, '⚠️', 'warn'); } finally { setMoleBusy(false); } };
   const me = useMe();
   const hand = (priv?.hand ?? []).filter((h) => h.status !== 'done');
@@ -58,16 +60,19 @@ export default function Missions() {
             <div className="btn-row"><Button size="sm" variant="secondary" onClick={() => witness(w.claimId, false)}>Nope</Button><Button size="sm" onClick={() => witness(w.claimId, true)}>I saw it ✓</Button></div>
           </div>
         ))}
+        {tab === 'mine' && mole && moleHelp && <MoleReveal missions={mole.missions} onClose={() => setMoleHelp(false)} />}
         {tab === 'mine' && mole && (
           <div className="panel mole-panel pad stack-6" data-testid="mole-panel">
-            <div className="row-between"><span className="eyebrow" style={{ color: '#ffb48f' }}>🕵️ You are the Mole</span><span className="tiny faint">shh</span></div>
-            <div className="tiny dim">Secret missions. Tick them off yourself (+40 each, no feed line). The lads vote on who you are; get to the reveal uncaught for +100.</div>
+            <div className="row-between"><span className="eyebrow" style={{ color: '#ffb48f' }}>🤫 You are the Mole</span><button className="pill pill-xs" onClick={() => setMoleHelp(true)} data-testid="mole-help">How does this work?</button></div>
+            <div className="small">Three secret jobs. Do one in real life, then tap <b>Did it</b>. <b>+{MOLE_POINTS.mission} each</b>, nothing posted to the feed. The lads are voting on who you are: reach the host's reveal with fewer than half naming you for <b>+{MOLE_POINTS.escaped}</b> (caught still pays +{MOLE_POINTS.caught}).</div>
             {mole.missions.map((m, i) => (
-              <div key={i} className="row" style={{ gap: 8, alignItems: 'flex-start' }}>
+              <div key={i} className="row mole-mission" style={{ gap: 8, alignItems: 'center' }}>
+                <span className="bold" style={{ color: '#ffb48f', flex: '0 0 auto' }}>{m.done ? '✅' : `${i + 1}.`}</span>
                 <span className="small grow" style={{ textDecoration: m.done ? 'line-through' : 'none', opacity: m.done ? .6 : 1 }}>{m.text}</span>
                 {m.done ? <span className="pill pill-xs pill-ok">done</span> : <Button size="sm" variant="secondary" disabled={moleBusy} style={{ whiteSpace: 'nowrap', flex: '0 0 auto' }} onClick={() => void moleDone(i)}>Did it</Button>}
               </div>
             ))}
+            <div className="tiny faint">Only you can see this panel. Nobody else's phone shows it.</div>
           </div>
         )}
         {tab === 'mine' && (
