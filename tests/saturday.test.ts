@@ -465,6 +465,15 @@ describe('the Spotlight and the ceremony on the TV', () => {
     host({ kind: 'setCeremony', revealed: 999 }); expect(eng.publicView(party()).ceremony).toBe(40);
     host({ kind: 'setCeremony', revealed: -2 }); expect(eng.publicView(party()).ceremony).toBe(0);
   });
+  it('the host flips the TV to the photo reel and back', () => {
+    const { eng, ids, party, host } = setup();
+    expect(eng.publicView(party()).tvMode).toBe('auto');
+    expect(eng.handle(ids[1], { type: 'host', reqId: 'h', action: { kind: 'setTvMode', mode: 'reel' } }).ack?.ok).toBe(false);
+    expect(host({ kind: 'setTvMode', mode: 'reel' }).ack?.ok).toBe(true); expect(eng.publicView(party()).tvMode).toBe('reel');
+    expect(party().feed.at(-1)!.text).toMatch(/PHOTO REEL/);
+    expect(host({ kind: 'setTvMode', mode: 'reel' }).changed).toBe(false);
+    expect(host({ kind: 'setTvMode', mode: 'nonsense' as any }).ack?.ok).toBe(true); expect(eng.publicView(party()).tvMode).toBe('auto');
+  });
   it('ceremony helpers: order and spotlight phases', async () => {
     const { orderAwards, spotlightPhase, fmtClock } = await import('../shared/ceremony');
     const o = orderAwards([{ id: 'a', name: 'A', blurb: '', playerId: null, reason: '' }, { id: 'legend', name: 'L', blurb: '', playerId: null, reason: '' }, { id: 'menace', name: 'M', blurb: '', playerId: null, reason: '' }]);

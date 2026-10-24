@@ -321,6 +321,7 @@ export interface PartyPublic {
   spotlight: Spotlight | null;
   /** How many awards the host has revealed in the ceremony (phones and the TV follow it) */
   ceremony: number;
+  tvMode: 'auto' | 'reel';   // the host can switch the TV to the photo reel (every photo, oldest first, no sidebar)
   build: string;               // which build this server is running (short commit + deploy time)
   hasHostPin: boolean;
   groomId: string | null;
@@ -456,6 +457,7 @@ export type HostAction =
   | { kind: 'finalize'; finalized: boolean }
   | { kind: 'setSpotlight'; label?: string; at?: number; seconds?: number; playerId?: string | null; start?: boolean; stop?: boolean; clear?: boolean }
   | { kind: 'setCeremony'; revealed: number }
+  | { kind: 'setTvMode'; mode: 'auto' | 'reel' }
   | { kind: 'transferHost'; playerId: string }
   | { kind: 'purgePhotos' }
   | { kind: 'setHostPin'; pin: string }

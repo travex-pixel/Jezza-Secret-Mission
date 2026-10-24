@@ -128,6 +128,34 @@ function CeremonyView({ party, now }: { party: PartyPublic; now: number }) {
   );
 }
 
+const REEL_MS = 2600;
+function ReelView({ party }: { party: PartyPublic }) {
+  const photos = [...(party.gallery ?? [])].sort((a, b) => a.at - b.at); // the weekend in order
+  const [i, setI] = useState(-1); // -1 is the title card
+  useEffect(() => { const t = setInterval(() => setI((n) => (n + 1 >= photos.length ? -1 : n + 1)), REEL_MS); return () => clearInterval(t); }, [photos.length]);
+  const photo = i >= 0 ? photos[i] : null;
+  const who = photo ? party.players.find((p) => p.id === photo.playerId) : undefined;
+  if (!photo) return (
+    <div className="tv-reel-title" data-testid="tv-reel">
+      <div className="tv-cer-eyebrow">THE PHOTO REEL</div>
+      <div className="tv-cer-title gold">{photos.length} PHOTOS</div>
+      <div className="tv-cer-sub">The whole weekend, from the top. To Jezza.</div>
+    </div>
+  );
+  return (
+    <div className="tv-reel" data-testid="tv-reel">
+      <img key={photo.id} src={photo.url} alt="" className="tv-reel-img" />
+      <div className="tv-cap">
+        <span className="avatar">{who ? <LadPic p={who} /> : '📸'}</span>
+        <span className="grow" style={{ minWidth: 0 }}>
+          <div className="tv-cap-title ellipsis"><b>{who?.nickname ?? 'Someone'}</b> · {photo.caption}</div>
+          <div className="tv-cap-sub ellipsis">{photo.note ? `“${photo.note}” · ` : ''}{new Date(photo.at).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })} · {i + 1} of {photos.length}</div>
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function WallCard({ post, party, withFights }: { post: WallPost; party: PartyPublic; withFights: boolean }) {
   const who = party.players.find((p) => p.id === post.playerId);
   const roast = post.kind === 'roast';
@@ -184,15 +212,17 @@ export default function TV({ code }: { code?: string }) {
     .sort((a, b) => (a.status === 'active' ? 0 : 1) - (b.status === 'active' ? 0 : 1) || (b.startedAt ?? b.createdAt) - (a.startedAt ?? a.createdAt)).slice(0, 2);
   const spotState = spotlightPhase(party.spotlight, now);
   const ceremonyOn = party.phase === 'finale' || party.phase === 'ended';
+  const reelOn = party.tvMode === 'reel' && spotState !== 'running' && spotState !== 'done';
   const board = sortLeaderboard(party.players.filter((p) => p.creature)).slice(0, 5);
   const latest = [...party.feed].reverse().filter((f) => f.kind !== 'join' && f.kind !== 'levelup').slice(0, 4);
   const parade = party.players.filter((p) => p.creature).slice(0, 8);
   return (
-    <div className={`tv ${code ? 'standalone' : ''}`} onClick={() => { if (!code) setTab('party'); }} data-testid="tv">
+    <div className={`tv ${code ? 'standalone' : ''} ${reelOn ? 'reel-mode' : ''}`} onClick={() => { if (!code) setTab('party'); }} data-testid="tv">
       <div className="tv-photo">
-        {spotState !== 'running' && spotState !== 'done' && fights.length > 0 && <div className="tv-fights">{fights.map((b) => <FightCard key={b.id} b={b} party={party} now={now} />)}</div>}
-        {spotState === 'upcoming' && !ceremonyOn && <SpotlightView party={party} now={now} />}
-        {spotState === 'running' || spotState === 'done' ? <SpotlightView party={party} now={now} /> : ceremonyOn ? <CeremonyView party={party} now={now} /> : wallPost ? <WallCard post={wallPost} party={party} withFights={fights.length > 0} /> : photo ? (
+        {reelOn && <ReelView party={party} />}
+        {!reelOn && spotState !== 'running' && spotState !== 'done' && fights.length > 0 && <div className="tv-fights">{fights.map((b) => <FightCard key={b.id} b={b} party={party} now={now} />)}</div>}
+        {spotState === 'upcoming' && !ceremonyOn && !reelOn && <SpotlightView party={party} now={now} />}
+        {spotState === 'running' || spotState === 'done' ? <SpotlightView party={party} now={now} /> : reelOn ? null : ceremonyOn ? <CeremonyView party={party} now={now} /> : wallPost ? <WallCard post={wallPost} party={party} withFights={fights.length > 0} /> : photo ? (
           <>
             <img key={photo.id} src={photo.url} alt="" className="tv-img" />
             <div className="tv-cap">

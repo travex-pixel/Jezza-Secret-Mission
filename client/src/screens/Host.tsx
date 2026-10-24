@@ -128,6 +128,7 @@ export default function Host() {
               </div>
               {spot && <div className="tiny bold" data-testid="spot-status">{spotlightPhase(spot, party.serverTime) === 'running' ? '⏱ Running on the TV now.' : `Scheduled: ${spot.label}${spot.playerId ? ` · ${nickOf(spot.playerId)}` : ''} · ${fmtTime(spot.at)} · ${spot.seconds / 60} min. Start it when the room is ready.`}</div>}
             </div>
+            <div className="row-between"><div><div className="bold">📽️ Photo reel on the TV</div><div className="tiny faint">{party.tvMode === 'reel' ? 'Rolling: every photo of the weekend, oldest first, full screen.' : 'Switch the TV to a full-screen run of every photo, oldest first. Good with the lights down.'}</div></div><Button size="sm" variant={party.tvMode === 'reel' ? 'danger' : 'secondary'} onClick={() => host({ kind: 'setTvMode', mode: party.tvMode === 'reel' ? 'auto' : 'reel' })} data-testid="tv-reel-toggle">{party.tvMode === 'reel' ? 'Back to normal' : '▶ Play the reel'}</Button></div>
             <div className="divider" />
             <div className="eyebrow">Photo checks</div>
             <div className="stack-6" role="radiogroup" aria-label="Photo checks">

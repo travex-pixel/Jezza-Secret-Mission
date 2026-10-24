@@ -81,6 +81,7 @@ export interface PartyState {
   mole: MoleState | null;
   spotlight: Spotlight | null;
   ceremony: number;
+  tvMode: 'auto' | 'reel';
 }
 
 export interface EngineState {
@@ -208,7 +209,7 @@ export class Engine {
       party.raids ??= []; party.wall ??= []; party.cellar ??= [];
       party.phaseMissions ??= { friday: 0, saturday: 0 };
       party.photoMode ??= 'vote';
-      party.epics ??= []; party.codes ??= []; party.giveaways ??= []; party.log ??= [...party.feed]; party.xpBoostUntil ??= null; party.capLifted ??= false; party.mole ??= null; party.spotlight ??= null; party.ceremony ??= 0;
+      party.epics ??= []; party.codes ??= []; party.giveaways ??= []; party.log ??= [...party.feed]; party.xpBoostUntil ??= null; party.capLifted ??= false; party.mole ??= null; party.spotlight ??= null; party.ceremony ??= 0; party.tvMode ??= 'auto';
       for (const e of party.epics) { e.tier ??= 'medium'; e.points ??= EPIC_TIERS[e.tier].points; e.xp ??= EPIC_TIERS[e.tier].xp; }
       for (const b of Object.values(party.battles)) if (b.status === 'active' && !b.quick && !b.auto) { b.quick = true; b.roundDeadline = Math.min(b.roundDeadline ?? Infinity, this.now() + PLAN_SECONDS * 1000); }
       party.nextAutoAt ??= this.now() + FIRST_AUTO_DELAY_MS;
@@ -301,6 +302,7 @@ export class Engine {
       finalized: party.finalized,
       spotlight: party.spotlight,
       ceremony: party.ceremony,
+      tvMode: party.tvMode,
       build: this.build,
       hasHostPin: !!party.hostPinHash,
       groomId: party.groomId,
@@ -450,7 +452,7 @@ export class Engine {
       code, name: (partyName ?? '').trim().slice(0, 40) || "Jezza's Bucks Weekend", hostId: playerId, phase: 'friday', missionsOpen: true,
       createdAt: now, players: {}, feed: [], claims: {}, revealedGroupMissions: [], battles: {}, awardOverrides: {}, finalized: false, fridayPoints: null, seq: 0,
       groomId: isJezza(v.name) ? playerId : null, autoSaturdayAt: nextSaturdayMorning(now), nextGroupAt: now + FIRST_GROUP_DELAY_MS,
-      raids: [], wall: [], cellar: [], phaseMissions: { friday: 0, saturday: 0 }, photoMode: 'vote', nextAutoAt: now + FIRST_AUTO_DELAY_MS, epics: [], codes: [], giveaways: [], log: [], xpBoostUntil: null, capLifted: false, mole: null, spotlight: null, ceremony: 0,
+      raids: [], wall: [], cellar: [], phaseMissions: { friday: 0, saturday: 0 }, photoMode: 'vote', nextAutoAt: now + FIRST_AUTO_DELAY_MS, epics: [], codes: [], giveaways: [], log: [], xpBoostUntil: null, capLifted: false, mole: null, spotlight: null, ceremony: 0, tvMode: 'auto',
     };
     party.players[playerId] = newPlayer(playerId, v.name, now, true, 'friday');
     if (pin) party.hostPinHash = hashPin(code, pin);
@@ -2067,6 +2069,13 @@ export class Engine {
           direct.push({ to: 'party', msg: { type: 'toast', text: `🎤 ${label}${who ? `: ${who}` : ''}. The clock is running.`, emoji: '🎤', tone: 'warn' } });
         }
         return this.ok(party, { spotlight: next }, direct);
+      }
+      case 'setTvMode': {
+        const mode = action.mode === 'reel' ? 'reel' : 'auto';
+        if (mode === party.tvMode) return { ack: { ok: true }, changed: false, direct: [] };
+        party.tvMode = mode;
+        if (mode === 'reel') this.feed(party, { kind: 'phase', text: '📽️ THE PHOTO REEL is rolling on the TV: every photo of the weekend, from the top.', emoji: '📽️' });
+        return this.ok(party, { mode }, direct);
       }
       case 'setCeremony': {
         const n = Math.max(0, Math.min(40, Math.round(Number(action.revealed)) || 0));
