@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { defaultSpotlightAt, fmtTime, spotlightPhase } from '@shared/ceremony';
+import { ROWDY_KINDS, type RowdyKind } from '@shared/rowdy';
 import type { HostAction, Phase, PlayerPublic } from '@shared/types';
 import { GROUP_MISSIONS, MISSION_BY_ID } from '@shared/missions';
 import { AWARDS } from '@shared/progression';
@@ -166,6 +167,16 @@ export default function Host() {
             <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
               {[30, 60].map((m) => <Button key={m} size="sm" variant="secondary" disabled={!!party.xpBoostUntil && party.xpBoostUntil > party.serverTime} onClick={() => host({ kind: 'xpBoost', minutes: m })}>⚡ Double XP · {m} min</Button>)}
               {!party.capLifted && (party.phase === 'friday' || party.phase === 'lobby') && <Button size="sm" variant="secondary" onClick={() => host({ kind: 'liftXpCap' })}>🧬 Unlock final forms tonight</Button>}
+            </div>
+            <div className="panel pad stack-6" data-testid="rowdy-panel">
+              <div className="small bold">🍻 Rowdy Round</div>
+              <div className="tiny faint">A prompt on every phone and the TV, with a clock. Sips are the room's forfeit; the app only counts votes and never scores drinking.</div>
+              {party.rowdy && <div className="tiny bold">{party.rowdy.revealed ? 'Last round is showing its result.' : `Running: ${ROWDY_KINDS[party.rowdy.kind].label} · ${party.rowdy.votes} vote${party.rowdy.votes === 1 ? '' : 's'} in.`}</div>}
+              <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+                {(Object.keys(ROWDY_KINDS) as RowdyKind[]).map((k) => <Button key={k} size="sm" variant="secondary" disabled={!!party.rowdy && !party.rowdy.revealed} onClick={() => host({ kind: 'startRowdy', rowdy: k })} data-testid={`rowdy-${k}`}>{ROWDY_KINDS[k].emoji} {ROWDY_KINDS[k].label}</Button>)}
+                <Button size="sm" variant="secondary" disabled={!!party.rowdy && !party.rowdy.revealed} onClick={() => host({ kind: 'startRowdy' })}>🎲 Lucky dip</Button>
+                {party.rowdy && <Button size="sm" variant="danger" onClick={() => host({ kind: 'endRowdy' })} data-testid="rowdy-end">{party.rowdy.revealed ? 'Clear' : '■ End now'}</Button>}
+              </div>
             </div>
             <div className="panel pad stack-6">
               <div className="small bold">🎁 Lucky Drop for everyone</div>

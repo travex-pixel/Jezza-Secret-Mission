@@ -101,6 +101,7 @@ export interface PlayerPrivate {
   mole?: { missions: { text: string; done: boolean }[] };      // only a Mole gets this (their own missions)
   moleVotes: string[];                                          // who I reckon it is (one pick per Mole in play)
   moleHost?: { playerId: string; done: number; total: number }[]; // the host alone sees who the Moles are
+  rowdyVote?: string;                                           // who I named in this Rowdy Round
   flagged: string[];                // claim ids this player has already called BS on
   secret: string;
 }
@@ -322,6 +323,7 @@ export interface PartyPublic {
   /** How many awards the host has revealed in the ceremony (phones and the TV follow it) */
   ceremony: number;
   tvMode: 'auto' | 'reel';   // the host can switch the TV to the photo reel (every photo, oldest first, no sidebar)
+  rowdy: import('./rowdy').RowdyPublic | null; // the Rowdy Round in play, if any
   build: string;               // which build this server is running (short commit + deploy time)
   hasHostPin: boolean;
   groomId: string | null;
@@ -433,6 +435,7 @@ export type ClientMessage =
   | { type: 'moleDone'; reqId: string; index: number }
   | { type: 'moleVote'; reqId: string; suspectId: string }
   | { type: 'taunt'; reqId: string; battleId: string; emoji: string }
+  | { type: 'rowdyVote'; reqId: string; targetId: string }
   | { type: 'leaveEpic'; reqId: string; epicId: string }
   | { type: 'finishEpic'; reqId: string; epicId: string }
   | { type: 'setAutoBattles'; reqId: string; on: boolean }
@@ -458,6 +461,8 @@ export type HostAction =
   | { kind: 'setSpotlight'; label?: string; at?: number; seconds?: number; playerId?: string | null; start?: boolean; stop?: boolean; clear?: boolean }
   | { kind: 'setCeremony'; revealed: number }
   | { kind: 'setTvMode'; mode: 'auto' | 'reel' }
+  | { kind: 'startRowdy'; rowdy?: import('./rowdy').RowdyKind }
+  | { kind: 'endRowdy' }
   | { kind: 'transferHost'; playerId: string }
   | { kind: 'purgePhotos' }
   | { kind: 'setHostPin'; pin: string }

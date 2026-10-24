@@ -11,6 +11,7 @@ import MoleVote from '../components/MoleVote';
 import SaturdayBriefing from '../components/SaturdayBriefing';
 import MoleReveal, { useMoleReveal } from '../components/MoleReveal';
 import { fmtClock, fmtTime, spotlightPhase } from '@shared/ceremony';
+import RowdyCard from '../components/RowdyCard';
 import { RARITY } from '@shared/saturday';
 import HowItWorksSheet from '../components/HowItWorks';
 import { Button, ConnectionPill, FeedItem, XPBar, useCountdown } from '../components/ui';
@@ -70,7 +71,7 @@ export default function Home() {
   // One alert at a time, most urgent first. Everything else is a tab away.
   const alert = fighting ? 'fight' : incoming ? 'incoming' : raid ? 'raid' : witnessReq ? 'witness' : drop ? 'drop' : voteEv ? 'vote' : grab ? 'grab' : epic?.crew.includes(me.id) ? 'epic' : awayN > 0 ? 'away' : epic ? 'epic' : null;
   // every strip above the feed costs it a slot, so the column never overflows the screen
-  const extras = (alert ? 1 : 0) + (quests.length > 0 || moleOpen ? 1 : 0) + (priv?.mole ? 1 : 0) + (spot && spotState !== 'none' ? 1 : 0);
+  const extras = (party?.rowdy ? 1 : 0) + (alert ? 1 : 0) + (quests.length > 0 || moleOpen ? 1 : 0) + (priv?.mole ? 1 : 0) + (spot && spotState !== 'none' ? 1 : 0);
   const feed = [...party.feed].reverse().filter((f) => f.kind !== 'achievement' && f.kind !== 'levelup' && f.id !== voteEv?.id).slice(0, Math.max(1, slots - extras));
   // Evolution nudge, only when it's close
   const evoAt = nextEvolveLevel(me.level);
@@ -105,6 +106,7 @@ export default function Home() {
           </span>
         </button>
 
+        {party.rowdy && <RowdyCard />}
         {alert === 'fight' && <button className="panel panel-gold pad row alert" onClick={() => setTab('battle')}><span style={{ fontSize: 22 }}>⚔️</span><span className="grow bold">Your fight is on. Pick your game plan.</span><span className="pill pill-ember pill-xs">GO</span></button>}
         {alert === 'incoming' && <button className="panel panel-gold pad row alert" onClick={() => setTab('battle')}><span style={{ fontSize: 22 }}>⚔️</span><span className="grow bold">{challenger ?? 'A mate'} wants to fight you</span><span className="pill pill-ember pill-xs">ANSWER</span></button>}
         {alert === 'raid' && raid && (

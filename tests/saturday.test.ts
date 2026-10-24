@@ -5,6 +5,7 @@ import { seededRng } from '../shared/battle';
 import { COSMETIC_BY_ID } from '../shared/progression';
 import { DROP_EVERY, DROP_ITEMS, QUEST_BY_ID, RARITIES, RARITY, rollRarity, rollDrop, MOLE_POINTS } from '../shared/saturday';
 import { MISSIONS } from '../shared/missions';
+import { ROWDY_PROMPTS } from '../shared/rowdy';
 
 const PHOTO = 'data:image/jpeg;base64,AAAA';
 const PHOTO_M = MISSIONS.filter((m) => m.method === 'photo' && m.scope === 'private' && !m.tutorial && !m.retired && !m.free);
@@ -482,5 +483,43 @@ describe('the Spotlight and the ceremony on the TV', () => {
     expect(spotlightPhase(null, 0)).toBe('none'); expect(spotlightPhase(s, 0)).toBe('upcoming');
     expect(spotlightPhase({ ...s, startedAt: 1000 }, 1000 + 119_000)).toBe('running'); expect(spotlightPhase({ ...s, startedAt: 1000 }, 1000 + 121_000)).toBe('done'); expect(spotlightPhase({ ...s, startedAt: 1000 }, 1000 + 170_000)).toBe('none');
     expect(fmtClock(125)).toBe('2:05'); expect(fmtClock(0)).toBe('0:00');
+  });
+});
+
+describe('Rowdy Rounds', () => {
+  it('host starts one, lads name a lad, the clock reveals a tally, prompts never repeat until the hat is empty', () => {
+    const { eng, ids, party, host, priv, advance } = setup(8);
+    expect(eng.handle(ids[1], { type: 'host', reqId: 'h', action: { kind: 'startRowdy', rowdy: 'mostLikely' } }).ack?.ok).toBe(false);
+    const r = host({ kind: 'startRowdy', rowdy: 'mostLikely' });
+    expect(r.ack?.ok).toBe(true); expect(r.direct.some((d) => d.to === 'party')).toBe(true);
+    let pub = eng.publicView(party()).rowdy!;
+    expect(pub.kind).toBe('mostLikely'); expect(pub.revealed).toBe(false); expect(pub.endsAt - pub.startedAt).toBe(45_000);
+    expect(host({ kind: 'startRowdy' }).ack?.ok).toBe(false); // one at a time
+    const before = party().players[ids[2]].points;
+    expect(eng.handle(ids[2], { type: 'rowdyVote', reqId: 'v', targetId: ids[3] }).ack?.ok).toBe(true);
+    expect(party().players[ids[2]].points - before).toBe(5);
+    eng.handle(ids[2], { type: 'rowdyVote', reqId: 'v', targetId: ids[4] }); // changed mind, no second payout
+    expect(party().players[ids[2]].points - before).toBe(5); expect(priv(ids[2]).rowdyVote).toBe(ids[4]);
+    for (const id of ids.slice(3, 7)) eng.handle(id, { type: 'rowdyVote', reqId: 'v', targetId: ids[4] });
+    expect(eng.publicView(party()).rowdy!.votes).toBe(5); expect(eng.publicView(party()).rowdy!.tally).toBeUndefined(); // secret till the end
+    advance(46_000); eng.tick();
+    pub = eng.publicView(party()).rowdy!;
+    expect(pub.revealed).toBe(true); expect(pub.tally![0]).toEqual({ playerId: ids[4], n: 5 });
+    expect(party().feed.at(-1)!.text).toMatch(/Most likely to .*: LAD 4|Most likely to .*: [A-Z]/);
+    expect(eng.handle(ids[2], { type: 'rowdyVote', reqId: 'v', targetId: ids[3] }).ack?.ok).toBe(false); // over
+    advance(91_000); eng.tick(); expect(eng.publicView(party()).rowdy).toBeNull(); // cleared on its own
+    // no repeats until every prompt of that kind has been used
+    const seen = new Set<string>();
+    for (let i = 0; i < ROWDY_PROMPTS.neverHaveIEver.length; i++) { host({ kind: 'startRowdy', rowdy: 'neverHaveIEver' }); seen.add(party().rowdy!.prompt); host({ kind: 'endRowdy' }); host({ kind: 'endRowdy' }); }
+    expect(seen.size).toBe(ROWDY_PROMPTS.neverHaveIEver.length);
+    expect(host({ kind: 'startRowdy', rowdy: 'neverHaveIEver' }).ack?.ok).toBe(true); // the hat refills
+  });
+  it('no voting in a timer game; end now reveals, end again clears', () => {
+    const { eng, ids, party, host } = setup();
+    host({ kind: 'startRowdy', rowdy: 'categories' });
+    expect(eng.handle(ids[1], { type: 'rowdyVote', reqId: 'v', targetId: ids[2] }).ack?.ok).toBe(false);
+    expect(host({ kind: 'endRowdy' }).ack?.ok).toBe(true); expect(eng.publicView(party()).rowdy!.revealed).toBe(true);
+    expect(host({ kind: 'endRowdy' }).ack?.ok).toBe(true); expect(eng.publicView(party()).rowdy).toBeNull();
+    expect(host({ kind: 'endRowdy' }).ack?.ok).toBe(false);
   });
 });

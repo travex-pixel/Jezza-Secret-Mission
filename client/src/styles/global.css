@@ -468,6 +468,24 @@ img, svg { display: block; max-width: 100%; }
 .spot-strip { display: flex; align-items: center; gap: 10px; padding: 10px 12px; width: 100%; border-color: rgba(229,173,72,.55); }
 .spot-strip.running { border-color: var(--rose); box-shadow: 0 0 16px rgba(226,82,107,.3); }
 .spot-clock { font-family: var(--font-display); font-weight: 800; font-size: 26px; font-variant-numeric: tabular-nums; color: var(--gold); }
+/* Rowdy Rounds */
+.rowdy-card { display: flex; align-items: center; gap: 10px; padding: 10px 12px; width: 100%; text-align: left; border-color: rgba(229,173,72,.6); background: linear-gradient(160deg, rgba(229,173,72,.16), rgba(118,36,58,.3) 70%); box-shadow: 0 0 16px rgba(229,173,72,.2); }
+.rowdy-card.done { opacity: .9; box-shadow: none; }
+.tv-rowdy { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: clamp(8px, 1.8vh, 20px); padding: clamp(16px, 3vw, 40px); text-align: center; background: radial-gradient(80% 60% at 50% 30%, rgba(229,173,72,.3), rgba(118,36,58,.35) 50%, #120d14 100%); animation: tv-in .5s ease both; }
+.tv-rowdy-prompt { font-family: var(--font-display); font-weight: 800; font-size: clamp(26px, 4.6vw, 60px); line-height: 1.1; color: var(--cream); text-wrap: balance; max-width: 18ch; text-shadow: 0 2px 18px rgba(0,0,0,.6); }
+.tv-rowdy-clock { font-family: var(--font-display); font-weight: 800; font-variant-numeric: tabular-nums; font-size: clamp(40px, 9vw, 110px); line-height: 1; color: var(--gold); }
+.tv-rowdy-tally { display: flex; flex-direction: column; gap: 8px; width: min(80%, 640px); }
+.tv-rowdy-row { display: grid; grid-template-columns: 44px 1fr 3fr 40px; align-items: center; gap: 10px; animation: tv-in .5s ease both; }
+.tv-rowdy-row .avatar { width: 44px; height: 44px; border-radius: 12px; }
+.tv-rowdy-row.top .avatar { outline: 2px solid var(--gold); }
+.tv-rowdy-name { font-weight: 900; font-size: clamp(14px, 1.8vw, 22px); text-align: left; }
+.tv-rowdy-row.top .tv-rowdy-name { color: var(--gold); }
+.tv-rowdy-bar { height: 16px; border-radius: 999px; background: rgba(255,255,255,.1); overflow: hidden; } .tv-rowdy-bar i { display: block; height: 100%; background: var(--gold); border-radius: 999px; transition: width .6s ease; }
+.tv-rowdy-n { font-family: var(--font-display); font-weight: 800; font-size: clamp(16px, 2vw, 26px); color: var(--gold); }
+/* faces beside creatures in the ceremony */
+.tv-cer-face { width: clamp(70px, 10vw, 130px); height: clamp(70px, 10vw, 130px); border-radius: 22px; overflow: hidden; border: 2px solid var(--gold); box-shadow: 0 8px 30px rgba(0,0,0,.5); flex: 0 0 auto; display: block; }
+.tv-cer-face.big { width: clamp(60px, 7vw, 96px); height: clamp(60px, 7vw, 96px); }
+.tv-podium-face { width: clamp(40px, 5vw, 64px); height: clamp(40px, 5vw, 64px); border-radius: 14px; overflow: hidden; border: 2px solid var(--gold); margin-bottom: -8px; z-index: 1; display: block; }
 /* The photo reel: full width, no sidebar, each photo drifts for a couple of seconds */
 .tv.reel-mode { grid-template-columns: 1fr; }
 .tv.reel-mode .tv-side { display: none; }

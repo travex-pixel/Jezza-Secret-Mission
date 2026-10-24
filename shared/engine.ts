@@ -8,6 +8,7 @@ import type { Spotlight,
 } from './types';
 import { EPIC_CUSTOM_ITEM, EPIC_MAX_CREW, EPIC_PRESET_BY_ID, EPIC_TIERS, isEpicTier } from './epics';
 import { drinkEmoji } from './drinks';
+import { ROWDY_KINDS, ROWDY_PROMPTS, ROWDY_VOTE_POINTS, type RowdyKind, type RowdyPublic, type RowdyState } from './rowdy';
 import { DROP_EVERY, MOLE_MAX, MOLE_MISSIONS, MOLE_POINTS, molesFor, QUESTS_PER_DAY, QUEST_BY_ID, QUEST_DEFS, RARITIES, RARITY, questProgress, rollDrop, type Drop, type MoleState, type Quest, type Rarity } from './saturday';
 import { CREATURES, CREATURE_IDS, FORMS, GROOM_CREATURE, starterTrio } from './creatures';
 import { MISSIONS, MISSION_BY_ID, STARTER_MISSION, TUTORIAL_MISSIONS, TUTORIAL_IDS, GROUP_MISSIONS, missionAvailableInPhase, rookieLeft, type Mission } from './missions';
@@ -82,6 +83,8 @@ export interface PartyState {
   spotlight: Spotlight | null;
   ceremony: number;
   tvMode: 'auto' | 'reel';
+  rowdy: RowdyState | null;
+  rowdyUsed: Partial<Record<RowdyKind, string[]>>;
 }
 
 export interface EngineState {
@@ -209,7 +212,7 @@ export class Engine {
       party.raids ??= []; party.wall ??= []; party.cellar ??= [];
       party.phaseMissions ??= { friday: 0, saturday: 0 };
       party.photoMode ??= 'vote';
-      party.epics ??= []; party.codes ??= []; party.giveaways ??= []; party.log ??= [...party.feed]; party.xpBoostUntil ??= null; party.capLifted ??= false; party.mole ??= null; party.spotlight ??= null; party.ceremony ??= 0; party.tvMode ??= 'auto';
+      party.epics ??= []; party.codes ??= []; party.giveaways ??= []; party.log ??= [...party.feed]; party.xpBoostUntil ??= null; party.capLifted ??= false; party.mole ??= null; party.spotlight ??= null; party.ceremony ??= 0; party.tvMode ??= 'auto'; party.rowdy ??= null; party.rowdyUsed ??= {};
       for (const e of party.epics) { e.tier ??= 'medium'; e.points ??= EPIC_TIERS[e.tier].points; e.xp ??= EPIC_TIERS[e.tier].xp; }
       for (const b of Object.values(party.battles)) if (b.status === 'active' && !b.quick && !b.auto) { b.quick = true; b.roundDeadline = Math.min(b.roundDeadline ?? Infinity, this.now() + PLAN_SECONDS * 1000); }
       party.nextAutoAt ??= this.now() + FIRST_AUTO_DELAY_MS;
@@ -303,6 +306,7 @@ export class Engine {
       spotlight: party.spotlight,
       ceremony: party.ceremony,
       tvMode: party.tvMode,
+      rowdy: this.rowdyPublic(party),
       build: this.build,
       hasHostPin: !!party.hostPinHash,
       groomId: party.groomId,
@@ -344,6 +348,7 @@ export class Engine {
       quests: p.quests.map((q) => ({ ...q, progress: questProgress(q, p) })),
       mole: party.mole && !party.mole.revealed ? (() => { const m = party.mole!.moles.find((x) => x.playerId === playerId); return m ? { missions: m.missions } : undefined; })() : undefined,
       moleVotes: party.mole?.votes[playerId] ?? [],
+      rowdyVote: party.rowdy?.votes[playerId],
       moleHost: party.mole && !party.mole.revealed && party.hostId === playerId ? party.mole.moles.map((m) => ({ playerId: m.playerId, done: m.missions.filter((x) => x.done).length, total: m.missions.length })) : undefined,
       flagged: p.flagged ?? [],
       away: p.away,
@@ -411,6 +416,7 @@ export class Engine {
         case 'openDrop': return this.openDrop(playerId, msg.dropId);
         case 'moleDone': return this.moleDone(playerId, msg.index);
         case 'moleVote': return this.moleVote(playerId, msg.suspectId);
+        case 'rowdyVote': return this.rowdyVote(playerId, msg.targetId);
         case 'taunt': return this.taunt(playerId, msg.battleId, msg.emoji);
         case 'leaveEpic': return this.leaveEpic(playerId, msg.epicId);
         case 'finishEpic': return this.finishEpic(playerId, msg.epicId);
@@ -452,7 +458,7 @@ export class Engine {
       code, name: (partyName ?? '').trim().slice(0, 40) || "Jezza's Bucks Weekend", hostId: playerId, phase: 'friday', missionsOpen: true,
       createdAt: now, players: {}, feed: [], claims: {}, revealedGroupMissions: [], battles: {}, awardOverrides: {}, finalized: false, fridayPoints: null, seq: 0,
       groomId: isJezza(v.name) ? playerId : null, autoSaturdayAt: nextSaturdayMorning(now), nextGroupAt: now + FIRST_GROUP_DELAY_MS,
-      raids: [], wall: [], cellar: [], phaseMissions: { friday: 0, saturday: 0 }, photoMode: 'vote', nextAutoAt: now + FIRST_AUTO_DELAY_MS, epics: [], codes: [], giveaways: [], log: [], xpBoostUntil: null, capLifted: false, mole: null, spotlight: null, ceremony: 0, tvMode: 'auto',
+      raids: [], wall: [], cellar: [], phaseMissions: { friday: 0, saturday: 0 }, photoMode: 'vote', nextAutoAt: now + FIRST_AUTO_DELAY_MS, epics: [], codes: [], giveaways: [], log: [], xpBoostUntil: null, capLifted: false, mole: null, spotlight: null, ceremony: 0, tvMode: 'auto', rowdy: null, rowdyUsed: {},
     };
     party.players[playerId] = newPlayer(playerId, v.name, now, true, 'friday');
     if (pin) party.hostPinHash = hashPin(code, pin);
@@ -1674,6 +1680,8 @@ export class Engine {
       // Raid timer
       const raid = party.raids[party.raids.length - 1];
       if (raid && raid.status === 'active' && now >= raid.endsAt) { this.endRaid(party, raid, 'escaped', direct); dirty = true; }
+      if (party.rowdy && !party.rowdy.revealed && now >= party.rowdy.endsAt) { this.revealRowdy(party, direct); dirty = true; }
+      if (party.rowdy?.revealed && now - party.rowdy.endsAt > 90_000) { party.rowdy = null; dirty = true; }
       // Saturday turns up on its own at 5am Sydney time
       if (party.autoSaturdayAt && now >= party.autoSaturdayAt) {
         if (party.phase === 'friday' || party.phase === 'lobby') { this.applyPhase(party, 'saturday', direct, true); }
@@ -2077,6 +2085,28 @@ export class Engine {
         if (mode === 'reel') this.feed(party, { kind: 'phase', text: '📽️ THE PHOTO REEL is rolling on the TV: every photo of the weekend, from the top.', emoji: '📽️' });
         return this.ok(party, { mode }, direct);
       }
+      case 'startRowdy': {
+        const kinds = Object.keys(ROWDY_KINDS) as RowdyKind[];
+        const kind = action.rowdy && ROWDY_KINDS[action.rowdy] ? action.rowdy : kinds[Math.floor(this.rng() * kinds.length)];
+        if (party.rowdy && !party.rowdy.revealed && this.now() < party.rowdy.endsAt) return this.fail('One is already running. End it first.');
+        const used = party.rowdyUsed[kind] ?? [];
+        let pool = ROWDY_PROMPTS[kind].filter((x) => !used.includes(x));
+        if (!pool.length) { party.rowdyUsed[kind] = []; pool = ROWDY_PROMPTS[kind]; }
+        const prompt = pool[Math.floor(this.rng() * pool.length)];
+        party.rowdyUsed[kind] = [...(party.rowdyUsed[kind] ?? []), prompt];
+        const def = ROWDY_KINDS[kind]; const now = this.now();
+        party.rowdy = { id: `rw_${now.toString(36)}_${Math.floor(this.rng() * 1e6).toString(36)}`, kind, prompt, startedAt: now, endsAt: now + def.seconds * 1000, votes: {}, revealed: false, used: [] };
+        const line = this.rowdyLine(kind, prompt);
+        this.feed(party, { kind: 'phase', text: `🍻 ROWDY ROUND · ${def.label}: ${line}`, emoji: def.emoji });
+        direct.push({ to: 'party', msg: { type: 'toast', text: `🍻 ${def.label}: ${line}`, emoji: def.emoji, tone: 'warn' } });
+        return this.ok(party, { id: party.rowdy.id, kind, prompt }, direct);
+      }
+      case 'endRowdy': {
+        if (!party.rowdy) return this.fail('Nothing running.');
+        if (party.rowdy.revealed) { party.rowdy = null; return this.ok(party, undefined, direct); }
+        this.revealRowdy(party, direct);
+        return this.ok(party, undefined, direct);
+      }
       case 'setCeremony': {
         const n = Math.max(0, Math.min(40, Math.round(Number(action.revealed)) || 0));
         if (n === party.ceremony) return { ack: { ok: true }, changed: false, direct: [] };
@@ -2237,6 +2267,43 @@ export class Engine {
     const next = mine.includes(suspectId) ? mine.filter((x) => x !== suspectId) : [...mine, suspectId].slice(-m.moles.length);
     if (next.length) m.votes[playerId] = next; else delete m.votes[playerId];
     return this.ok(party, { suspectIds: next });
+  }
+
+  // ---------- Rowdy Rounds ----------
+  private rowdyLine(kind: RowdyKind, prompt: string) {
+    return kind === 'mostLikely' ? `most likely to ${prompt}` : kind === 'neverHaveIEver' ? `never have I ever ${prompt}` : kind === 'categories' ? `${prompt}. Round the circle, no repeats.` : prompt;
+  }
+  private rowdyPublic(party: PartyState): RowdyPublic | null {
+    const r = party.rowdy; if (!r) return null;
+    const tally = r.revealed ? Object.values(r.votes).reduce<Record<string, number>>((o, t) => { o[t] = (o[t] ?? 0) + 1; return o; }, {}) : undefined;
+    return { id: r.id, kind: r.kind, prompt: r.prompt, startedAt: r.startedAt, endsAt: r.endsAt, votes: Object.keys(r.votes).length, revealed: r.revealed, tally: tally ? Object.entries(tally).map(([playerId, n]) => ({ playerId, n })).sort((a, b) => b.n - a.n) : undefined };
+  }
+  private rowdyVote(playerId: string, targetId: string): HandleResult {
+    const party = this.partyOf(playerId); const p = party?.players[playerId]; const r = party?.rowdy;
+    if (!party || !p || p.removed || !p.creature) return this.fail('Adopt a creature first.');
+    if (!r || r.revealed || this.now() >= r.endsAt) return this.fail('That round is over.');
+    if (!ROWDY_KINDS[r.kind].vote) return this.fail('No voting in this one. Just play.');
+    const t = party.players[targetId];
+    if (!t || t.removed || !t.creature) return this.fail('Pick a lad.');
+    const first = !r.votes[playerId];
+    r.votes[playerId] = targetId;
+    const direct: Outbound[] = [];
+    if (first) this.grant(party, p, ROWDY_VOTE_POINTS, 0, direct); // a few points for joining in, never for drinking
+    return this.ok(party, { targetId }, direct);
+  }
+  private revealRowdy(party: PartyState, direct: Outbound[]) {
+    const r = party.rowdy; if (!r || r.revealed) return;
+    r.revealed = true; r.endsAt = Math.min(r.endsAt, this.now());
+    const def = ROWDY_KINDS[r.kind];
+    if (def.vote) {
+      const pub = this.rowdyPublic(party)!; const top = pub.tally?.[0];
+      const name = top ? party.players[top.playerId]?.nickname ?? '?' : undefined;
+      const tie = top && pub.tally!.filter((x) => x.n === top.n).length > 1;
+      this.feed(party, { kind: 'phase', text: top ? `🍻 Most likely to ${r.prompt}: ${tie ? pub.tally!.filter((x) => x.n === top.n).map((x) => party.players[x.playerId]?.nickname?.toUpperCase() ?? '?').join(' & ') : name!.toUpperCase()} (${top.n} vote${top.n === 1 ? '' : 's'}). You know what to do.` : `🍻 Most likely to ${r.prompt}: nobody voted. Soft.`, emoji: '👉' });
+      direct.push({ to: 'party', msg: { type: 'toast', text: top ? `👉 Most likely to ${r.prompt}: ${tie ? 'a tie!' : name}` : 'Nobody voted. Soft.', emoji: '🍻', tone: 'warn' } });
+    } else {
+      this.feed(party, { kind: 'phase', text: `🍻 ${def.label} is over. ${r.kind === 'newRule' ? 'Rule\'s off.' : 'Nice work, degenerates.'}`, emoji: def.emoji });
+    }
   }
 
   // ---------- battle taunts ----------
