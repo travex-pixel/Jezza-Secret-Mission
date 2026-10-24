@@ -49,6 +49,8 @@ export interface PlayerPublic {
   title: string;
   online: boolean;
   isHost: boolean;
+  isScorer: boolean;      // can enter Bucks Olympics points for anyone (the host always can)
+  olympics: number;       // points received through the scorer's pad
   joinedAt: number;
   lastSeen: number;
   removed?: boolean;
@@ -324,6 +326,7 @@ export interface PartyPublic {
   ceremony: number;
   tvMode: 'auto' | 'reel';   // the host can switch the TV to the photo reel (every photo, oldest first, no sidebar)
   rowdy: import('./rowdy').RowdyPublic | null; // the Rowdy Round in play, if any
+  lastScore: { playerId: string; points: number; reason: string; by: string; at: number } | null; // the latest scorer entry, for the TV
   build: string;               // which build this server is running (short commit + deploy time)
   hasHostPin: boolean;
   groomId: string | null;
@@ -436,6 +439,7 @@ export type ClientMessage =
   | { type: 'moleVote'; reqId: string; suspectId: string }
   | { type: 'taunt'; reqId: string; battleId: string; emoji: string }
   | { type: 'rowdyVote'; reqId: string; targetId: string }
+  | { type: 'scorerGrant'; reqId: string; playerId: string; points: number; reason: string }
   | { type: 'leaveEpic'; reqId: string; epicId: string }
   | { type: 'finishEpic'; reqId: string; epicId: string }
   | { type: 'setAutoBattles'; reqId: string; on: boolean }
@@ -463,6 +467,7 @@ export type HostAction =
   | { kind: 'setTvMode'; mode: 'auto' | 'reel' }
   | { kind: 'startRowdy'; rowdy?: import('./rowdy').RowdyKind }
   | { kind: 'endRowdy' }
+  | { kind: 'setScorer'; playerId: string; on: boolean }
   | { kind: 'transferHost'; playerId: string }
   | { kind: 'purgePhotos' }
   | { kind: 'setHostPin'; pin: string }

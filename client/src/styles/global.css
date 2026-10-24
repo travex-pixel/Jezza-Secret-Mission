@@ -482,6 +482,16 @@ img, svg { display: block; max-width: 100%; }
 .tv-rowdy-row.top .tv-rowdy-name { color: var(--gold); }
 .tv-rowdy-bar { height: 16px; border-radius: 999px; background: rgba(255,255,255,.1); overflow: hidden; } .tv-rowdy-bar i { display: block; height: 100%; background: var(--gold); border-radius: 999px; transition: width .6s ease; }
 .tv-rowdy-n { font-family: var(--font-display); font-weight: 800; font-size: clamp(16px, 2vw, 26px); color: var(--gold); }
+/* Bucks Olympics moment on the TV */
+.tv-oly { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: clamp(10px, 2vh, 22px); padding: clamp(16px, 3vw, 40px); text-align: center; background: radial-gradient(80% 60% at 50% 30%, rgba(229,173,72,.3), rgba(118,36,58,.3) 50%, #120d14 100%); animation: tv-in .5s ease both; }
+.tv-oly-main { display: flex; align-items: center; gap: clamp(12px, 3vw, 32px); text-align: left; animation: award-in 700ms cubic-bezier(.2,1.2,.4,1) both; }
+.tv-oly-pts { font-family: var(--font-display); font-weight: 800; font-size: clamp(44px, 8vw, 96px); line-height: 1; color: var(--gold); text-shadow: 0 0 30px rgba(229,173,72,.5); }
+.tv-oly-pts.neg { color: #ff8a8a; }
+.tv-oly-table { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 18px; width: min(80%, 700px); }
+.tv-oly-row { display: grid; grid-template-columns: 28px 36px 1fr auto; align-items: center; gap: 8px; padding: 4px 10px; border-radius: 12px; background: rgba(0,0,0,.35); border: 1px solid var(--line); font-size: clamp(13px, 1.5vw, 18px); text-align: left; }
+.tv-oly-row .avatar.sm { width: 36px; height: 36px; border-radius: 10px; }
+.tv-oly-row.hot { border-color: var(--gold); box-shadow: 0 0 14px rgba(229,173,72,.3); }
+.tv-oly-medal { text-align: center; font-weight: 800; color: var(--text-dim); }
 /* faces beside creatures in the ceremony */
 .tv-cer-face { width: clamp(70px, 10vw, 130px); height: clamp(70px, 10vw, 130px); border-radius: 22px; overflow: hidden; border: 2px solid var(--gold); box-shadow: 0 8px 30px rgba(0,0,0,.5); flex: 0 0 auto; display: block; }
 .tv-cer-face.big { width: clamp(60px, 7vw, 96px); height: clamp(60px, 7vw, 96px); }

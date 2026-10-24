@@ -84,6 +84,7 @@ export interface PartyState {
   ceremony: number;
   tvMode: 'auto' | 'reel';
   rowdy: RowdyState | null;
+  lastScore: { playerId: string; points: number; reason: string; by: string; at: number } | null;
   rowdyUsed: Partial<Record<RowdyKind, string[]>>;
 }
 
@@ -212,7 +213,7 @@ export class Engine {
       party.raids ??= []; party.wall ??= []; party.cellar ??= [];
       party.phaseMissions ??= { friday: 0, saturday: 0 };
       party.photoMode ??= 'vote';
-      party.epics ??= []; party.codes ??= []; party.giveaways ??= []; party.log ??= [...party.feed]; party.xpBoostUntil ??= null; party.capLifted ??= false; party.mole ??= null; party.spotlight ??= null; party.ceremony ??= 0; party.tvMode ??= 'auto'; party.rowdy ??= null; party.rowdyUsed ??= {};
+      party.epics ??= []; party.codes ??= []; party.giveaways ??= []; party.log ??= [...party.feed]; party.xpBoostUntil ??= null; party.capLifted ??= false; party.mole ??= null; party.spotlight ??= null; party.ceremony ??= 0; party.tvMode ??= 'auto'; party.rowdy ??= null; party.rowdyUsed ??= {}; party.lastScore ??= null;
       for (const e of party.epics) { e.tier ??= 'medium'; e.points ??= EPIC_TIERS[e.tier].points; e.xp ??= EPIC_TIERS[e.tier].xp; }
       for (const b of Object.values(party.battles)) if (b.status === 'active' && !b.quick && !b.auto) { b.quick = true; b.roundDeadline = Math.min(b.roundDeadline ?? Infinity, this.now() + PLAN_SECONDS * 1000); }
       party.nextAutoAt ??= this.now() + FIRST_AUTO_DELAY_MS;
@@ -223,7 +224,7 @@ export class Engine {
         p.rerollRefillAt ??= 0;
         p.h2h ??= {}; p.upsetLosses ??= 0; p.reactionsGiven ??= 0; p.autoBattles ??= true;
         p.away ??= []; p.lastAutoAt ??= 0; p.recentAuto ??= []; p.epicsDone ??= 0; p.codeTries ??= [];
-        p.drops ??= []; p.quests ??= []; p.lastTauntAt ??= 0; p.comeback ??= false; p.morningDrop ??= null;
+        p.drops ??= []; p.quests ??= []; p.lastTauntAt ??= 0; p.comeback ??= false; p.morningDrop ??= null; p.isScorer ??= false; p.olympics ??= 0;
         p.welcomeDrop ??= p.drops.some((d) => d.source === 'gift');
         p.realMissions ??= (p.completedMissionIds ?? []).filter((id) => !MISSION_BY_ID[id]?.tutorial).length;
         p.fairWins ??= p.wins; p.fairFights ??= p.wins + p.losses;
@@ -307,6 +308,7 @@ export class Engine {
       ceremony: party.ceremony,
       tvMode: party.tvMode,
       rowdy: this.rowdyPublic(party),
+      lastScore: party.lastScore,
       build: this.build,
       hasHostPin: !!party.hostPinHash,
       groomId: party.groomId,
@@ -417,6 +419,7 @@ export class Engine {
         case 'moleDone': return this.moleDone(playerId, msg.index);
         case 'moleVote': return this.moleVote(playerId, msg.suspectId);
         case 'rowdyVote': return this.rowdyVote(playerId, msg.targetId);
+        case 'scorerGrant': return this.scorerGrant(playerId, msg.playerId, msg.points, msg.reason);
         case 'taunt': return this.taunt(playerId, msg.battleId, msg.emoji);
         case 'leaveEpic': return this.leaveEpic(playerId, msg.epicId);
         case 'finishEpic': return this.finishEpic(playerId, msg.epicId);
@@ -458,7 +461,7 @@ export class Engine {
       code, name: (partyName ?? '').trim().slice(0, 40) || "Jezza's Bucks Weekend", hostId: playerId, phase: 'friday', missionsOpen: true,
       createdAt: now, players: {}, feed: [], claims: {}, revealedGroupMissions: [], battles: {}, awardOverrides: {}, finalized: false, fridayPoints: null, seq: 0,
       groomId: isJezza(v.name) ? playerId : null, autoSaturdayAt: nextSaturdayMorning(now), nextGroupAt: now + FIRST_GROUP_DELAY_MS,
-      raids: [], wall: [], cellar: [], phaseMissions: { friday: 0, saturday: 0 }, photoMode: 'vote', nextAutoAt: now + FIRST_AUTO_DELAY_MS, epics: [], codes: [], giveaways: [], log: [], xpBoostUntil: null, capLifted: false, mole: null, spotlight: null, ceremony: 0, tvMode: 'auto', rowdy: null, rowdyUsed: {},
+      raids: [], wall: [], cellar: [], phaseMissions: { friday: 0, saturday: 0 }, photoMode: 'vote', nextAutoAt: now + FIRST_AUTO_DELAY_MS, epics: [], codes: [], giveaways: [], log: [], xpBoostUntil: null, capLifted: false, mole: null, spotlight: null, ceremony: 0, tvMode: 'auto', rowdy: null, rowdyUsed: {}, lastScore: null,
     };
     party.players[playerId] = newPlayer(playerId, v.name, now, true, 'friday');
     if (pin) party.hostPinHash = hashPin(code, pin);
@@ -2107,6 +2110,13 @@ export class Engine {
         this.revealRowdy(party, direct);
         return this.ok(party, undefined, direct);
       }
+      case 'setScorer': {
+        const t = party.players[action.playerId];
+        if (!t || t.removed) return this.fail('No such lad.');
+        t.isScorer = !!action.on;
+        if (t.isScorer) { this.feed(party, { kind: 'host', text: `📋 ${t.nickname} is a Scorer: they enter the Bucks Olympics points.`, emoji: '📋' }); direct.push({ to: t.id, msg: { type: 'toast', text: '📋 You are a Scorer. The points pad is on your Lobby.', emoji: '📋', tone: 'success' } }); }
+        return this.ok(party, { on: t.isScorer }, direct);
+      }
       case 'setCeremony': {
         const n = Math.max(0, Math.min(40, Math.round(Number(action.revealed)) || 0));
         if (n === party.ceremony) return { ack: { ok: true }, changed: false, direct: [] };
@@ -2269,6 +2279,27 @@ export class Engine {
     return this.ok(party, { suspectIds: next });
   }
 
+  // ---------- the scorer's pad (Bucks Olympics, manual points) ----------
+  private scorerGrant(playerId: string, targetId: string, pointsRaw: number, reasonRaw: string): HandleResult {
+    const party = this.partyOf(playerId); const by = party?.players[playerId];
+    if (!party || !by || by.removed) return this.fail('Join a party first.');
+    if (!by.isScorer && party.hostId !== playerId) return this.fail('Only a Scorer (or the host) can enter points.');
+    const t = party.players[targetId];
+    if (!t || t.removed || !t.creature) return this.fail('Pick a lad with a creature.');
+    const pts = Math.max(-100, Math.min(200, Math.round(Number(pointsRaw) || 0)));
+    if (!pts) return this.fail('Enter a non-zero amount (−100 to +200).');
+    const reason = String(reasonRaw ?? '').replace(/\s+/g, ' ').trim().slice(0, 40);
+    if (reason.length < 2) return this.fail('Name the event (e.g. Plank).');
+    if (!isClean(reason)) return this.fail('Keep it clean.');
+    const direct: Outbound[] = [];
+    this.grant(party, t, pts, 0, direct);
+    t.olympics += pts;
+    party.lastScore = { playerId: t.id, points: pts, reason, by: by.nickname, at: this.now() };
+    this.feed(party, { kind: 'host', text: `🏅 ${reason}: ${t.nickname} ${pts > 0 ? '+' : ''}${pts} (scored by ${by.nickname})`, playerId: t.id, emoji: '🏅' });
+    direct.push({ to: t.id, msg: { type: 'toast', text: `🏅 ${reason}: ${pts > 0 ? '+' : ''}${pts} points`, emoji: '🏅', tone: pts > 0 ? 'success' : 'warn' } });
+    return this.ok(party, { points: pts, total: t.olympics }, direct);
+  }
+
   // ---------- Rowdy Rounds ----------
   private rowdyLine(kind: RowdyKind, prompt: string) {
     return kind === 'mostLikely' ? `most likely to ${prompt}` : kind === 'neverHaveIEver' ? `never have I ever ${prompt}` : kind === 'categories' ? `${prompt}. Round the circle, no repeats.` : prompt;
@@ -2350,7 +2381,7 @@ function newPlayer(id: string, nickname: string, now: number, isHost: boolean, j
     id, nickname, creature: null, creatureName: '', level: 1, xp: 0, points: 0, equipped: { colorway: 0 }, unlocked: [], achievements: [], comeback: false,
     missionsCompleted: 0, wins: 0, losses: 0, title: 'Fresh Legend', online: true, isHost, joinedAt: now, lastSeen: now, categoryCounts: {}, witnessed: 0,
     rating: START_RATING, streak: 0, bestStreak: 0, bounties: 0, laughs: 0, fires: 0, groomLoves: 0, wallVotes: 0,
-    cellarCount: 0, cellarFires: 0, raidDamage: 0, raidsJoined: 0, lowKey: false, freshLegs: 0, catchUp: false, joinedPhase, morningDrop: null, welcomeDrop: false, realMissions: 0, fairWins: 0, fairFights: 0,
+    cellarCount: 0, cellarFires: 0, raidDamage: 0, raidsJoined: 0, lowKey: false, freshLegs: 0, catchUp: false, joinedPhase, morningDrop: null, welcomeDrop: false, realMissions: 0, fairWins: 0, fairFights: 0, isScorer: false, olympics: 0,
     h2h: {}, upsetLosses: 0, reactionsGiven: 0, autoBattles: true, epicsDone: 0,
     hand: [], completedMissionIds: [], rerollsLeft: REROLLS_PER_PHASE, scoredBattlesVs: {}, missedRounds: 0, lastHonourClaimAt: 0, flagged: [], rerollRefillAt: 0, drops: [], quests: [], lastTauntAt: 0,
     away: [], lastAutoAt: 0, recentAuto: [], codeTries: [],

@@ -23,6 +23,7 @@ import IncomingChallenge from './components/IncomingChallenge';
 import AwaySummary, { useAwayAutoOpen } from './components/AwaySummary';
 import ReplayOverlay from './battle/Replay';
 import { GlobalPhotoViewer } from './components/PhotoViewer';
+import Scorer from './screens/Scorer';
 
 // …/?tv=CODE: the read-only TV page, no login (a smart TV's browser, or a laptop on the HDMI)
 const TV_CODE = (() => { const c = new URLSearchParams(location.search).get('tv'); return c && /^[A-Z0-9]{4,6}$/i.test(c) ? c.toUpperCase() : null; })();
@@ -55,6 +56,7 @@ export default function App() {
       case 'raid': screen = <Raid />; break;
       case 'wall': screen = <Wall />; break;
       case 'cellar': screen = <Cellar />; break;
+      case 'scorer': screen = <Scorer />; break;
       case 'gallery': screen = <Gallery />; break;
       case 'tv': screen = <TV />; break;
       default: screen = <Home />;

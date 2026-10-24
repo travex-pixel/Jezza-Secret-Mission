@@ -523,3 +523,28 @@ describe('Rowdy Rounds', () => {
     expect(host({ kind: 'endRowdy' }).ack?.ok).toBe(false);
   });
 });
+
+describe("the scorer's pad", () => {
+  it('host appoints a scorer; scorer and host can enter points for anyone, with limits; lads cannot', () => {
+    const { eng, ids, party, host } = setup();
+    expect(eng.handle(ids[1], { type: 'scorerGrant', reqId: 's', playerId: ids[2], points: 60, reason: 'Plank' }).ack?.ok).toBe(false);
+    expect(eng.handle(ids[1], { type: 'host', reqId: 'h', action: { kind: 'setScorer', playerId: ids[1], on: true } }).ack?.ok).toBe(false); // not self-appointed
+    const r = host({ kind: 'setScorer', playerId: ids[1], on: true });
+    expect(r.ack?.ok).toBe(true); expect(eng.publicView(party()).players.find((p) => p.id === ids[1])!.isScorer).toBe(true);
+    const before = party().players[ids[2]].points;
+    const g = eng.handle(ids[1], { type: 'scorerGrant', reqId: 's', playerId: ids[2], points: 60, reason: 'Plank' });
+    expect(g.ack?.ok).toBe(true); expect(party().players[ids[2]].points - before).toBe(60);
+    expect(eng.publicView(party()).players.find((p) => p.id === ids[2])!.olympics).toBe(60);
+    expect(eng.publicView(party()).lastScore).toMatchObject({ playerId: ids[2], points: 60, reason: 'Plank' });
+    expect(party().feed.at(-1)!.text).toMatch(/🏅 Plank: .* \+60 \(scored by/);
+    expect(eng.handle(ids[1], { type: 'scorerGrant', reqId: 's', playerId: ids[2], points: 999, reason: 'Plank' }).ack?.ok).toBe(true);
+    expect(party().players[ids[2]].points - before).toBe(260); // capped at +200
+    expect(eng.handle(ids[1], { type: 'scorerGrant', reqId: 's', playerId: ids[2], points: -40, reason: 'Cheating' }).ack?.ok).toBe(true);
+    expect(eng.publicView(party()).players.find((p) => p.id === ids[2])!.olympics).toBe(220);
+    expect(eng.handle(ids[1], { type: 'scorerGrant', reqId: 's', playerId: ids[2], points: 10, reason: 'x' }).ack?.ok).toBe(false); // name the event
+    expect(eng.handle(ids[1], { type: 'scorerGrant', reqId: 's', playerId: ids[2], points: 0, reason: 'Plank' }).ack?.ok).toBe(false);
+    expect(eng.handle(ids[0], { type: 'scorerGrant', reqId: 's', playerId: ids[3], points: 25, reason: 'Wall sit' }).ack?.ok).toBe(true); // the host always can
+    host({ kind: 'setScorer', playerId: ids[1], on: false });
+    expect(eng.handle(ids[1], { type: 'scorerGrant', reqId: 's', playerId: ids[2], points: 10, reason: 'Plank' }).ack?.ok).toBe(false);
+  });
+});

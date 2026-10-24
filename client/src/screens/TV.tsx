@@ -163,6 +163,28 @@ function RowdyView({ party }: { party: PartyPublic }) {
   );
 }
 
+const SCORE_SHOW_MS = 12_000;
+function OlympicsView({ party }: { party: PartyPublic }) {
+  const ls = party.lastScore!; const who = party.players.find((p) => p.id === ls.playerId);
+  const table = [...party.players].filter((p) => p.creature && p.olympics !== 0).sort((a, b) => b.olympics - a.olympics).slice(0, 6);
+  return (
+    <div className="tv-oly" data-testid="tv-olympics">
+      <div className="tv-cer-eyebrow">🏅 BUCKS OLYMPICS · {ls.reason.toUpperCase()}</div>
+      <div className="tv-oly-main" key={ls.at}>
+        {who?.avatarUrl ? <span className="tv-cer-face"><LadPic p={who} /></span> : who?.creature ? <Creature creature={who.creature} level={who.level} colorway={who.equipped.colorway} equipped={who.equipped} state="victory" style={{ width: 'min(16vw, 150px)' }} /> : null}
+        <div>
+          <div className="tv-cer-title">{(who?.nickname ?? '?').toUpperCase()}</div>
+          <div className={`tv-oly-pts ${ls.points < 0 ? 'neg' : ''}`}>{ls.points > 0 ? '+' : ''}{ls.points}</div>
+          <div className="tv-cer-sub dim">scored by {ls.by}</div>
+        </div>
+      </div>
+      <div className="tv-oly-table">
+        {table.map((p, i) => <div key={p.id} className={`tv-oly-row ${p.id === ls.playerId ? 'hot' : ''}`}><span className="tv-oly-medal">{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}</span><span className="avatar sm"><LadPic p={p} /></span><span className="ellipsis bold">{p.nickname}</span><span className="gold-text bold">{p.olympics}</span></div>)}
+      </div>
+    </div>
+  );
+}
+
 const REEL_MS = 2600;
 function ReelView({ party }: { party: PartyPublic }) {
   const photos = [...(party.gallery ?? [])].sort((a, b) => a.at - b.at); // the weekend in order
@@ -249,16 +271,17 @@ export default function TV({ code }: { code?: string }) {
   const ceremonyOn = party.phase === 'finale' || party.phase === 'ended';
   const reelOn = party.tvMode === 'reel' && spotState !== 'running' && spotState !== 'done';
   const rowdyOn = !!party.rowdy && spotState !== 'running' && spotState !== 'done';
+  const scoreOn = !!party.lastScore && now - party.lastScore.at < SCORE_SHOW_MS && spotState !== 'running' && spotState !== 'done';
   const board = sortLeaderboard(party.players.filter((p) => p.creature)).slice(0, 5);
   const latest = [...party.feed].reverse().filter((f) => f.kind !== 'join' && f.kind !== 'levelup').slice(0, 4);
   const parade = party.players.filter((p) => p.creature).slice(0, 8);
   return (
     <div className={`tv ${code ? 'standalone' : ''} ${reelOn ? 'reel-mode' : ''}`} onClick={() => { if (!code) setTab('party'); }} data-testid="tv">
       <div className="tv-photo">
-        {rowdyOn ? <RowdyView party={party} /> : reelOn && <ReelView party={party} />}
-        {!reelOn && !rowdyOn && spotState !== 'running' && spotState !== 'done' && fights.length > 0 && <div className="tv-fights">{fights.map((b) => <FightCard key={b.id} b={b} party={party} now={now} />)}</div>}
-        {spotState === 'upcoming' && !ceremonyOn && !reelOn && !rowdyOn && <SpotlightView party={party} now={now} />}
-        {spotState === 'running' || spotState === 'done' ? <SpotlightView party={party} now={now} /> : rowdyOn || reelOn ? null : ceremonyOn ? <CeremonyView party={party} now={now} /> : wallPost ? <WallCard post={wallPost} party={party} withFights={fights.length > 0} /> : photo ? (
+        {scoreOn ? <OlympicsView party={party} /> : rowdyOn ? <RowdyView party={party} /> : reelOn && <ReelView party={party} />}
+        {!reelOn && !rowdyOn && !scoreOn && spotState !== 'running' && spotState !== 'done' && fights.length > 0 && <div className="tv-fights">{fights.map((b) => <FightCard key={b.id} b={b} party={party} now={now} />)}</div>}
+        {spotState === 'upcoming' && !ceremonyOn && !reelOn && !rowdyOn && !scoreOn && <SpotlightView party={party} now={now} />}
+        {spotState === 'running' || spotState === 'done' ? <SpotlightView party={party} now={now} /> : scoreOn || rowdyOn || reelOn ? null : ceremonyOn ? <CeremonyView party={party} now={now} /> : wallPost ? <WallCard post={wallPost} party={party} withFights={fights.length > 0} /> : photo ? (
           <>
             <img key={photo.id} src={photo.url} alt="" className="tv-img" />
             <div className="tv-cap">
