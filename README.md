@@ -344,6 +344,16 @@ Skipping jumps straight to the engine's final state.
   then Cloud Shell's ⋮ menu → **Download** → `jezza-photos.zip`. Each photo is named
   `001 Nickname - Mission.jpeg`, with a `captions.txt` listing times and notes. Do this *before* pressing Delete all.
 
+### The save file (and what protects it)
+
+`state.json` in the data folder (the Cloud Storage bucket on Cloud Run) is the whole weekend. The server writes it
+through a temp file and rename after every change, and keeps `state.prev.json` (refreshed at most once a minute) plus
+`backups/state-<time>.json` every five minutes for the last three hours. On boot it reads `state.json`, falling back to
+the previous copy and then the newest backup if the file won't parse. With `REQUIRE_STATE=1` (the deploy script sets it
+once a save exists in the bucket) a copy that finds no readable save waits up to 40 seconds for the volume and then
+exits rather than serve a blank game. And a copy that never loaded the save will exit instead of writing over a real
+one it finds on disk later. To restore by hand: copy a backup over `state.json` in the bucket and restart the service.
+
 ### Security model (what the server enforces)
 
 * Anonymous identity: `playerId` + random `secret` generated on the device, stored in `localStorage`.

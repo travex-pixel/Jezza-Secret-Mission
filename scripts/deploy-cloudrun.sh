@@ -39,10 +39,16 @@ done
 # Bucket for state.json + photos (created once; harmless if it exists)
 gcloud storage buckets describe "gs://$BUCKET" >/dev/null 2>&1 || gcloud storage buckets create "gs://$BUCKET" --location="$REGION" --uniform-bucket-level-access --quiet
 
+# Once a save exists in the bucket, the server must find it on boot (REQUIRE_STATE): a copy that comes up with the
+# volume missing then waits and exits instead of serving a blank game that would save over the real one.
+REQUIRE_STATE=0
+gcloud storage ls "gs://$BUCKET/state.json" >/dev/null 2>&1 && REQUIRE_STATE=1
+echo "▶ save file in bucket: $([ "$REQUIRE_STATE" = 1 ] && echo yes || echo 'not yet (first deploy)')"
+
 # First deploy (or redeploy): build from source with Cloud Build, mount the bucket at /data.
 gcloud run deploy "$SERVICE" \
   --source . --region "$REGION" --allow-unauthenticated \
-  --port 8787 --set-env-vars "DATA_DIR=/data,NODE_ENV=production" \
+  --port 8787 --set-env-vars "DATA_DIR=/data,NODE_ENV=production,REQUIRE_STATE=$REQUIRE_STATE" \
   --add-volume "name=data,type=cloud-storage,bucket=$BUCKET" --add-volume-mount "volume=data,mount-path=/data" \
   --min-instances 1 --max-instances 1 --cpu 1 --memory 512Mi \
   --timeout 3600 --session-affinity --execution-environment gen2 \

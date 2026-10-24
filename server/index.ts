@@ -17,12 +17,48 @@ const CLIENT_DIR = path.resolve(process.cwd(), 'dist/client');
 fs.mkdirSync(PHOTO_DIR, { recursive: true });
 
 // ---------- persistence ----------
+// The save file is the weekend. Three layers of protection:
+//  1. load falls back to the previous good save, then the newest timestamped backup, if state.json won't parse;
+//  2. with REQUIRE_STATE=1 (set by the deploy script once a save exists) a boot that finds no readable save waits
+//     for the volume for a while and then exits, instead of serving a blank game that would save over the real one;
+//  3. a blank game is never written over a save file that has parties in it.
+const PREV_FILE = path.join(DATA_DIR, 'state.prev.json');
+const BACKUP_DIR = path.join(DATA_DIR, 'backups');
+const BACKUP_EVERY_MS = 5 * 60_000; const BACKUPS_KEPT = 36; // every 5 minutes, the last 3 hours
+const PREV_EVERY_MS = 60_000;
+const REQUIRE_STATE = process.env.REQUIRE_STATE === '1';
+let loadedFrom: string | null = null;
+function readState(file: string): EngineState | undefined {
+  try { if (!fs.existsSync(file)) return undefined; const st = JSON.parse(fs.readFileSync(file, 'utf8')) as EngineState; if (!st || typeof st !== 'object' || !st.parties) throw new Error('not a state file'); return st; }
+  catch (e) { console.error(`[persist] could not read ${path.basename(file)}`, (e as Error).message); return undefined; }
+}
+function newestBackup(): string | undefined {
+  try { return fs.readdirSync(BACKUP_DIR).filter((f) => /^state-.*\.json$/.test(f)).sort().reverse().map((f) => path.join(BACKUP_DIR, f))[0]; } catch { return undefined; }
+}
 function loadState(): EngineState | undefined {
-  try { if (fs.existsSync(STATE_FILE)) return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')) as EngineState; } catch (e) { console.error('[persist] could not load state, starting fresh', e); }
+  for (const file of [STATE_FILE, PREV_FILE, newestBackup()].filter(Boolean) as string[]) {
+    const st = readState(file);
+    if (st) { loadedFrom = file; if (file !== STATE_FILE) console.error(`[persist] state.json unreadable; loaded ${path.relative(DATA_DIR, file)} instead`); return st; }
+  }
+  if (fs.existsSync(STATE_FILE)) console.error('[persist] a save file exists but nothing could be read from it or its backups');
   return undefined;
+}
+function waitForState(): EngineState | undefined {
+  // the data volume can take a moment to appear after a restart: give it 40 seconds before deciding there is no save
+  const deadline = Date.now() + 40_000;
+  for (;;) {
+    const st = loadState();
+    if (st) return st;
+    if (!REQUIRE_STATE) return undefined;
+    if (Date.now() > deadline) { console.error('[persist] REQUIRE_STATE is set and no save could be read: refusing to start a blank game. Check the data volume.'); process.exit(1); }
+    console.error('[persist] no readable save yet, waiting for the data volume…');
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 2000);
+  }
 }
 let saveTimer: NodeJS.Timeout | null = null;
 let saving = false; let dirty = false;
+let lastPrevAt = 0; let lastBackupAt = Date.now();
+let stateFileTrusted = false; // true once state.json is known good (loaded from it, or written by this copy): only then is it copied into prev/backups
 function saveSoon() {
   dirty = true;
   if (saveTimer) return;
@@ -32,12 +68,27 @@ function saveNow() {
   saveTimer = null;
   if (superseded) return; // a newer copy of the server owns the save file now
   if (saving) { dirty = true; return; }
+  if (!stateFileTrusted) {
+    // This copy did not load state.json (it was missing or unreadable at boot). If a real game is sitting there now
+    // (the volume arrived late), writing would destroy it: exit instead, and the restart loads it.
+    const disk = readState(STATE_FILE);
+    if (disk && Object.keys(disk.parties).length > 0) { console.error('[persist] the save file holds a game this copy never loaded; exiting so the restart picks it up instead of overwriting it'); process.exit(1); }
+  }
   saving = true; dirty = false;
+  const now = Date.now();
+  try {
+    if (stateFileTrusted && now - lastPrevAt > PREV_EVERY_MS && fs.existsSync(STATE_FILE)) { fs.copyFileSync(STATE_FILE, PREV_FILE); lastPrevAt = now; }
+    if (stateFileTrusted && now - lastBackupAt > BACKUP_EVERY_MS && fs.existsSync(STATE_FILE)) {
+      fs.mkdirSync(BACKUP_DIR, { recursive: true });
+      fs.copyFileSync(STATE_FILE, path.join(BACKUP_DIR, `state-${new Date(now).toISOString().replace(/[:.]/g, '-')}.json`)); lastBackupAt = now;
+      for (const old of fs.readdirSync(BACKUP_DIR).filter((f) => /^state-.*\.json$/.test(f)).sort().reverse().slice(BACKUPS_KEPT)) fs.unlink(path.join(BACKUP_DIR, old), () => undefined);
+    }
+  } catch (e) { console.error('[persist] backup copy failed', (e as Error).message); }
   const tmp = STATE_FILE + '.tmp';
   const json = JSON.stringify(engine.state);
   fs.writeFile(tmp, json, (err) => {
     if (err) { console.error('[persist] write failed', err); saving = false; return; }
-    fs.rename(tmp, STATE_FILE, (err2) => { if (err2) console.error('[persist] rename failed', err2); saving = false; if (dirty) saveSoon(); });
+    fs.rename(tmp, STATE_FILE, (err2) => { if (err2) console.error('[persist] rename failed', err2); else stateFileTrusted = true; saving = false; if (dirty) saveSoon(); });
   });
 }
 
@@ -67,7 +118,9 @@ const LEADER_FILE = path.join(DATA_DIR, 'leader.json');
 let superseded = false;
 try { fs.writeFileSync(LEADER_FILE, JSON.stringify({ bootId: BOOT_ID, at: Date.now() })); } catch (e) { console.error('[leader] could not write', e); }
 
-const engine = new Engine({ storePhoto, deletePhotos }, loadState());
+const engine = new Engine({ storePhoto, deletePhotos }, waitForState());
+stateFileTrusted = loadedFrom === STATE_FILE;
+if (loadedFrom) console.log(`[persist] loaded ${Object.keys(engine.state.parties).length} part${Object.keys(engine.state.parties).length === 1 ? 'y' : 'ies'} from ${path.relative(DATA_DIR, loadedFrom)}`); else console.log('[persist] no save found: starting a fresh game');
 // Everyone starts offline after a restart; connections mark them online again.
 for (const party of Object.values(engine.state.parties)) for (const p of Object.values(party.players)) p.online = false;
 
