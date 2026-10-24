@@ -45,6 +45,10 @@ REQUIRE_STATE=0
 gcloud storage ls "gs://$BUCKET/state.json" >/dev/null 2>&1 && REQUIRE_STATE=1
 echo "▶ save file in bucket: $([ "$REQUIRE_STATE" = 1 ] && echo yes || echo 'not yet (first deploy)')"
 
+# Stamp this build so the host can see which version is live (Host controls → bottom; also /api/health).
+echo "{\"sha\":\"$(git rev-parse --short HEAD 2>/dev/null || echo unknown)\",\"at\":\"$(TZ=Australia/Sydney date '+%a %H:%M')\"}" > build.json
+echo "▶ build stamp: $(cat build.json)"
+
 # First deploy (or redeploy): build from source with Cloud Build, mount the bucket at /data.
 gcloud run deploy "$SERVICE" \
   --source . --region "$REGION" --allow-unauthenticated \

@@ -256,6 +256,21 @@ All three are generic: nothing in `shared/saturday.ts` knows whose party it is.
   and *Reveal*. At the reveal a Mole is **caught** if more than half the voters named them (+30) or **gets away**
   (+100); every right name pays +30. Everyone also sees a one-time **Saturday briefing** sheet the first morning.
 
+### The TV and the finale
+
+`…/?tv=CODE` is the read-only telly page. Besides the photo slideshow, every fourth slide is a roast or toast off the
+Wall, live fights show in the corner with health bars and the result, and two host-driven moments take it over:
+
+* **Spotlight** (Host → Event → 🎤 Spotlight on the TV): a scheduled countdown, by default *The Loser's Speech* at
+  10 pm on the host's phone clock for 2 minutes, with a lad attached (the list is sorted so last place is first).
+  Every Lobby shows the strip; the TV shows a banner until the host taps *Start the clock*, then a giant mm:ss with
+  the lad's creature, red for the last ten seconds, then TIME. Change the time, length, label or lad whenever.
+* **Ceremony**: in the finale phase the TV follows the host's award reveals (`setCeremony`), one award at a time,
+  then the podium, confetti and the Jezza Legend. Lads' phones follow too and can tap ahead on their own screen.
+
+Host → Event ends with **Build …**, the short commit and deploy time the deploy script stamps into `build.json`
+(also at `/api/health`), so you can tell at a glance whether a deploy has landed.
+
 ### Keeping it honest (anti-spam)
 
 * **Honour-system cooldown.** "I did it" missions are limited to one per player every 8 minutes (server-side; the

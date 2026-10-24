@@ -286,6 +286,14 @@ export interface Battle {
   rewards?: Record<string, { points: number; xp: number }>;
 }
 
+export interface Spotlight {
+  label: string;          // "The Loser's Speech"
+  at: number;             // when it's scheduled, server time
+  seconds: number;        // how long the countdown runs once started
+  playerId?: string;      // whose moment it is
+  startedAt?: number;     // set when the host starts the countdown
+}
+
 export interface AwardResult {
   id: string;
   name: string;
@@ -309,6 +317,11 @@ export interface PartyPublic {
   pendingApprovals: number;
   awards: AwardResult[];
   finalized: boolean;
+  /** The big moment on the TV: a scheduled, host-adjustable countdown (the loser's speech, the toast, whatever) */
+  spotlight: Spotlight | null;
+  /** How many awards the host has revealed in the ceremony (phones and the TV follow it) */
+  ceremony: number;
+  build: string;               // which build this server is running (short commit + deploy time)
   hasHostPin: boolean;
   groomId: string | null;
   raid: Raid | null;          // the live raid, or the most recent one
@@ -441,6 +454,8 @@ export type HostAction =
   | { kind: 'grantPoints'; playerId: string; points: number; reason: string }
   | { kind: 'setAward'; awardId: string; playerId: string | null }
   | { kind: 'finalize'; finalized: boolean }
+  | { kind: 'setSpotlight'; label?: string; at?: number; seconds?: number; playerId?: string | null; start?: boolean; stop?: boolean; clear?: boolean }
+  | { kind: 'setCeremony'; revealed: number }
   | { kind: 'transferHost'; playerId: string }
   | { kind: 'purgePhotos' }
   | { kind: 'setHostPin'; pin: string }

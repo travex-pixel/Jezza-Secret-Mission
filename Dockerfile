@@ -7,7 +7,7 @@ COPY . .
 # Absolute public URL for link-preview tags (optional): docker build --build-arg VITE_PUBLIC_URL=https://...
 ARG VITE_PUBLIC_URL=
 ENV VITE_PUBLIC_URL=$VITE_PUBLIC_URL
-RUN npm run build
+RUN npm run build && ([ -f build.json ] || echo '{}' > build.json)
 
 FROM node:22-alpine
 WORKDIR /app
@@ -15,6 +15,7 @@ ENV NODE_ENV=production PORT=8787 DATA_DIR=/data
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 COPY --from=build /app/dist ./dist
+COPY --from=build /app/build.json ./build.json
 VOLUME ["/data"]
 EXPOSE 8787
 CMD ["node", "dist/server/index.js"]

@@ -5,6 +5,7 @@
 import { useEffect, useState } from 'react';
 import type { Battle, PartyPublic, WallPost } from '@shared/types';
 import { CREATURES } from '@shared/creatures';
+import { fmtClock, fmtTime, orderAwards, spotlightPhase } from '@shared/ceremony';
 import { sortLeaderboard } from '@shared/progression';
 import { useStore } from '../store';
 import { Creature, LadPic } from '../components/Creature';
@@ -43,6 +44,86 @@ function FightCard({ b, party, now }: { b: Battle; party: PartyPublic; now: numb
     <div className={`tv-fight ${live ? 'live' : 'done'}`} data-testid="tv-fight">
       <div className="tv-fight-top"><span className="tv-fight-tag">{live ? '⚔️ LIVE FIGHT' : '🏁 RESULT'}</span><span className="tv-fight-head ellipsis">{headline}</span>{!live && <span className="tv-fight-reason">{reason}{b.finishedAt ? ` · ${timeAgo(b.finishedAt)}` : ''}</span>}</div>
       <div className="tv-fight-body">{side(b.a, pa, false)}<div className="tv-vs">VS</div>{side(b.b, pb, true)}</div>
+    </div>
+  );
+}
+
+function SpotlightView({ party, now }: { party: PartyPublic; now: number }) {
+  const s = party.spotlight!; const state = spotlightPhase(s, now);
+  const who = s.playerId ? party.players.find((p) => p.id === s.playerId) : undefined;
+  const [, tick] = useState(0);
+  useEffect(() => { const t = setInterval(() => tick((n) => n + 1), 250); return () => clearInterval(t); }, []);
+  const left = s.startedAt ? Math.max(0, Math.ceil((s.startedAt + s.seconds * 1000 - Date.now()) / 1000)) : s.seconds;
+  const urgent = state === 'running' && left <= 10;
+  if (state === 'upcoming') return (
+    <div className="tv-spot-banner" data-testid="tv-spot-banner">
+      <span style={{ fontSize: 'clamp(20px, 2.6vw, 30px)' }}>🎤</span>
+      <span className="grow" style={{ minWidth: 0 }}><div className="tv-spot-banner-title ellipsis">{s.label}{who ? `: ${who.nickname}` : ''}</div><div className="tv-spot-banner-sub">{new Date(s.at).getHours() >= 17 ? 'Tonight' : 'Today'} at {fmtTime(s.at)}{s.at > now ? ` · ${fmtClock(Math.ceil((s.at - now) / 1000))} to go` : ' · any minute'}</div></span>
+    </div>
+  );
+  return (
+    <div className={`tv-spot ${state} ${urgent ? 'urgent' : ''}`} data-testid="tv-spot">
+      <div className="tv-spot-label">🎤 {s.label.toUpperCase()}</div>
+      {who && (
+        <div className="tv-spot-who">
+          {who.creature && <Creature creature={who.creature} level={who.level} colorway={who.equipped.colorway} equipped={who.equipped} state={state === 'done' ? 'victory' : 'idle'} style={{ width: 'min(22vw, 200px)' }} />}
+          <div className="tv-spot-name">{who.nickname}</div>
+        </div>
+      )}
+      <div className="tv-spot-clock" data-testid="tv-spot-clock">{state === 'done' ? 'TIME' : fmtClock(left)}</div>
+      <div className="tv-spot-sub">{state === 'done' ? (s.playerId ? 'That\'s the speech. Shout him dinner.' : 'Done. Well played.') : urgent ? 'Wrap it up, legend.' : 'Eyes up. Phones down.'}</div>
+    </div>
+  );
+}
+
+function CeremonyView({ party, now }: { party: PartyPublic; now: number }) {
+  void now;
+  const ordered = orderAwards(party.awards);
+  const shown = ordered.slice(0, party.ceremony);
+  const latest = shown[shown.length - 1];
+  const done = party.ceremony >= ordered.length && ordered.length > 0;
+  const board = sortLeaderboard(party.players.filter((p) => p.creature));
+  const legend = party.players.find((p) => p.id === ordered.find((a) => a.id === 'legend')?.playerId);
+  const who = latest ? party.players.find((p) => p.id === latest.playerId) : undefined;
+  if (party.ceremony === 0) return (
+    <div className="tv-cer tv-cer-wait" data-testid="tv-ceremony">
+      <div className="tv-cer-eyebrow">THE FINALE</div>
+      <div className="tv-cer-title">THE CEREMONY</div>
+      <div className="tv-cer-sub">{ordered.length} awards. The Weekend Menace first. The Jezza Legend last.</div>
+      <div className="tv-parade">{board.slice(0, 8).map((p) => <Creature key={p.id} creature={p.creature!} level={p.level} colorway={p.equipped.colorway} equipped={p.equipped} state="idle" style={{ width: 'min(10vw, 110px)' }} />)}</div>
+      <div className="tv-cer-sub dim">Waiting on the host…</div>
+    </div>
+  );
+  if (done && legend) return (
+    <div className="tv-cer tv-cer-legend" data-testid="tv-ceremony">
+      <div className="tv-cer-eyebrow">THE JEZZA LEGEND</div>
+      <div className="tv-podium">
+        {[board[1], board[0], board[2]].map((p, i) => p?.creature ? (
+          <div key={p.id} className={`tv-podium-step step-${i === 1 ? 1 : i === 0 ? 2 : 3}`}>
+            {i === 1 && <div className="tv-crown">👑</div>}
+            <Creature creature={p.creature} level={p.level} colorway={p.equipped.colorway} equipped={p.equipped} state={i === 1 ? 'victory' : 'happy'} />
+            <div className="tv-podium-block"><b>{i === 1 ? 1 : i === 0 ? 2 : 3}</b><span className="ellipsis">{p.nickname}</span><small>{p.points} pts</small></div>
+          </div>) : <div key={i} />)}
+      </div>
+      <div className="tv-cer-title gold">{legend.nickname.toUpperCase()}</div>
+      <div className="tv-cer-sub">{ordered.find((a) => a.id === 'legend')?.reason}</div>
+      <div className="tv-confetti" aria-hidden>{Array.from({ length: 36 }, (_, i) => <i key={i} style={{ left: `${(i * 37) % 100}%`, background: ['#E5AD48', '#F6EBDD', '#76243A', '#a8e58f', '#f07842'][i % 5], animationDelay: `${(i % 7) * 0.18}s`, animationDuration: `${2.4 + (i % 5) * 0.3}s` }} />)}</div>
+    </div>
+  );
+  return (
+    <div className="tv-cer" data-testid="tv-ceremony">
+      <div className="tv-cer-eyebrow">AWARD {shown.length} OF {ordered.length}</div>
+      <div className="tv-cer-award" key={latest?.id}>
+        <div className="tv-cer-award-name">{latest?.name}</div>
+        <div className="tv-cer-who">
+          {who?.creature && <Creature creature={who.creature} level={who.level} colorway={who.equipped.colorway} equipped={who.equipped} state={latest?.id === 'menace' ? 'defeat' : 'victory'} style={{ width: 'min(24vw, 220px)' }} />}
+          <div>
+            <div className="tv-cer-title">{(who?.nickname ?? 'Nobody').toUpperCase()}</div>
+            <div className="tv-cer-sub">{latest?.reason}</div>
+          </div>
+        </div>
+      </div>
+      <div className="tv-cer-prev">{shown.slice(0, -1).reverse().slice(0, 6).map((a) => <span key={a.id} className="tv-cer-chip"><b>{a.name}</b> {party.players.find((p) => p.id === a.playerId)?.nickname ?? 'Nobody'}</span>)}</div>
     </div>
   );
 }
@@ -101,14 +182,17 @@ export default function TV({ code }: { code?: string }) {
   // fights: anything live, then the freshest result for a little while; two at most so the photo still shows
   const fights = [...party.battles].filter((b) => !b.auto && (b.status === 'active' || (b.status === 'finished' && b.finishedAt && now - b.finishedAt < RESULT_SHOW_MS)))
     .sort((a, b) => (a.status === 'active' ? 0 : 1) - (b.status === 'active' ? 0 : 1) || (b.startedAt ?? b.createdAt) - (a.startedAt ?? a.createdAt)).slice(0, 2);
+  const spotState = spotlightPhase(party.spotlight, now);
+  const ceremonyOn = party.phase === 'finale' || party.phase === 'ended';
   const board = sortLeaderboard(party.players.filter((p) => p.creature)).slice(0, 5);
   const latest = [...party.feed].reverse().filter((f) => f.kind !== 'join' && f.kind !== 'levelup').slice(0, 4);
   const parade = party.players.filter((p) => p.creature).slice(0, 8);
   return (
     <div className={`tv ${code ? 'standalone' : ''}`} onClick={() => { if (!code) setTab('party'); }} data-testid="tv">
       <div className="tv-photo">
-        {fights.length > 0 && <div className="tv-fights">{fights.map((b) => <FightCard key={b.id} b={b} party={party} now={now} />)}</div>}
-        {wallPost ? <WallCard post={wallPost} party={party} withFights={fights.length > 0} /> : photo ? (
+        {spotState !== 'running' && spotState !== 'done' && fights.length > 0 && <div className="tv-fights">{fights.map((b) => <FightCard key={b.id} b={b} party={party} now={now} />)}</div>}
+        {spotState === 'upcoming' && !ceremonyOn && <SpotlightView party={party} now={now} />}
+        {spotState === 'running' || spotState === 'done' ? <SpotlightView party={party} now={now} /> : ceremonyOn ? <CeremonyView party={party} now={now} /> : wallPost ? <WallCard post={wallPost} party={party} withFights={fights.length > 0} /> : photo ? (
           <>
             <img key={photo.id} src={photo.url} alt="" className="tv-img" />
             <div className="tv-cap">

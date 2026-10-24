@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { defaultSpotlightAt, fmtTime, spotlightPhase } from '@shared/ceremony';
 import type { HostAction, Phase, PlayerPublic } from '@shared/types';
 import { GROUP_MISSIONS, MISSION_BY_ID } from '@shared/missions';
 import { AWARDS } from '@shared/progression';
@@ -49,6 +50,15 @@ export default function Host() {
   const [closing, setClosing] = useState<string | null>(null);
   const [dropRarity, setDropRarity] = useState<'common' | 'rare' | 'epic' | 'legendary' | 'any'>('any');
   const [confirmRemove, setConfirmRemove] = useState(false);
+  // the spotlight (loser's speech): defaults to 10pm tonight on this phone's clock, 2 minutes, the lad in last place
+  const spot = party?.spotlight ?? null;
+  const toHHMM = (t: number) => { const d = new Date(t); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+  const fromHHMM = (v: string) => { const [h, m] = v.split(':').map(Number); const d = new Date(); d.setHours(h || 0, m || 0, 0, 0); return d.getTime(); };
+  const [spotLabel, setSpotLabel] = useState(spot?.label ?? 'The Loser\'s Speech');
+  const [spotTime, setSpotTime] = useState(toHHMM(spot?.at ?? defaultSpotlightAt()));
+  const [spotSecs, setSpotSecs] = useState(spot?.seconds ?? 120);
+  const [spotWho, setSpotWho] = useState<string>(spot?.playerId ?? '');
+
   useEffect(() => { setConfirmRemove(false); }, [target?.id]);
   const releaseGiveaway = async () => {
     if (grabBusy) return; setGrabBusy(true); // one release per confirm, however many times the button is hit
@@ -70,6 +80,7 @@ export default function Host() {
     try { await request({ type: 'host', action }); sfx.select(); return true; } catch (e) { toast((e as Error).message, '⚠️', 'warn'); sfx.error(); return false; }
   };
   const moleEligible = party.players.filter((p) => p.creature && !p.isHost && p.id !== party.groomId).length;
+  const saveSpot = (extra: Partial<{ start: boolean; stop: boolean }> = {}) => host({ kind: 'setSpotlight', label: spotLabel, at: fromHHMM(spotTime), seconds: spotSecs, playerId: spotWho || null, ...extra });
   const approvals = hostView?.approvals ?? [];
   const takedowns = hostView?.takedowns ?? [];
   const nickOf = (id: string) => party.players.find((x) => x.id === id)?.nickname ?? '?';
@@ -96,6 +107,27 @@ export default function Host() {
             <div className="row-between"><div><div className="bold">Boss raid</div><div className="tiny faint">{party.raid?.status === 'active' ? 'One is on right now.' : 'Turns up on its own once the lads have done enough challenges. Or summon one now.'}</div></div><Button size="sm" variant="secondary" disabled={party.raid?.status === 'active'} onClick={() => host({ kind: 'summonRaid' })}>Summon</Button></div>
             <div className="divider" />
             <div className="row-between"><div><div className="bold">Missions {party.missionsOpen ? 'open' : 'paused'}</div><div className="tiny faint">Pause during dinner, speeches, emergencies.</div></div><Button size="sm" variant={party.missionsOpen ? 'secondary' : 'primary'} onClick={() => host({ kind: 'setMissionsOpen', open: !party.missionsOpen })}>{party.missionsOpen ? 'Pause' : 'Open'}</Button></div>
+            <div className="divider" />
+            <div className="eyebrow">🎤 Spotlight on the TV</div>
+            <div className="tiny faint">A scheduled countdown for the big moment: the loser's speech, the toast, the trophy. Shows on every Lobby and takes over the TV when you start it. Change anything, any time.</div>
+            <div className="panel pad stack-6" data-testid="spotlight-panel">
+              <input className="input" style={{ minHeight: 44, fontSize: 15 }} value={spotLabel} maxLength={40} onChange={(e) => setSpotLabel(e.target.value)} placeholder="The Loser's Speech" aria-label="What is the moment" />
+              <div className="row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                <span className="small">At</span><input className="input" type="time" style={{ minHeight: 44, fontSize: 15, width: 120, flex: '0 0 120px' }} value={spotTime} onChange={(e) => setSpotTime(e.target.value)} aria-label="Time" data-testid="spot-time" />
+                <span className="small">for</span>{[60, 120, 180, 300].map((n) => <button key={n} className={`pill pill-tap ${spotSecs === n ? 'pill-gold' : ''}`} onClick={() => setSpotSecs(n)}>{n / 60} min</button>)}
+              </div>
+              <select className="input" style={{ minHeight: 44, fontSize: 15 }} value={spotWho} onChange={(e) => setSpotWho(e.target.value)} aria-label="Whose moment" data-testid="spot-who">
+                <option value="">Nobody in particular</option>
+                {[...party.players].filter((p) => p.creature).sort((a, b) => a.points - b.points).map((p, i) => <option key={p.id} value={p.id}>{p.nickname}{i === 0 ? ' (last place right now)' : ''}</option>)}
+              </select>
+              <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+                <Button size="sm" variant="secondary" onClick={() => saveSpot()} data-testid="spot-save">{spot ? 'Update' : 'Schedule it'}</Button>
+                {spot && spotlightPhase(spot, party.serverTime) !== 'running' && <Button size="sm" onClick={() => saveSpot({ start: true })} data-testid="spot-start">▶ Start the clock now</Button>}
+                {spot && spotlightPhase(spot, party.serverTime) === 'running' && <Button size="sm" variant="danger" onClick={() => saveSpot({ stop: true })} data-testid="spot-stop">■ Stop</Button>}
+                {spot && <Button size="sm" variant="ghost" onClick={() => host({ kind: 'setSpotlight', clear: true })}>Clear</Button>}
+              </div>
+              {spot && <div className="tiny bold" data-testid="spot-status">{spotlightPhase(spot, party.serverTime) === 'running' ? '⏱ Running on the TV now.' : `Scheduled: ${spot.label}${spot.playerId ? ` · ${nickOf(spot.playerId)}` : ''} · ${fmtTime(spot.at)} · ${spot.seconds / 60} min. Start it when the room is ready.`}</div>}
+            </div>
             <div className="divider" />
             <div className="eyebrow">Photo checks</div>
             <div className="stack-6" role="radiogroup" aria-label="Photo checks">
@@ -237,6 +269,7 @@ export default function Host() {
               </div>); })}
           </>
         )}
+        {section === 'event' && <div className="tiny faint center" data-testid="build-stamp">Build {party.build}</div>}
         {section === 'players' && players.map((p) => (
           <button key={p.id} className="list-row" style={{ width: '100%', textAlign: 'left' }} onClick={() => { setTarget(p); setRename(p.nickname); }}>
             <span className="avatar sm"><LadPic p={p} /></span>

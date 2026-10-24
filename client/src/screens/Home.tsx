@@ -10,6 +10,7 @@ import DropOverlay from '../components/DropOverlay';
 import MoleVote from '../components/MoleVote';
 import SaturdayBriefing from '../components/SaturdayBriefing';
 import MoleReveal, { useMoleReveal } from '../components/MoleReveal';
+import { fmtClock, fmtTime, spotlightPhase } from '@shared/ceremony';
 import { RARITY } from '@shared/saturday';
 import HowItWorksSheet from '../components/HowItWorks';
 import { Button, ConnectionPill, FeedItem, XPBar, useCountdown } from '../components/ui';
@@ -54,6 +55,10 @@ export default function Home() {
   const questsDone = quests.filter((q) => q.done).length;
   const moleOpen = !!party?.mole?.voting && !priv?.mole && !priv?.moleHost; // the Mole doesn't vote on themselves, and the host can see the answer
   const reveal = useMoleReveal(party?.code, priv?.mole?.missions);
+  const spot = party?.spotlight ?? null;
+  const spotEnd = spot?.startedAt ? spot.startedAt + spot.seconds * 1000 : undefined;
+  const spotLeft = useCountdown(spotEnd);
+  const spotState = spotlightPhase(spot, party?.serverTime ?? Date.now());
   if (!party || !me?.creature) return null;
   const board = sortLeaderboard(party.players);
   const rank = board.findIndex((p) => p.id === me.id) + 1;
@@ -64,7 +69,9 @@ export default function Home() {
   const pinnedSelfie = next?.missionId !== 'm001' && activeHand.some((h) => h.missionId === 'm001');
   // One alert at a time, most urgent first. Everything else is a tab away.
   const alert = fighting ? 'fight' : incoming ? 'incoming' : raid ? 'raid' : witnessReq ? 'witness' : drop ? 'drop' : voteEv ? 'vote' : grab ? 'grab' : epic?.crew.includes(me.id) ? 'epic' : awayN > 0 ? 'away' : epic ? 'epic' : null;
-  const feed = [...party.feed].reverse().filter((f) => f.kind !== 'achievement' && f.kind !== 'levelup' && f.id !== voteEv?.id).slice(0, Math.max(0, slots - (alert ? 1 : 0)));
+  // every strip above the feed costs it a slot, so the column never overflows the screen
+  const extras = (alert ? 1 : 0) + (quests.length > 0 || moleOpen ? 1 : 0) + (priv?.mole ? 1 : 0) + (spot && spotState !== 'none' ? 1 : 0);
+  const feed = [...party.feed].reverse().filter((f) => f.kind !== 'achievement' && f.kind !== 'levelup' && f.id !== voteEv?.id).slice(0, Math.max(1, slots - extras));
   // Evolution nudge, only when it's close
   const evoAt = nextEvolveLevel(me.level);
   const lockedTilSaturday = evoAt === 8 && me.level >= FRIDAY_MAX_LEVEL && (party.phase === 'friday' || party.phase === 'lobby') && !party.capLifted;
@@ -128,6 +135,16 @@ export default function Home() {
             <span className="tiny bold" style={{ color: 'var(--rose)' }}>→</span>
           </button>
         )}
+        {spot && spotState !== 'none' && (
+          <div className={`panel spot-strip ${spotState}`} data-testid="spot-strip">
+            <span style={{ fontSize: 22 }}>🎤</span>
+            <span className="grow" style={{ minWidth: 0 }}>
+              <div className="bold ellipsis">{spot.label}{spot.playerId ? `: ${party.players.find((p) => p.id === spot.playerId)?.nickname ?? '?'}` : ''}</div>
+              <div className="tiny" style={{ opacity: .85 }}>{spotState === 'upcoming' ? `${new Date(spot.at).getHours() >= 17 ? 'Tonight' : 'Today'} at ${fmtTime(spot.at)} · eyes on the TV` : spotState === 'running' ? 'On the clock now. Eyes on the TV.' : 'Time! Well done, legend.'}</div>
+            </span>
+            {spotState === 'running' && <span className="spot-clock">{fmtClock(spotLeft)}</span>}
+          </div>
+        )}
         {(quests.length > 0 || moleOpen) && (
           <div className="row" style={{ gap: 6 }}>
             {quests.length > 0 && <button className="panel quest-strip grow" onClick={() => { useStore.setState({ missionsTab: 'quests' }); setTab('missions'); }} data-testid="quest-strip"><span>📜</span><span className="grow ellipsis"><b>Quests</b> · {questsDone}/{quests.length} done</span><span className="tiny bold" style={{ color: 'var(--rose)' }}>→</span></button>}
@@ -145,7 +162,7 @@ export default function Home() {
             {isHost && <Button onClick={() => request({ type: 'host', action: { kind: 'setPhase', phase: 'friday' } })}>Back on</Button>}
           </div>
         ) : nextMission ? (
-          <div className="grow" style={{ minHeight: 0 }}>
+          <div style={{ flex: '0 0 auto' }}>{/* never squeezed: the feed below gives way instead */}
             <div className="row-between" style={{ marginBottom: 6 }}><span className="eyebrow">Do this next</span><button className="tiny bold" style={{ color: 'var(--rose)' }} onClick={() => setTab('missions')}>All {activeHand.length} →</button></div>
             <MissionCard mission={nextMission} assignment={next} compact />
             {pinnedSelfie && <button className="tiny dim bold" style={{ marginTop: 6 }} onClick={() => setTab('missions')}>📸 Your selfie still to do (ten seconds) →</button>}

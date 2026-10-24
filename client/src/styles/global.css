@@ -427,6 +427,47 @@ img, svg { display: block; max-width: 100%; }
   .tv-wall.with-fights .tv-wall-text { font-size: clamp(16px, 4.8vw, 24px) !important; max-height: none; }
   .tv-wall.with-fights .tv-wall-by .avatar { width: 36px; height: 36px; }
 }
+/* Spotlight: the loser's speech and other big moments */
+.tv-spot-banner { position: absolute; right: 12px; top: 12px; width: min(46%, 460px); z-index: 4; display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 16px; background: rgba(18,13,20,.88); border: 1px solid rgba(229,173,72,.6); backdrop-filter: blur(6px); }
+.tv-spot-banner-title { font-family: var(--font-display); font-weight: 800; font-size: clamp(14px, 1.8vw, 22px); color: var(--gold); }
+.tv-spot-banner-sub { font-size: clamp(11px, 1.3vw, 15px); font-weight: 700; color: var(--text-dim); }
+.tv-spot { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: clamp(6px, 1.5vh, 16px); padding: 20px; text-align: center; background: radial-gradient(70% 60% at 50% 40%, rgba(229,173,72,.28), #120d14 75%); animation: tv-in .6s ease both; }
+.tv-spot.urgent { animation: spot-urgent .5s ease-in-out infinite alternate; }
+@keyframes spot-urgent { from { background: radial-gradient(70% 60% at 50% 40%, rgba(226,82,107,.3), #120d14 75%); } to { background: radial-gradient(70% 60% at 50% 40%, rgba(226,82,107,.55), #1a0d12 75%); } }
+.tv-spot-label { font-family: var(--font-display); font-weight: 800; letter-spacing: .2em; font-size: clamp(14px, 2.2vw, 26px); color: var(--gold); }
+.tv-spot-who { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.tv-spot-name { font-family: var(--font-display); font-weight: 800; font-size: clamp(20px, 3.4vw, 40px); color: var(--cream); }
+.tv-spot-clock { font-family: var(--font-display); font-weight: 800; font-variant-numeric: tabular-nums; font-size: clamp(64px, 18vw, 200px); line-height: 1; color: var(--cream); text-shadow: 0 0 40px rgba(229,173,72,.5); }
+.tv-spot.urgent .tv-spot-clock { color: #ff8a8a; }
+.tv-spot.done .tv-spot-clock { color: var(--gold); font-size: clamp(56px, 14vw, 160px); }
+.tv-spot-sub { font-size: clamp(14px, 1.8vw, 22px); font-weight: 800; color: var(--text-dim); }
+/* The finale ceremony on the TV */
+.tv-cer { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: clamp(8px, 1.6vh, 18px); padding: clamp(16px, 3vw, 40px); text-align: center; background: radial-gradient(80% 60% at 50% 30%, rgba(229,173,72,.22), rgba(118,36,58,.3) 50%, #120d14 100%); overflow: hidden; }
+.tv-cer-eyebrow { font-family: var(--font-display); font-weight: 800; letter-spacing: .24em; font-size: clamp(12px, 1.6vw, 18px); color: var(--gold); }
+.tv-cer-title { font-family: var(--font-display); font-weight: 800; font-size: clamp(26px, 5vw, 64px); line-height: 1.05; color: var(--cream); }
+.tv-cer-title.gold { color: var(--gold); text-shadow: 0 0 30px rgba(229,173,72,.5); }
+.tv-cer-sub { font-size: clamp(13px, 1.7vw, 22px); font-weight: 700; color: var(--cream); opacity: .9; max-width: 60ch; }
+.tv-cer-sub.dim { color: var(--text-dim); }
+.tv-cer-award { animation: award-in 700ms cubic-bezier(.2,1.2,.4,1) both; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.tv-cer-award-name { font-family: var(--font-display); font-weight: 800; font-size: clamp(16px, 2.6vw, 32px); color: var(--gold); letter-spacing: .06em; }
+.tv-cer-who { display: flex; align-items: center; gap: clamp(12px, 3vw, 36px); text-align: left; }
+.tv-cer-prev { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; max-width: 90%; }
+.tv-cer-chip { font-size: clamp(11px, 1.2vw, 14px); padding: 4px 10px; border-radius: 999px; background: rgba(0,0,0,.4); border: 1px solid var(--line); color: var(--text-dim); } .tv-cer-chip b { color: var(--cream); }
+.tv-podium { display: grid; grid-template-columns: 1fr 1.25fr 1fr; align-items: end; gap: 10px; width: min(70%, 720px); }
+.tv-podium-step { position: relative; display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.tv-podium-step .creature { width: 80%; } .tv-podium-step.step-1 .creature { width: 100%; }
+.tv-crown { font-size: clamp(22px, 3vw, 40px); animation: tv-crown-float 2.4s ease-in-out infinite; }
+@keyframes tv-crown-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+.tv-podium-block { width: 100%; border-radius: 12px 12px 4px 4px; background: linear-gradient(180deg, rgba(229,173,72,.35), rgba(87,24,39,.6)); border: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; padding: 6px 4px; font-weight: 800; font-size: clamp(12px, 1.4vw, 18px); min-width: 0; }
+.tv-podium-block b { font-family: var(--font-display); font-size: clamp(20px, 3vw, 40px); color: var(--gold); } .tv-podium-block small { color: var(--text-dim); font-size: .8em; }
+.tv-podium-step.step-1 .tv-podium-block { padding-bottom: clamp(20px, 4vh, 40px); } .tv-podium-step.step-3 .tv-podium-block { padding-bottom: 4px; }
+.tv-confetti { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.tv-confetti i { position: absolute; top: -12px; width: 10px; height: 16px; border-radius: 2px; animation-name: confetti-fall; animation-timing-function: linear; animation-iteration-count: infinite; }
+@media (prefers-reduced-motion: reduce) { .tv-spot.urgent, .tv-confetti i, .tv-crown, .tv-cer-award { animation: none !important; } }
+/* Lobby strip for the spotlight */
+.spot-strip { display: flex; align-items: center; gap: 10px; padding: 10px 12px; width: 100%; border-color: rgba(229,173,72,.55); }
+.spot-strip.running { border-color: var(--rose); box-shadow: 0 0 16px rgba(226,82,107,.3); }
+.spot-clock { font-family: var(--font-display); font-weight: 800; font-size: 26px; font-variant-numeric: tabular-nums; color: var(--gold); }
 /* Live fights in the corner */
 .tv-fights { position: absolute; top: 12px; left: 12px; z-index: 4; display: flex; flex-direction: column; gap: 8px; width: min(46%, 440px); }
 .tv-fight { border-radius: 16px; background: rgba(18,13,20,.86); border: 1px solid var(--line); padding: 8px 10px 10px; animation: tv-in .5s ease both; backdrop-filter: blur(6px); }

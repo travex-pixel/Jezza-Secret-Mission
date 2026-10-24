@@ -1,7 +1,7 @@
 // The authoritative game engine. Pure logic, no I/O: the Node server wraps it
 // with WebSockets + persistence; the browser demo mode runs it locally for
 // offline previews and practice battles (which never award real points).
-import type {
+import type { Spotlight,
   Battle, BattleAction, Claim, TapQuality, ClientMessage, CreatureId, Equipped, FeedEvent, HostAction, HostView,
   MissionAssignment, PartyPublic, Phase, PlayerPrivate, PlayerPublic, ServerMessage, WitnessRequest,
   Raid, Reaction, WallPost, CellarEntry, GalleryPhoto, PhotoMode, AwayEvent, Keepsake, Epic, RewardCode, Giveaway,
@@ -79,6 +79,8 @@ export interface PartyState {
   xpBoostUntil: number | null;
   capLifted: boolean;
   mole: MoleState | null;
+  spotlight: Spotlight | null;
+  ceremony: number;
 }
 
 export interface EngineState {
@@ -101,6 +103,7 @@ export interface EngineOptions {
   storePhoto?: (dataUrl: string, partyCode: string) => string | null; // returns URL
   deletePhotos?: (urls: string[]) => void;
   codeLength?: number;
+  build?: string; // shown to the host so they can tell which version is live
 }
 
 const HAND_SIZE = 3;
@@ -181,6 +184,7 @@ export class Engine {
   private storePhoto: (dataUrl: string, partyCode: string) => string | null;
   private deletePhotos: (urls: string[]) => void;
   private codeLength: number;
+  private build: string;
   private exportTokens = new Map<string, { code: string; exp: number }>();
 
   constructor(opts: EngineOptions = {}, state?: EngineState) {
@@ -189,6 +193,7 @@ export class Engine {
     this.storePhoto = opts.storePhoto ?? ((d) => d);
     this.deletePhotos = opts.deletePhotos ?? (() => undefined);
     this.codeLength = opts.codeLength ?? 4;
+    this.build = opts.build ?? 'dev';
     this.state = state ?? { parties: {}, playerParty: {}, identities: {} };
     this.migrate();
   }
@@ -203,7 +208,7 @@ export class Engine {
       party.raids ??= []; party.wall ??= []; party.cellar ??= [];
       party.phaseMissions ??= { friday: 0, saturday: 0 };
       party.photoMode ??= 'vote';
-      party.epics ??= []; party.codes ??= []; party.giveaways ??= []; party.log ??= [...party.feed]; party.xpBoostUntil ??= null; party.capLifted ??= false; party.mole ??= null;
+      party.epics ??= []; party.codes ??= []; party.giveaways ??= []; party.log ??= [...party.feed]; party.xpBoostUntil ??= null; party.capLifted ??= false; party.mole ??= null; party.spotlight ??= null; party.ceremony ??= 0;
       for (const e of party.epics) { e.tier ??= 'medium'; e.points ??= EPIC_TIERS[e.tier].points; e.xp ??= EPIC_TIERS[e.tier].xp; }
       for (const b of Object.values(party.battles)) if (b.status === 'active' && !b.quick && !b.auto) { b.quick = true; b.roundDeadline = Math.min(b.roundDeadline ?? Infinity, this.now() + PLAN_SECONDS * 1000); }
       party.nextAutoAt ??= this.now() + FIRST_AUTO_DELAY_MS;
@@ -294,6 +299,9 @@ export class Engine {
       pendingApprovals: Object.values(party.claims).filter(needsHost).length + this.takedowns(party).length,
       awards: computeAwards(players, Object.values(party.battles), party.awardOverrides),
       finalized: party.finalized,
+      spotlight: party.spotlight,
+      ceremony: party.ceremony,
+      build: this.build,
       hasHostPin: !!party.hostPinHash,
       groomId: party.groomId,
       raid: party.raids[party.raids.length - 1] ?? null,
@@ -442,7 +450,7 @@ export class Engine {
       code, name: (partyName ?? '').trim().slice(0, 40) || "Jezza's Bucks Weekend", hostId: playerId, phase: 'friday', missionsOpen: true,
       createdAt: now, players: {}, feed: [], claims: {}, revealedGroupMissions: [], battles: {}, awardOverrides: {}, finalized: false, fridayPoints: null, seq: 0,
       groomId: isJezza(v.name) ? playerId : null, autoSaturdayAt: nextSaturdayMorning(now), nextGroupAt: now + FIRST_GROUP_DELAY_MS,
-      raids: [], wall: [], cellar: [], phaseMissions: { friday: 0, saturday: 0 }, photoMode: 'vote', nextAutoAt: now + FIRST_AUTO_DELAY_MS, epics: [], codes: [], giveaways: [], log: [], xpBoostUntil: null, capLifted: false, mole: null,
+      raids: [], wall: [], cellar: [], phaseMissions: { friday: 0, saturday: 0 }, photoMode: 'vote', nextAutoAt: now + FIRST_AUTO_DELAY_MS, epics: [], codes: [], giveaways: [], log: [], xpBoostUntil: null, capLifted: false, mole: null, spotlight: null, ceremony: 0,
     };
     party.players[playerId] = newPlayer(playerId, v.name, now, true, 'friday');
     if (pin) party.hostPinHash = hashPin(code, pin);
@@ -2041,6 +2049,30 @@ export class Engine {
         this.feed(party, { kind: 'phase', text: `🕵️ THE MOLE${plural ? 'S WERE' : ' WAS'} ${names.join(' and ')}. ${correct.length} of ${voters.length} voters named ${plural ? 'at least one' : 'them'} (+${MOLE_POINTS.correctGuess} a name). ${done}/${total} secret missions pulled off.`, emoji: '🕵️' });
         direct.push({ to: 'party', msg: { type: 'toast', text: `🕵️ The Mole${plural ? 's' : ''}: ${m.moles.map((x) => party.players[x.playerId]?.nickname ?? '?').join(' & ')}!`, emoji: '🕵️', tone: 'warn' } });
         return this.ok(party, { moles: m.moles.map((x) => ({ playerId: x.playerId, caught: m.caught![x.playerId] })), correct: correct.length, voters: voters.length }, direct);
+      }
+      case 'setSpotlight': {
+        if (action.clear) { party.spotlight = null; return this.ok(party, undefined, direct); }
+        const cur = party.spotlight;
+        const label = String(action.label ?? cur?.label ?? 'The Loser\'s Speech').replace(/\s+/g, ' ').trim().slice(0, 40) || 'The moment';
+        if (!isClean(label)) return this.fail('Keep it clean.');
+        const seconds = Math.max(10, Math.min(3600, Math.round(Number(action.seconds ?? cur?.seconds ?? 120)) || 120));
+        const at = Number.isFinite(Number(action.at)) && Number(action.at) > 0 ? Number(action.at) : cur?.at ?? this.now();
+        const playerId = action.playerId === null ? undefined : action.playerId ?? cur?.playerId;
+        if (playerId && !party.players[playerId]) return this.fail('No such lad.');
+        const next: Spotlight = { label, at, seconds, playerId, startedAt: action.stop ? undefined : action.start ? this.now() : cur?.startedAt };
+        party.spotlight = next;
+        if (action.start) {
+          const who = playerId ? party.players[playerId]?.nickname : undefined;
+          this.feed(party, { kind: 'phase', text: `🎤 ${label.toUpperCase()}${who ? `: ${who.toUpperCase()}` : ''}. ${seconds < 60 ? `${seconds} seconds` : `${Math.round(seconds / 60)} minute${seconds >= 90 ? 's' : ''}`} on the clock. Eyes on the TV.`, emoji: '🎤' });
+          direct.push({ to: 'party', msg: { type: 'toast', text: `🎤 ${label}${who ? `: ${who}` : ''}. The clock is running.`, emoji: '🎤', tone: 'warn' } });
+        }
+        return this.ok(party, { spotlight: next }, direct);
+      }
+      case 'setCeremony': {
+        const n = Math.max(0, Math.min(40, Math.round(Number(action.revealed)) || 0));
+        if (n === party.ceremony) return { ack: { ok: true }, changed: false, direct: [] };
+        party.ceremony = n;
+        return this.ok(party, { revealed: n }, direct);
       }
       case 'liftXpCap': {
         if (party.capLifted) return this.fail('Final forms are already unlocked.');

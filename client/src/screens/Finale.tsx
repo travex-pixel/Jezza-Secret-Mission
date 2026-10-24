@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { sortLeaderboard } from '@shared/progression';
+import { orderAwards } from '@shared/ceremony';
+import { request } from '../net';
 import { Creature, LadPic } from '../components/Creature';
 import { Button } from '../components/ui';
 import { useStore, useMe } from '../store';
@@ -8,7 +10,11 @@ import { sfx } from '../audio';
 export default function Finale() {
   const party = useStore((s) => s.party);
   const me = useMe();
-  const [revealed, setRevealed] = useState(0);
+  const [local, setLocal] = useState(0);
+  // the host's reveals drive everyone's phones and the TV; a lad can still tap ahead on his own screen
+  const revealed = Math.max(local, party?.ceremony ?? 0);
+  const isHost = !!me?.isHost;
+  const setRevealed = (f: (r: number) => number) => { const n = f(revealed); setLocal(n); if (isHost) request({ type: 'host', action: { kind: 'setCeremony', revealed: n } }).catch(() => undefined); };
   const [view, setView] = useState<'awards' | 'board' | 'roasts'>('awards');
   const awards = party?.awards ?? [];
   const heroRef = useRef<HTMLDivElement>(null);
@@ -18,7 +24,7 @@ export default function Finale() {
   const totalMissions = party.players.reduce((a, p) => a + p.missionsCompleted, 0);
   const totalBattles = party.players.reduce((a, p) => a + p.wins, 0);
   // Ceremony order: the Menace opens proceedings, the Legend closes them.
-  const ordered = [awards.find((a) => a.id === 'menace'), ...awards.filter((a) => a.id !== 'menace' && a.id !== 'legend'), awards.find((a) => a.id === 'legend')].filter((a): a is NonNullable<typeof a> => !!a);
+  const ordered = orderAwards(awards);
   const shown = ordered.slice(0, revealed);
   const next = ordered[revealed];
   const legend = awards.find((a) => a.id === 'legend');
@@ -42,7 +48,7 @@ export default function Finale() {
               <div className="panel panel-gold pad-lg center stack-6 fade-up">
                 <div className="eyebrow">The ceremony</div>
                 <div className="display title-md">{ordered.length} awards. One tap at a time.</div>
-                <div className="small dim bold">The Weekend Menace goes first. The Jezza Legend goes last. Read them out loud. Make it dramatic.</div>
+                <div className="small dim bold">The Weekend Menace goes first. The Jezza Legend goes last. Read them out loud. Make it dramatic.{isHost ? ' Your taps drive every phone and the TV.' : ' The host runs it on the TV; tap ahead if you can\'t wait.'}</div>
               </div>
             )}
             {allDone && legendPlayer?.creature && (

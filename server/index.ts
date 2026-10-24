@@ -118,7 +118,11 @@ const LEADER_FILE = path.join(DATA_DIR, 'leader.json');
 let superseded = false;
 try { fs.writeFileSync(LEADER_FILE, JSON.stringify({ bootId: BOOT_ID, at: Date.now() })); } catch (e) { console.error('[leader] could not write', e); }
 
-const engine = new Engine({ storePhoto, deletePhotos }, waitForState());
+const BUILD = (() => {
+  try { const b = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), 'build.json'), 'utf8')) as { sha?: string; at?: string }; if (b.sha) return `${b.sha}${b.at ? ` · ${b.at}` : ''}`; } catch { /* no stamp */ }
+  return process.env.K_REVISION ?? 'dev';
+})();
+const engine = new Engine({ storePhoto, deletePhotos, build: BUILD }, waitForState());
 stateFileTrusted = loadedFrom === STATE_FILE;
 if (loadedFrom) console.log(`[persist] loaded ${Object.keys(engine.state.parties).length} part${Object.keys(engine.state.parties).length === 1 ? 'y' : 'ies'} from ${path.relative(DATA_DIR, loadedFrom)}`); else console.log('[persist] no save found: starting a fresh game');
 // Everyone starts offline after a restart; connections mark them online again.
@@ -127,7 +131,7 @@ for (const party of Object.values(engine.state.parties)) for (const p of Object.
 // ---------- http ----------
 const app = express();
 app.disable('x-powered-by');
-app.get('/api/health', (_req, res) => res.json({ ok: true, parties: Object.keys(engine.state.parties).length, uptime: process.uptime() }));
+app.get('/api/health', (_req, res) => res.json({ ok: true, build: BUILD, parties: Object.keys(engine.state.parties).length, uptime: process.uptime() }));
 app.get('/api/party/:code/exists', (req, res) => {
   const party = engine.state.parties[String(req.params.code).toUpperCase()];
   if (!party) return res.json({ exists: false });

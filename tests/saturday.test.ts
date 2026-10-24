@@ -436,3 +436,42 @@ describe('the Cellar menu', () => {
     expect(party().feed.at(-1)!.emoji).toBe('🥤');
   });
 });
+
+describe('the Spotlight and the ceremony on the TV', () => {
+  it('the host schedules a moment, adjusts it, starts and stops the clock; lads cannot', () => {
+    const { eng, ids, party, host } = setup();
+    expect(eng.handle(ids[1], { type: 'host', reqId: 'h', action: { kind: 'setSpotlight', label: 'x' } }).ack?.ok).toBe(false);
+    const at = 7_000_000 + 8 * 3600_000;
+    expect(host({ kind: 'setSpotlight', label: "The Loser's Speech", at, seconds: 120, playerId: ids[2] }).ack?.ok).toBe(true);
+    let pub = eng.publicView(party());
+    expect(pub.spotlight).toEqual({ label: "The Loser's Speech", at, seconds: 120, playerId: ids[2], startedAt: undefined });
+    expect(host({ kind: 'setSpotlight', seconds: 180 }).ack?.ok).toBe(true); // adjust one thing, the rest stays
+    pub = eng.publicView(party()); expect(pub.spotlight!.seconds).toBe(180); expect(pub.spotlight!.label).toBe("The Loser's Speech"); expect(pub.spotlight!.playerId).toBe(ids[2]);
+    expect(host({ kind: 'setSpotlight', playerId: 'nobody_here' }).ack?.ok).toBe(false);
+    expect(host({ kind: 'setSpotlight', playerId: null }).ack?.ok).toBe(true); expect(eng.publicView(party()).spotlight!.playerId).toBeUndefined();
+    const r = host({ kind: 'setSpotlight', start: true, playerId: ids[2] });
+    expect(r.ack?.ok).toBe(true); expect(eng.publicView(party()).spotlight!.startedAt).toBe(7_000_000);
+    expect(party().feed.at(-1)!.text).toMatch(/LOSER'S SPEECH/); expect(r.direct.some((d) => d.to === 'party')).toBe(true);
+    expect(host({ kind: 'setSpotlight', stop: true }).ack?.ok).toBe(true); expect(eng.publicView(party()).spotlight!.startedAt).toBeUndefined();
+    expect(host({ kind: 'setSpotlight', seconds: 2 }).ack?.ok).toBe(true); expect(eng.publicView(party()).spotlight!.seconds).toBe(10); // floor
+    expect(host({ kind: 'setSpotlight', clear: true }).ack?.ok).toBe(true); expect(eng.publicView(party()).spotlight).toBeNull();
+  });
+  it('the ceremony count follows the host only and clamps', () => {
+    const { eng, ids, party, host } = setup();
+    expect(eng.publicView(party()).ceremony).toBe(0);
+    expect(eng.handle(ids[1], { type: 'host', reqId: 'h', action: { kind: 'setCeremony', revealed: 3 } }).ack?.ok).toBe(false);
+    expect(host({ kind: 'setCeremony', revealed: 3 }).ack?.ok).toBe(true); expect(eng.publicView(party()).ceremony).toBe(3);
+    expect(host({ kind: 'setCeremony', revealed: 3 }).changed).toBe(false);
+    host({ kind: 'setCeremony', revealed: 999 }); expect(eng.publicView(party()).ceremony).toBe(40);
+    host({ kind: 'setCeremony', revealed: -2 }); expect(eng.publicView(party()).ceremony).toBe(0);
+  });
+  it('ceremony helpers: order and spotlight phases', async () => {
+    const { orderAwards, spotlightPhase, fmtClock } = await import('../shared/ceremony');
+    const o = orderAwards([{ id: 'a', name: 'A', blurb: '', playerId: null, reason: '' }, { id: 'legend', name: 'L', blurb: '', playerId: null, reason: '' }, { id: 'menace', name: 'M', blurb: '', playerId: null, reason: '' }]);
+    expect(o.map((x) => x.id)).toEqual(['menace', 'a', 'legend']);
+    const s = { label: 'x', at: 100, seconds: 120 };
+    expect(spotlightPhase(null, 0)).toBe('none'); expect(spotlightPhase(s, 0)).toBe('upcoming');
+    expect(spotlightPhase({ ...s, startedAt: 1000 }, 1000 + 119_000)).toBe('running'); expect(spotlightPhase({ ...s, startedAt: 1000 }, 1000 + 121_000)).toBe('done'); expect(spotlightPhase({ ...s, startedAt: 1000 }, 1000 + 170_000)).toBe('none');
+    expect(fmtClock(125)).toBe('2:05'); expect(fmtClock(0)).toBe('0:00');
+  });
+});
