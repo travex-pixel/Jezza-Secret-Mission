@@ -248,7 +248,11 @@ export const MISSIONS: Mission[] = [
   m({ id: 'b034', theme: 'birthday', title: 'Playlist Pick', instruction: 'Get a song {name} loves playing in the room. Confirm it with someone who heard it.', category: 'chill', difficulty: 1, method: 'witness' }),
   m({ id: 'b035', theme: 'birthday', title: 'Kids\' Table', instruction: 'If there are kids here, get one to draw {name}. Photo of the masterpiece.', category: 'photo', difficulty: 2, method: 'photo' }),
   m({ id: 'b036', theme: 'birthday', title: 'Coach\'s Call', instruction: 'Ask {name} for {his} best sporting advice and act it out. Someone confirms.', category: 'jezza', difficulty: 2, method: 'witness' }),
+  m({ id: 'b037', theme: 'birthday', title: 'Dressed as {name}', instruction: 'Full-length photo of your {name} costume next to the real {name}. Same pose.', category: 'jezza', difficulty: 1, method: 'photo' }),
+  m({ id: 'b038', theme: 'birthday', title: 'Spot the Difference', instruction: 'Photo of two {name}s who went for completely different eras of {name}.', category: 'photo', difficulty: 2, method: 'photo' }),
+  m({ id: 'b039', theme: 'birthday', title: 'Signature Move', instruction: 'Do {name}\'s signature move or saying in costume. {name} has to agree it was accurate.', category: 'laugh', difficulty: 2, method: 'witness' }),
   m({ id: 'b040', theme: 'birthday', scope: 'group', title: 'The Big Cheer', instruction: 'Everyone in the room cheers {name}\'s name together, loud enough for next door.', category: 'group', difficulty: 2, method: 'photo' }),
+  m({ id: 'b042', theme: 'birthday', scope: 'group', title: 'Thirty {name}s', instruction: 'Every {name} in the room in one photo, real one in the middle. Caption it with the count.', category: 'group', difficulty: 2, method: 'photo' }),
   m({ id: 'b041', theme: 'birthday', scope: 'group', title: 'Human Watermelon', instruction: 'As many people as possible in green and pink, arranged as a slice. Photo from above if you can.', category: 'group', difficulty: 3, method: 'photo' }),
 ];
 

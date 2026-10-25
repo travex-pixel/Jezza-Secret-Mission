@@ -2162,7 +2162,7 @@ export class Engine {
         const t = party.players[action.playerId];
         if (!t || t.removed) return this.fail('No such lad.');
         t.isScorer = !!action.on;
-        if (t.isScorer) { this.feed(party, { kind: 'host', text: `📋 ${t.nickname} is a Scorer: they enter the Bucks Olympics points.`, emoji: '📋' }); direct.push({ to: t.id, msg: { type: 'toast', text: '📋 You are a Scorer. The points pad is on your Lobby.', emoji: '📋', tone: 'success' } }); }
+        if (t.isScorer) { this.feed(party, { kind: 'host', text: `📋 ${t.nickname} is a Scorer: they enter the ${this.th(party).copy.olympics} points.`, emoji: '📋' }); direct.push({ to: t.id, msg: { type: 'toast', text: '📋 You are a Scorer. The points pad is on your Lobby.', emoji: '📋', tone: 'success' } }); }
         return this.ok(party, { on: t.isScorer }, direct);
       }
       case 'runSheetSet': {
@@ -2448,7 +2448,7 @@ export class Engine {
     const now = this.now();
     party.olympics.current = { id: `oe_${now.toString(36)}_${Math.floor(this.rng() * 1e6).toString(36)}`, name, unit, scorerId: by.id, startedAt: now, results: [], timer: null, status: 'open' };
     const direct: Outbound[] = [];
-    this.feed(party, { kind: 'phase', text: `🏅 BUCKS OLYMPICS · ${name.toUpperCase()} is on. ${OLY_UNITS[unit].blurb.split('.')[0]}. Eyes on the TV.`, emoji: '🏅' });
+    this.feed(party, { kind: 'phase', text: `🏅 ${this.th(party).copy.olympics.toUpperCase()} · ${name.toUpperCase()} is on. ${OLY_UNITS[unit].blurb.split('.')[0]}. Eyes on the TV.`, emoji: '🏅' });
     direct.push({ to: 'party', msg: { type: 'toast', text: `🏅 Olympics: ${name}. Eyes on the TV.`, emoji: '🏅', tone: 'warn' } });
     return this.ok(party, { id: party.olympics.current.id }, direct);
   }

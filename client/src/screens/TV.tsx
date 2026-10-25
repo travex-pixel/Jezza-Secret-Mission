@@ -10,6 +10,7 @@ import { ROWDY_KINDS } from '@shared/rowdy';
 import { OLY_UNITS, ordinal, placeAwards } from '@shared/olympics';
 import { RUN_ACTIONS, nextItem } from '@shared/runsheet';
 import { themeFor } from '../theme';
+import { THEMES } from '@shared/themes';
 import { sortLeaderboard } from '@shared/progression';
 import { useStore } from '../store';
 import { Creature, LadPic } from '../components/Creature';
@@ -177,7 +178,7 @@ function OlyEventView({ party }: { party: PartyPublic }) {
     const podium = [awards[1], awards[0], awards[2]]; // the first three lads in finishing order, ties included (centre step is the best)
     return (
       <div className="tv-cer tv-cer-legend" data-testid="tv-oly-event">
-        <div className="tv-cer-eyebrow">🏅 BUCKS OLYMPICS · {ev.name.toUpperCase()} · RESULT</div>
+        <div className="tv-cer-eyebrow">🏅 {(THEMES[party.theme] ?? THEMES.bucks).copy.olympics.toUpperCase()} · {ev.name.toUpperCase()} · RESULT</div>
         {ev.unit !== 'points' ? (
           <div className="tv-podium">
             {podium.map((a, i) => { const p = a ? who(a.playerId) : undefined; return p?.creature ? (
@@ -200,7 +201,7 @@ function OlyEventView({ party }: { party: PartyPublic }) {
   const best = ev.results.length && ev.unit === 'seconds' ? Math.max(...ev.results.map((r) => r.value)) : null;
   return (
     <div className="tv-oly" data-testid="tv-oly-event">
-      <div className="tv-cer-eyebrow">🏅 BUCKS OLYMPICS · EVENT {party.olympics.done.length + 1}</div>
+      <div className="tv-cer-eyebrow">🏅 {(THEMES[party.theme] ?? THEMES.bucks).copy.olympics.toUpperCase()} · EVENT {party.olympics.done.length + 1}</div>
       <div className="tv-rowdy-prompt">{ev.name}</div>
       {timerWho ? (
         <div className="tv-oly-sw" data-testid="tv-oly-stopwatch">
@@ -221,7 +222,7 @@ function OlympicsView({ party }: { party: PartyPublic }) {
   const table = [...party.players].filter((p) => p.creature && p.olympics !== 0).sort((a, b) => b.olympics - a.olympics).slice(0, 6);
   return (
     <div className="tv-oly" data-testid="tv-olympics">
-      <div className="tv-cer-eyebrow">🏅 BUCKS OLYMPICS · {ls.reason.toUpperCase()}</div>
+      <div className="tv-cer-eyebrow">🏅 {(THEMES[party.theme] ?? THEMES.bucks).copy.olympics.toUpperCase()} · {ls.reason.toUpperCase()}</div>
       <div className="tv-oly-main" key={ls.at}>
         {who?.avatarUrl ? <span className="tv-cer-face"><LadPic p={who} /></span> : who?.creature ? <Creature creature={who.creature} level={who.level} colorway={who.equipped.colorway} equipped={who.equipped} state="victory" style={{ width: 'min(16vw, 150px)' }} /> : null}
         <div>

@@ -34,7 +34,7 @@ export function typicalAfternoon(dayStart: number): Omit<RunItem, 'id'>[] {
   const at = (h: number, m = 0) => { const d = new Date(dayStart); d.setHours(h, m, 0, 0); return d.getTime(); };
   return [
     { at: at(12, 15), label: 'Mingle challenges open', action: 'none' },
-    { at: at(13, 30), label: 'Mini Olympics', action: 'olympics' },
+    { at: at(13, 30), label: 'Athletics Carnival', action: 'olympics' },
     { at: at(14, 30), label: 'Rowdy Round', action: 'rowdy' },
     { at: at(15, 0), label: 'Last photos in', action: 'none' },
     { at: at(15, 30), label: 'Photo reel', action: 'reel' },

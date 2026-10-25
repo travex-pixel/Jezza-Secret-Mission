@@ -22,6 +22,8 @@ export interface ThemeDef {
     honourCategory: string; laughCategory: string; loreCategory: string;
     forfeit: string;             // what the loser of a Rowdy Round does
     selfieBlurb: string;
+    olympics: string;            // "Bucks Olympics" / "Athletics Carnival"
+    olySuggested: { name: string; unit: 'seconds' | 'reps' | 'metres' | 'place' }[]; // the scorer's quick picks
   };
 }
 
@@ -38,6 +40,7 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       phaseBlurbs: { lobby: 'Paused. Nobody can do challenges.', friday: 'Challenges are on. Starts on its own when the party is made.', saturday: 'The championship: final forms, quests, the Mole. Starts on its own at 5am.', finale: 'Awards. Lock the scores and run the ceremony.', ended: 'All over. Keepsake time.' },
       honourCategory: 'Get {name} In', laughCategory: 'Make {name} Laugh', loreCategory: '{name} Lore',
       forfeit: 'takes the forfeit', selfieBlurb: 'Selfie, right now, wherever you are: couch, car, servo, vineyard. Show the lads your pre-bucks face.',
+      olympics: 'Bucks Olympics', olySuggested: [{ name: 'Plank', unit: 'seconds' }, { name: 'Wall sit', unit: 'seconds' }, { name: 'Push-ups', unit: 'reps' }, { name: 'Paper plane', unit: 'metres' }, { name: 'Beer pong', unit: 'place' }, { name: 'Flip cup', unit: 'place' }, { name: 'Thong throw', unit: 'metres' }, { name: 'Arm wrestle', unit: 'place' }],
     },
   },
   birthday: {
@@ -52,6 +55,7 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       phaseBlurbs: { lobby: 'Paused. Nobody can do challenges.', friday: 'Challenges are on. The afternoon runs here.', saturday: 'Optional: a fresh set of quests and final forms. Use it for a long party.', finale: 'The TV plays the photo reel and then the Birthday Book. Lock the scores and run the awards.', ended: 'All over. Keepsake time.' },
       honourCategory: 'Get {name} In', laughCategory: 'Make {name} Laugh', loreCategory: '{name} Lore',
       forfeit: 'does a dare', selfieBlurb: 'Selfie, right now: show everyone your party face.',
+      olympics: 'Athletics Carnival', olySuggested: [{ name: 'Sprint', unit: 'place' }, { name: 'Long jump', unit: 'metres' }, { name: 'Egg and spoon', unit: 'place' }, { name: 'Sack race', unit: 'place' }, { name: 'Free throws', unit: 'reps' }, { name: 'Badminton rally', unit: 'reps' }, { name: 'Tug of war', unit: 'place' }, { name: 'Seed spit', unit: 'metres' }, { name: 'Plank', unit: 'seconds' }, { name: 'Three-legged race', unit: 'place' }],
     },
   },
 };

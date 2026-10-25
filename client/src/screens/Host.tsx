@@ -388,7 +388,7 @@ export default function Host() {
             </div>}
             {target.creature && party.mole?.voting && !target.isHost && !(priv?.moleHost ?? []).some((m) => m.playerId === target.id) && party.mole.count < 3 && <Button size="sm" variant="secondary" onClick={() => { host({ kind: 'assignMole', playerId: target.id }); setTarget(null); }} data-testid="make-mole">🕵️ Make them a Mole too</Button>}
             <button className="row-between panel pad" style={{ width: '100%', textAlign: 'left', padding: '8px 12px' }} onClick={() => host({ kind: 'setScorer', playerId: target.id, on: !target.isScorer })} aria-label="Scorer" data-testid="scorer-toggle">
-              <span><div className="bold small">📋 Scorer (Bucks Olympics)</div><div className="tiny faint">{target.isScorer ? 'On: they can enter points for anyone from the pad on their Lobby.' : 'Lets them enter Olympics points for anyone. You can always do it yourself from your Lobby.'}</div></span>
+              <span><div className="bold small">📋 Scorer ({th.theme.copy.olympics})</div><div className="tiny faint">{target.isScorer ? 'On: they can enter points for anyone from the pad on their Lobby.' : 'Lets them enter Olympics points for anyone. You can always do it yourself from your Lobby.'}</div></span>
               <span className={`switch ${target.isScorer ? 'on' : ''}`} />
             </button>
             {party.groomId !== target.id && <Button size="sm" variant="secondary" onClick={() => { host({ kind: 'setGroom', playerId: target.id }); setTarget(null); }}>{th.theme.role.emoji} This is {th.name} ({th.theme.role.short})</Button>}

@@ -129,5 +129,8 @@ describe('themes', () => {
     }
     expect(MISSIONS.filter((m) => inDeck(m, 'birthday') && !m.tutorial && !m.retired).length).toBeGreaterThanOrEqual(20);
     expect(THEMES.birthday.features.drinks).toBe(false);
+    expect(THEMES.birthday.copy.olympics).toBe('Athletics Carnival'); expect(THEMES.bucks.copy.olympics).toBe('Bucks Olympics');
+    expect(THEMES.birthday.copy.olySuggested.some((e) => /beer|thong/i.test(e.name))).toBe(false);
+    expect(MISSIONS.filter((m) => m.theme === 'birthday' && /costume|{name}s/i.test(m.title + m.instruction)).length).toBeGreaterThanOrEqual(3);
   });
 });

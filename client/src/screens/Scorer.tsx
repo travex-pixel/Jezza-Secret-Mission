@@ -2,7 +2,8 @@
 // or give QUICK POINTS by hand. Everything here is mirrored on the TV as it happens. Scorers and the host only.
 import { useEffect, useState } from 'react';
 import { sortLeaderboard } from '@shared/progression';
-import { OLY_PLACE_POINTS, OLY_PART_POINTS, OLY_SUGGESTED, OLY_UNITS, ordinal, placeAwards, type OlyUnit } from '@shared/olympics';
+import { OLY_PLACE_POINTS, OLY_PART_POINTS, OLY_UNITS, ordinal, placeAwards, type OlyUnit } from '@shared/olympics';
+import { useTheme } from '../theme';
 import { Button } from '../components/ui';
 import { LadPic } from '../components/Creature';
 import { useStore, useMe } from '../store';
@@ -15,6 +16,7 @@ const fmtSw = (ms: number) => { const s = Math.floor(ms / 1000); return `${Math.
 
 export default function Scorer() {
   const party = useStore((s) => s.party);
+  const th = useTheme();
   const me = useMe();
   const setTab = useStore((s) => s.setTab);
   const toast = useStore((s) => s.toast);
@@ -65,7 +67,7 @@ export default function Scorer() {
               <div className="panel pad stack-6" data-testid="oly-setup">
                 <div className="eyebrow">New event</div>
                 <div className="tiny faint">Pick one or type your own. The TV shows the event the moment you start it.</div>
-                <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>{OLY_SUGGESTED.map((s) => <button key={s.name} className={`pill pill-tap ${name === s.name ? 'pill-gold' : ''}`} onClick={() => { setName(s.name); setUnit(s.unit); }}>{OLY_UNITS[s.unit].emoji} {s.name}</button>)}</div>
+                <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>{th.theme.copy.olySuggested.map((s) => <button key={s.name} className={`pill pill-tap ${name === s.name ? 'pill-gold' : ''}`} onClick={() => { setName(s.name); setUnit(s.unit); }}>{OLY_UNITS[s.unit].emoji} {s.name}</button>)}</div>
                 <input className="input" style={{ minHeight: 44, fontSize: 16 }} value={name} maxLength={30} onChange={(e) => setName(e.target.value)} placeholder="Event name" data-testid="oly-name" />
                 <span className="label">Measured by</span>
                 <div className="stack-6">{(Object.keys(OLY_UNITS) as OlyUnit[]).map((k) => <button key={k} className={`list-row ${unit === k ? 'me' : ''}`} style={{ width: '100%', textAlign: 'left' }} onClick={() => setUnit(k)} data-testid={`oly-unit-${k}`}><span style={{ fontSize: 20 }}>{OLY_UNITS[k].emoji}</span><span className="grow"><div className="bold small">{OLY_UNITS[k].label}</div><div className="tiny faint">{OLY_UNITS[k].blurb}</div></span></button>)}</div>

@@ -8,6 +8,7 @@ export const OLY_UNITS: Record<OlyUnit, { label: string; emoji: string; blurb: s
   place:   { label: 'Placing', emoji: '🏁', blurb: 'Type 1 for first, 2 for second… Team games: give every lad on a team the same place.', higherWins: false, fmt: (v) => `${Math.round(v)}${['th', 'st', 'nd', 'rd'][Math.round(v) % 10 > 3 || Math.floor(Math.round(v) % 100 / 10) === 1 ? 0 : Math.round(v) % 10]}` },
   points:  { label: 'Points', emoji: '🏅', blurb: 'Skip the placings: the number you type is the points they get.', higherWins: true, fmt: (v) => `${Math.round(v)} pts` },
 };
+/** Bucks quick picks; each theme carries its own list in shared/themes.ts (copy.olySuggested). */
 export const OLY_SUGGESTED: { name: string; unit: OlyUnit }[] = [
   { name: 'Plank', unit: 'seconds' }, { name: 'Wall sit', unit: 'seconds' }, { name: 'Push-ups', unit: 'reps' }, { name: 'Paper plane', unit: 'metres' },
   { name: 'Beer pong', unit: 'place' }, { name: 'Flip cup', unit: 'place' }, { name: 'Thong throw', unit: 'metres' }, { name: 'Arm wrestle', unit: 'place' },
