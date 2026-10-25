@@ -70,4 +70,45 @@ h('Engagement spread');
 const perLad = players.map((p) => log.filter((f) => f.playerId === p.id).length).sort((a, b) => b - a);
 lines.push(`feed lines per lad: top ${perLad[0]}, median ${med(perLad)}, bottom ${perLad[perLad.length - 1]} · top 3 lads = ${pct(sum(perLad.slice(0, 3)), sum(perLad))} of all activity`);
 lines.push(`lads with 0 challenges: ${players.filter((p) => !p.missionsCompleted).length} · with 0 fights: ${players.filter((p) => !p.wins && !p.losses).length} · never opened a drop: ${players.filter((p) => (p.drops ?? []).length && !(p.drops ?? []).some((d) => d.opened)).length}`);
+
+// ---- Which challenges flopped, and did the fight choices matter? (added after the lads' feedback) ----
+h('Challenges nobody would do');
+let deck = [];
+try {
+  const src = fs.readFileSync(new URL('../shared/missions.ts', import.meta.url), 'utf8');
+  for (const line of src.split('\n')) {
+    const id = line.match(/id: '(\w+)'/); const title = line.match(/title: '((?:[^'\\]|\\.)*)'/);
+    if (!id || !title || /retired: true|theme: 'birthday'|tutorial: true|scope: 'group'/.test(line)) continue;
+    deck.push({ id: id[1], title: title[1].replace(/\\'/g, "'").replace(/\{name\}/g, party.honourName ?? 'Jezza') });
+  }
+} catch { lines.push('(could not read shared/missions.ts for titles)'); }
+const titleOf = (id) => deck.find((d) => d.id === id)?.title ?? id;
+const doneBy = new Map(); for (const c of approved) doneBy.set(c.missionId, (doneBy.get(c.missionId) ?? 0) + 1);
+// "left untouched": still sitting active in someone's hand at the end of the party
+const stuck = new Map(); for (const p of players) for (const x of p.hand ?? []) if (x.status === 'active') stuck.set(x.missionId, (stuck.get(x.missionId) ?? 0) + 1);
+const flops = [...stuck.entries()].filter(([id]) => !doneBy.get(id) && deck.some((d) => d.id === id)).sort((a, b) => b[1] - a[1]);
+lines.push(`left sitting in hands at the end and done by nobody (${flops.length}):`);
+for (const [id, n] of flops.slice(0, 20)) lines.push(`  ${titleOf(id)} — in ${n} hand${n === 1 ? '' : 's'}, done 0`);
+const never = deck.filter((d) => !doneBy.get(d.id) && !stuck.get(d.id));
+lines.push(`never done and never seen at the end (${never.length} of ${deck.length} in the deck; most were probably swapped away): ${never.slice(0, 40).map((d) => d.title).join(' · ')}`);
+const best = [...doneBy.entries()].filter(([id]) => deck.some((d) => d.id === id)).sort((a, b) => b[1] - a[1]).slice(0, 12);
+lines.push(`most done (for contrast): ${best.map(([id, n]) => `${titleOf(id)} ×${n}`).join(' · ')}`);
+
+h('Did the fight choices matter?');
+const quick = real.filter((b) => b.quick && b.status === 'finished' && b.winnerId);
+const sideOf = (b, id) => (b.challengerId === id ? b.a : b.b);
+const planStats = {}; const tapStats = {}; let lvlWins = 0; let lvlFights = 0; let defaulted = 0;
+for (const b of quick) for (const id of [b.challengerId, b.opponentId]) {
+  const s = sideOf(b, id); const won = b.winnerId === id; const plan = s.plan ?? 'none';
+  planStats[plan] ??= { n: 0, w: 0 }; planStats[plan].n++; if (won) planStats[plan].w++;
+  const tap = s.charge ?? 'none'; tapStats[tap] ??= { n: 0, w: 0 }; tapStats[tap].n++; if (won) tapStats[tap].w++;
+  if (!s.charge) defaulted++;
+}
+for (const b of quick) { const la = b.a.maxHp ?? 0; const lb = b.b.maxHp ?? 0; // max HP grows with level, so it stands in for strength
+   if (la !== lb) { lvlFights++; if ((la > lb ? b.challengerId : b.opponentId) === b.winnerId) lvlWins++; } }
+const wr = (o) => Object.entries(o).sort((a, b) => b[1].n - a[1].n).map(([k, v]) => `${k} picked ${v.n}× won ${pct(v.w, v.n)}`).join(' · ');
+lines.push(`quick fights finished: ${quick.length}`);
+lines.push(`game plan: ${wr(planStats)}`);
+lines.push(`power tap: ${wr(tapStats)} · sides with no tap (timer ran out): ${defaulted}`);
+lines.push(`stronger creature (more max HP) won ${pct(lvlWins, lvlFights)} of ${lvlFights} uneven fights`);
 console.log(lines.join('\n'));
