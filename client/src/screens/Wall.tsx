@@ -15,6 +15,7 @@ export default function Wall() {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [sort, setSort] = useState<'top' | 'new'>('top');
+  const [confirmHide, setConfirmHide] = useState<string | null>(null); // the bin is permanent: first tap asks, second tap does it
   if (!party || !me) return null;
   const nick = (id: string) => party.players.find((p) => p.id === id)?.nickname ?? '?';
   const posts = [...party.wall].sort((a, b) => sort === 'new' ? b.at - a.at : (b.votes.length + (b.groomLove ? 3 : 0)) - (a.votes.length + (a.groomLove ? 3 : 0)) || b.at - a.at);
@@ -46,7 +47,9 @@ export default function Wall() {
                   {isGroom
                     ? <button className={`react-btn ${w.groomLove ? 'on' : ''}`} disabled={busy || w.groomLove} onClick={() => run(() => request({ type: 'wallVote', postId: w.id }))}>❤️</button>
                     : <button className={`react-btn ${voted ? 'on' : ''}`} disabled={busy || mine || voted} onClick={() => run(() => request({ type: 'wallVote', postId: w.id }))}>😂 {w.votes.length || ''}</button>}
-                  {(mine || isGroom || party.hostId === me.id) && <button className="react-btn" disabled={busy} onClick={() => run(() => request({ type: 'wallHide', postId: w.id }), () => toast('Taken down', '🗑️'))} aria-label="Take down">🗑️</button>}
+                  {(mine || isGroom || party.hostId === me.id) && (confirmHide === w.id
+                    ? <><button className="react-btn" disabled={busy} onClick={() => setConfirmHide(null)} aria-label="Keep it">Keep</button><button className="react-btn on" style={{ color: '#ff8a8a', borderColor: '#ff8a8a' }} disabled={busy} onClick={() => { setConfirmHide(null); run(() => request({ type: 'wallHide', postId: w.id }), () => toast('Taken down for good', '🗑️')); }} aria-label="Take down for good" data-testid="wall-hide-confirm">Bin it</button></>
+                    : <button className="react-btn" disabled={busy} onClick={() => { setConfirmHide(w.id); setTimeout(() => setConfirmHide((c) => (c === w.id ? null : c)), 4000); }} aria-label="Take down">🗑️</button>)}
                 </span>
               </div>
             </div>
