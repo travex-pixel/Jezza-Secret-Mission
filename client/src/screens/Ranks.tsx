@@ -3,6 +3,7 @@ import { sortLeaderboard, rankFor } from '@shared/progression';
 import { FORMS } from '@shared/creatures';
 import { Creature, LadPic } from '../components/Creature';
 import { useStore, useMe } from '../store';
+import { useTheme } from '../theme';
 import Finale from './Finale';
 import BattleBoard from './BattleBoard';
 
@@ -11,6 +12,7 @@ export default function Ranks() {
   const me = useMe();
   const setTab = useStore((s) => s.setTab);
   const [view, setView] = useState<'board' | 'battles' | 'awards' | 'teams'>('board');
+  const th = useTheme();
   if (!party) return null;
   if (party.phase === 'finale' || party.phase === 'ended') return <Finale />;
   const board = sortLeaderboard(party.players).filter((p) => p.creature);
@@ -66,7 +68,7 @@ export default function Ranks() {
           <div className="tiny faint">Who's leading each award right now. All from real play: reactions, votes, challenges and battles. Final results at the finale.</div>
           {party.awards.filter((a) => a.id !== 'unhinged').map((a) => (
             <div key={a.id} className={`list-row ${a.playerId === me?.id ? 'me' : ''}`}>
-              <span className="grow" style={{ minWidth: 0 }}><div className="eyebrow">{a.name}</div><div className="bold ellipsis">{nick(a.playerId) ?? 'Up for grabs'}</div><div className="tiny faint">{a.playerId ? a.reason : a.blurb}</div></span>
+              <span className="grow" style={{ minWidth: 0 }}><div className="eyebrow">{th.t(a.name)}</div><div className="bold ellipsis">{nick(a.playerId) ?? 'Up for grabs'}</div><div className="tiny faint">{a.playerId ? a.reason : a.blurb}</div></span>
               {a.playerId === me?.id && <span className="pill pill-xs pill-gold">you</span>}
             </div>
           ))}

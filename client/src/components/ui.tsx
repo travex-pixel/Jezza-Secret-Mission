@@ -9,6 +9,7 @@ import { request } from '../net';
 import { levelProgress, COSMETIC_BY_ID, ACHIEVEMENT_BY_ID } from '@shared/progression';
 import { sfx, isMuted, toggleMuted, unlockAudio } from '../audio';
 import { buzz } from '../haptics';
+import { useTheme } from '../theme';
 
 export function Button({ children, variant = 'primary', size, className = '', onClick, sound = true, ...rest }: { children: ReactNode; variant?: 'primary' | 'secondary' | 'ghost' | 'danger'; size?: 'sm' | 'xs'; className?: string; onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void; sound?: boolean } & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'onClick'>) {
   return (
@@ -72,6 +73,7 @@ export function Sheet({ onClose, children, center }: { onClose: () => void; chil
 export function RewardOverlay() {
   const reward = useStore((s) => s.reward);
   const next = useStore((s) => s.nextReward);
+  const th = useTheme();
   const me = useStore((s) => s.party?.players.find((p) => p.id === s.identity.playerId));
   const [evoStep, setEvoStep] = useState(0);
   useEffect(() => {
@@ -124,7 +126,7 @@ export function RewardOverlay() {
       {reward.capped && <div className="tiny faint fade-up delay-3" style={{ maxWidth: '30ch' }}>Friday XP cap reached: your creature's final form unlocks Saturday. Points still count.</div>}
       {!!reward.unlocked?.length && !itemOnly && <div className="row fade-up delay-3" style={{ flexWrap: 'wrap', justifyContent: 'center' }}>{reward.unlocked.map((u) => <span key={u} className="pill pill-ember">🎁 {COSMETIC_BY_ID[u]?.name ?? u}</span>)}</div>}
       {itemOnly && <div className="tiny faint fade-up delay-3">Wear it on the Me screen → Hats and friends</div>}
-      {!!reward.achievements?.length && <div className="row fade-up delay-3" style={{ flexWrap: 'wrap', justifyContent: 'center' }}>{reward.achievements.map((a) => <span key={a} className="pill pill-ok">🏅 {ACHIEVEMENT_BY_ID[a]?.name ?? a}</span>)}</div>}
+      {!!reward.achievements?.length && <div className="row fade-up delay-3" style={{ flexWrap: 'wrap', justifyContent: 'center' }}>{reward.achievements.map((a) => <span key={a} className="pill pill-ok">🏅 {th.t(ACHIEVEMENT_BY_ID[a]?.name ?? a)}</span>)}</div>}
       <div className="faint tiny fade-up delay-4" style={{ marginTop: 10 }}>tap to continue</div>
     </div>,
     document.body,
@@ -248,7 +250,7 @@ export function FeedItem({ f, compact }: { f: FeedEvent; compact?: boolean }) {
             <button key={r} className={`react-btn ${on ? 'on' : ''}`} disabled={busy || mine || on} onClick={() => react(r)} aria-label={`React ${r}`}>{r}{n ? ` ${n}` : ''}</button>); })}
           {isMission && compact && !!(f.reactions?.['😂']?.length || f.reactions?.['🔥']?.length || f.reactions?.['❤️']?.length) && <span className="tiny faint">{(['😂', '🔥', '❤️'] as Reaction[]).map((r) => f.reactions?.[r]?.length ? `${r}${f.reactions[r]!.length}` : '').join(' ')}</span>}
           {pendingVote && (mine
-            ? <span className="tiny faint">🗳️ The lads are voting · 👍 {pendingVote.up.length} 👎 {pendingVote.down.length}</span>
+            ? <span className="tiny faint">🗳️ Votes are in progress · 👍 {pendingVote.up.length} 👎 {pendingVote.down.length}</span>
             : <>
               <button className={`react-btn ${pendingVote.up.includes(me) ? 'on' : ''}`} disabled={busy} onClick={() => vote(true)} aria-label="Vote it in">👍 {pendingVote.up.length || ''}</button>
               <button className={`react-btn ${pendingVote.down.includes(me) ? 'on' : ''}`} disabled={busy} onClick={() => vote(false)} aria-label="Vote it down">👎 {pendingVote.down.length || ''}</button>

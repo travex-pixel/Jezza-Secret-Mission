@@ -6,10 +6,12 @@ import { Creature, LadPic } from '../components/Creature';
 import { Button } from '../components/ui';
 import { useStore, useMe } from '../store';
 import { sfx } from '../audio';
+import { useTheme } from '../theme';
 
 export default function Finale() {
   const party = useStore((s) => s.party);
   const me = useMe();
+  const th = useTheme();
   const [local, setLocal] = useState(0);
   // the host's reveals drive everyone's phones and the TV; a lad can still tap ahead on his own screen
   const revealed = Math.max(local, party?.ceremony ?? 0);
@@ -48,13 +50,13 @@ export default function Finale() {
               <div className="panel panel-gold pad-lg center stack-6 fade-up">
                 <div className="eyebrow">The ceremony</div>
                 <div className="display title-md">{ordered.length} awards. One tap at a time.</div>
-                <div className="small dim bold">The Weekend Menace goes first. The Jezza Legend goes last. Read them out loud. Make it dramatic.{isHost ? ' Your taps drive every phone and the TV.' : ' The host runs it on the TV; tap ahead if you can\'t wait.'}</div>
+                <div className="small dim bold">The Weekend Menace goes first. The {th.name} Legend goes last. Read them out loud. Make it dramatic.{isHost ? ' Your taps drive every phone and the TV.' : ' The host runs it on the TV; tap ahead if you can\'t wait.'}</div>
               </div>
             )}
             {allDone && legendPlayer?.creature && (
               <div className="panel panel-gold pad-lg center stack-6 legend-hero" ref={(el) => { if (el && heroRef.current !== el) { heroRef.current = el; el.scrollIntoView({ behavior: 'smooth', block: 'start' }); } }}>
                 <Confetti />
-                <div className="eyebrow">The Jezza Legend</div>
+                <div className="eyebrow">The {th.name} Legend</div>
                 <div className="podium">
                   {[board[1], board[0], board[2]].map((p, i) => p?.creature ? (
                     <div key={p.id} className={`podium-step step-${i === 1 ? 1 : i === 0 ? 2 : 3}`}>
@@ -64,7 +66,7 @@ export default function Finale() {
                     </div>) : <div key={i} className="podium-step" />)}
                 </div>
                 <div className="display title-lg gold-text">{legendPlayer.nickname}</div>
-                <div className="small dim bold">{legend?.reason}</div>
+                <div className="small dim bold">{th.t(legend?.reason ?? '')}</div>
                 <div className="tiny faint">Suggested prize: a cheap trophy or a sash to wear for the rest of the night. If the lads chipped into a pool ($50–$100), it&apos;s theirs.</div>
               </div>
             )}
@@ -72,13 +74,13 @@ export default function Finale() {
               <div key={a.id} className={`panel pad row award-card ${i === shown.length - 1 ? 'award-reveal' : ''} ${isLegend ? 'panel-gold' : ''} ${menace ? 'menace-card' : ''}`} style={{ gap: 12 }}>
                 <span className="avatar lg">{p?.creature ? <Creature creature={p.creature} level={p.level} colorway={p.equipped.colorway} equipped={p.equipped} state={menace ? 'defeat' : i === shown.length - 1 ? 'victory' : 'idle'} /> : <span style={{ fontSize: 22 }}>🫥</span>}</span>
                 <span className="grow" style={{ minWidth: 0 }}>
-                  <div className="eyebrow">{a.name}</div>
+                  <div className="eyebrow">{th.t(a.name)}</div>
                   <div className="display title-md ellipsis">{p?.nickname ?? 'Nobody'}</div>
-                  <div className="tiny dim">{a.reason}</div>
-                  {menace && p && <div className="tiny faint" style={{ marginTop: 4 }}>Optional forfeit: a 20-second speech for Jezza. Saying &quot;nah&quot; is completely fine.</div>}
+                  <div className="tiny dim">{th.t(a.reason)}</div>
+                  {menace && p && <div className="tiny faint" style={{ marginTop: 4 }}>Optional forfeit: a 20-second speech for {th.name}. Saying &quot;nah&quot; is completely fine.</div>}
                 </span>
               </div>); })}
-            {next ? <Button onClick={() => { sfx.sting(); setRevealed((r) => r + 1); }}>{revealed === 0 ? `Open with: ${next.name}` : next.id === 'legend' ? '👑 Crown THE JEZZA LEGEND' : `Reveal: ${next.name}`}</Button>
+            {next ? <Button onClick={() => { sfx.sting(); setRevealed((r) => r + 1); }}>{revealed === 0 ? `Open with: ${th.t(next.name)}` : next.id === 'legend' ? `👑 Crown THE ${th.name.toUpperCase()} LEGEND` : `Reveal: ${th.t(next.name)}`}</Button>
               : (
                 <div className="center stack-6 fade-up">
                   <div className="panel pad stack-6">
@@ -86,7 +88,7 @@ export default function Finale() {
                     <div className="seg" style={{ gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>{recap.map((r) => <div key={r.label} className="stat"><b>{r.n}</b><span>{r.label}</span></div>)}</div>
                     {topRival && <div className="tiny bold">⚔️ Rivalry of the weekend: {nick(topRival.a)} vs {nick(topRival.b)} ({topRival.w}–{topRival.l})</div>}
                   </div>
-                  <div style={{ fontSize: 36 }}>🥂</div><div className="display title-md gold-text">To Jezza. To the legends.</div><div className="small dim bold">Thanks for playing. Drink some water.</div>{me && <div className="pill pill-gold">You finished #{board.findIndex((p) => p.id === me.id) + 1} with {me.points} pts</div>}
+                  <div style={{ fontSize: 36 }}>🥂</div><div className="display title-md gold-text">To {th.name}. To the legends.</div><div className="small dim bold">Thanks for playing. Drink some water.</div>{me && <div className="pill pill-gold">You finished #{board.findIndex((p) => p.id === me.id) + 1} with {me.points} pts</div>}
                 </div>)}
           </>
         )}
@@ -94,10 +96,10 @@ export default function Finale() {
           const top = [...party.wall].sort((a, b) => (b.votes.length + (b.groomLove ? 3 : 0)) - (a.votes.length + (a.groomLove ? 3 : 0))).slice(0, 8);
           return top.length ? top.map((w, i) => (
             <div key={w.id} className={`wall-post wall-${w.kind} fade-up`} style={{ animationDelay: `${i * 120}ms` }}>
-              <div className="eyebrow">#{i + 1} · {w.kind === 'roast' ? 'Roast' : 'Toast'}{w.groomLove ? ' · ❤️ Jezza\'s pick' : ''}</div>
+              <div className="eyebrow">#{i + 1} · {w.kind === 'roast' ? 'Roast' : 'Toast'}{w.groomLove ? ` · ❤️ ${th.name}'s pick` : ''}</div>
               <div className="bold" style={{ fontSize: 16 }}>"{w.text}"</div>
               <div className="tiny faint">{party.players.find((p) => p.id === w.playerId)?.nickname} · 😂 {w.votes.length}</div>
-            </div>)) : <div className="panel pad center dim">Nobody roasted Jezza. Weak effort, lads.</div>;
+            </div>)) : <div className="panel pad center dim">{th.theme.features.wall === 'book' ? 'The book is empty.' : `Nobody roasted ${th.name}. Weak effort, lads.`}</div>;
         })()}
         {view === 'board' && board.map((p, i) => (
           <div key={p.id} className={`list-row ${p.id === me?.id ? 'me' : ''}`}>

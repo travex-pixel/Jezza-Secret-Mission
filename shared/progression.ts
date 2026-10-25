@@ -60,19 +60,19 @@ export const COSMETICS: Cosmetic[] = [
   { id: 'hat_cork', slot: 'hat', name: 'Cork Crown', description: 'A crown of wine corks. Smells faintly of 2019.' },
   { id: 'hat_crown', slot: 'hat', name: 'Royal Crown', description: 'For creatures of noble bearing and questionable judgement.' },
   { id: 'hat_beret', slot: 'hat', name: 'Paparazzi Beret', description: 'Earned by snapping three cooked photos.' },
-  { id: 'hat_jester', slot: 'hat', name: 'Jester Hat', description: 'Earned by making Jezza laugh three times.' },
+  { id: 'hat_jester', slot: 'hat', name: 'Jester Hat', description: 'Earned by making {name} laugh three times.' },
   { id: 'hat_feathers', slot: 'hat', name: 'Bin Chicken Plume', description: 'Proof you helped take down the Bin Chicken King.' },
   { id: 'face_shades', slot: 'face', name: 'Cooked Shades', description: 'For when the sun, or the night, is too much.' },
   { id: 'face_monocle', slot: 'face', name: 'Monocle', description: 'Earned by raising three toasts. Instantly classier.' },
-  { id: 'face_mic', slot: 'face', name: 'Karaoke Mic', description: 'Earned by getting Jezza to sing.' },
+  { id: 'face_mic', slot: 'face', name: 'Karaoke Mic', description: 'Earned by getting {name} to sing.' },
   { id: 'cape_velvet', slot: 'cape', name: 'Velvet Cape', description: 'Merlot velvet. Dramatic entrances only.' },
   { id: 'cape_gold', slot: 'cape', name: 'Champagne Cape', description: 'Shimmering gold. Worn by legends and show-offs.' },
-  { id: 'cape_groomsman', slot: 'cape', name: 'Groomsman Sash', description: 'Earned by getting Jezza involved three times.' },
+  { id: 'cape_groomsman', slot: 'cape', name: 'Groomsman Sash', description: 'Earned by getting {name} involved three times.' },
   { id: 'cape_slayer', slot: 'cape', name: 'Hydra Slayer Cape', description: 'Proof you helped take down the Hangover Hydra.' },
   { id: 'aura_ember', slot: 'aura', name: 'Ember Aura', description: 'A warm orange glow. Smells like campfire banter.' },
   { id: 'aura_moon', slot: 'aura', name: 'Moonlit Aura', description: 'Cool silver light. Mysterious. Slightly damp.' },
   { id: 'aura_gold', slot: 'aura', name: 'Legend Aura', description: 'Pure champagne gold. The vineyard knows your name.' },
-  { id: 'aura_disco', slot: 'aura', name: 'Disco Aura', description: 'Earned by digging up three bits of Jezza lore.' },
+  { id: 'aura_disco', slot: 'aura', name: 'Disco Aura', description: 'Earned by digging up three bits of {name} lore.' },
   { id: 'hat_chef', slot: 'hat', name: 'Chef\'s Toque', description: 'EPIC: cooked for the lads. The kitchen salutes you.' },
   { id: 'hat_cap', slot: 'hat', name: 'Delivery Cap', description: 'EPIC: did a food or supplies run. Hero of the hungry.' },
   { id: 'cape_apron', slot: 'cape', name: 'BBQ Apron', description: 'EPIC: ran the barbie. Tongs-certified.' },
@@ -95,7 +95,7 @@ export const COSMETICS: Cosmetic[] = [
   { id: 'cape_wings_fairy', slot: 'cape', name: 'Fairy Wings', description: 'Reward code or giveaway only. Delicate. Unlike the owner.' },
   { id: 'aura_ice', slot: 'aura', name: 'Frost Aura', description: 'Reward code or giveaway only. Snowflakes in the Hunter. Climate is cooked.' },
   { id: 'aura_toxic', slot: 'aura', name: 'Toxic Aura', description: 'Reward code or giveaway only. Green fumes. Probably the kebab.' },
-  { id: 'aura_love', slot: 'aura', name: 'Lovestruck Aura', description: 'Reward code or giveaway only. Hearts everywhere. Jezza energy.' },
+  { id: 'aura_love', slot: 'aura', name: 'Lovestruck Aura', description: 'Reward code or giveaway only. Hearts everywhere. {name} energy.' },
   { id: 'aura_shadow', slot: 'aura', name: 'Shadow Aura', description: 'Reward code or giveaway only. Dark smoke. Mysterious. Smells of Shiraz.' },
   // Lucky Drop loot: Indo, animal and lad vibes. Rarity decides how often it falls out of a drop.
   { id: 'face_zinc', slot: 'face', name: 'Zinc Stripes', description: 'Lucky Drop. Two stripes of zinc. Sun-safe, slightly feral.', rarity: 'common' },
@@ -138,7 +138,7 @@ export const LEVEL_UNLOCKS: Record<number, { cosmetics: string[]; colorways: num
   12: { cosmetics: [], colorways: 3, title: 'Hall of Famer' },
   13: { cosmetics: [], colorways: 3, title: 'Absolute Unit' },
   14: { cosmetics: [], colorways: 3, title: 'Hunter Valley Deity' },
-  15: { cosmetics: [], colorways: 3, title: 'JEZZA TIER' },
+  15: { cosmetics: [], colorways: 3, title: '{name} TIER' },
 };
 
 export function colorwaysUnlocked(level: number): number {
@@ -175,16 +175,16 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'ten_missions', name: 'Mission Assassin', blurb: 'Ten challenges. Unstoppable.', xp: 50, points: 20, cosmetic: 'face_shades', check: (p) => p.missionsCompleted >= 10 },
   { id: 'twenty_missions', name: 'Absolutely Cooked', blurb: 'Twenty challenges. Seek help. Or more challenges.', xp: 80, points: 30, check: (p) => p.missionsCompleted >= 20 },
   { id: 'all_rounder', name: 'All-Rounder', blurb: 'Done challenges in five different categories.', xp: 40, points: 15, cosmetic: 'pose_lounge', check: (p) => catsDone(p) >= 5 },
-  { id: 'comedian', name: 'Comedian', blurb: 'Made Jezza laugh three times.', xp: 40, points: 10, cosmetic: 'hat_jester', check: (p) => cat(p, 'laugh') >= 3 },
+  { id: 'comedian', name: 'Comedian', blurb: 'Made {name} laugh three times.', xp: 40, points: 10, cosmetic: 'hat_jester', check: (p) => cat(p, 'laugh') >= 3 },
   // singing and dancing were cut: anyone who earned these keeps them, nobody new can
   { id: 'dancer', name: 'Dance Machine', blurb: 'Danced three times. Shameless.', xp: 40, points: 10, retired: true, check: () => false },
   { id: 'crooner', name: 'Crooner', blurb: 'Sang three times. Nobody asked.', xp: 40, points: 10, retired: true, check: () => false },
-  { id: 'karaoke', name: 'Karaoke Night', blurb: 'Got Jezza to sing.', xp: 40, points: 10, cosmetic: 'face_mic', check: (p) => !!p.completedMissionIds?.includes('n03') },
+  { id: 'karaoke', name: 'Karaoke Night', blurb: 'Got {name} to sing.', xp: 40, points: 10, cosmetic: 'face_mic', check: (p) => !!p.completedMissionIds?.includes('n03') },
   { id: 'paparazzi', name: 'Paparazzi', blurb: 'Three cooked photos.', xp: 40, points: 10, cosmetic: 'hat_beret', check: (p) => cat(p, 'photo') >= 3 },
-  { id: 'groom_whisperer', name: 'Groom Whisperer', blurb: 'Got Jezza involved three times.', xp: 40, points: 10, cosmetic: 'cape_groomsman', check: (p) => cat(p, 'jezza') >= 3 },
+  { id: 'groom_whisperer', name: '{Role} Whisperer', blurb: 'Got {name} involved three times.', xp: 40, points: 10, cosmetic: 'cape_groomsman', check: (p) => cat(p, 'jezza') >= 3 },
   { id: 'toastmaster', name: 'Toastmaster', blurb: 'Three cheers challenges.', xp: 40, points: 10, cosmetic: 'face_monocle', check: (p) => cat(p, 'cheers') >= 3 },
   { id: 'secret_agent', name: 'Secret Agent', blurb: 'Pulled off a sneaky one. Nobody suspected a thing.', xp: 30, points: 10, check: (p) => cat(p, 'sneaky') >= 1 },
-  { id: 'lore_keeper', name: 'Lore Keeper', blurb: 'Dug up three bits of Jezza lore.', xp: 40, points: 10, cosmetic: 'aura_disco', check: (p) => cat(p, 'lore') >= 3 },
+  { id: 'lore_keeper', name: 'Lore Keeper', blurb: 'Dug up three bits of {name} lore.', xp: 40, points: 10, cosmetic: 'aura_disco', check: (p) => cat(p, 'lore') >= 3 },
   { id: 'team_player', name: 'Team Player', blurb: 'Three group challenges.', xp: 40, points: 10, check: (p) => cat(p, 'group') >= 3 },
   { id: 'reliable_witness', name: 'Reliable Witness', blurb: 'Confirmed three challenges for mates.', xp: 30, points: 5, check: (p) => p.witnessed >= 3 },
   { id: 'first_battle', name: 'Into the Arena', blurb: 'First creature battle.', xp: 15, points: 0, check: (p) => p.wins + p.losses >= 1 },
@@ -192,7 +192,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'on_fire', name: 'On Fire', blurb: 'Three battle wins in a row.', xp: 50, points: 15, check: (p) => p.bestStreak >= 3 },
   { id: 'bounty_hunter', name: 'Bounty Hunter', blurb: 'Took down the leader in battle.', xp: 40, points: 0, check: (p) => p.bounties >= 1 },
   { id: 'glorious_loser', name: 'Glorious Loser', blurb: 'Lost three battles and kept smiling.', xp: 30, points: 10, check: (p) => p.losses >= 3 },
-  { id: 'roaster', name: 'Roast Chef', blurb: 'Your Jezza Wall posts got five laughs.', xp: 30, points: 0, check: (p) => p.wallVotes >= 5 },
+  { id: 'roaster', name: 'Roast Chef', blurb: 'Your {name} Wall posts got five laughs.', xp: 30, points: 0, check: (p) => p.wallVotes >= 5 },
   { id: 'sommelier', name: 'Sommelier Fraud', blurb: 'Logged a drink in the Cellar.', xp: 15, points: 0, check: (p) => p.cellarCount >= 1 },
   { id: 'raider', name: 'Raider', blurb: 'Hit a boss in a raid.', xp: 20, points: 0, check: (p) => p.raidsJoined >= 1 },
   { id: 'evolved', name: 'It\'s Evolving!', blurb: 'Your creature evolved.', xp: 0, points: 10, check: (p) => p.level >= EVOLVE_LEVELS[0] },
@@ -204,14 +204,14 @@ export const ACHIEVEMENT_BY_ID: Record<string, AchievementDef> = Object.fromEntr
 // ---------- Weekend awards (all from real play data, plus one host pick) ----------
 export interface AwardDef { id: string; name: string; blurb: string; hostPick?: boolean }
 export const AWARDS: AwardDef[] = [
-  { id: 'legend', name: 'The Jezza Legend', blurb: 'Most weekend points. The undisputed champion.' },
+  { id: 'legend', name: 'The {name} Legend', blurb: 'Most weekend points. The undisputed champion.' },
   { id: 'menace', name: 'The Weekend Menace', blurb: 'Fewest points. Somebody had to be.' },
   { id: 'funniest', name: 'Funniest Bloke', blurb: 'Most 😂 from the lads.' },
-  { id: 'lore', name: 'Lore Master', blurb: 'Dug up the most Jezza lore.' },
+  { id: 'lore', name: 'Lore Master', blurb: 'Dug up the most {name} lore.' },
   { id: 'photo', name: 'Most Cooked Photo', blurb: 'Most 🔥 from the lads.' },
-  { id: 'jezzafav', name: 'Jezza\'s Favourite', blurb: 'Most ❤️ from the groom himself.' },
+  { id: 'jezzafav', name: '{name}\'s Favourite', blurb: 'Most ❤️ from {name} personally.' },
   { id: 'hypeman', name: 'Best Hype Man', blurb: 'Backed the boys the most: confirmations and reactions.' },
-  { id: 'roast', name: 'Roast Master', blurb: 'Most laughs on the Jezza Wall.' },
+  { id: 'roast', name: 'Roast Master', blurb: 'Most laughs on the {name} Wall.' },
   { id: 'choke', name: 'Biggest Choke', blurb: 'Most battles lost to someone he should\'ve beaten.' },
   { id: 'champion', name: 'Creature of the Weekend', blurb: 'Best battle rating.' },
   { id: 'slayer', name: 'Boss Slayer', blurb: 'Most raid damage.' },
@@ -235,9 +235,9 @@ export function computeAwards(players: PlayerPublic[], _battles: Battle[], overr
       case 'legend': r = pick((p) => p.points, (_p, s) => `${s} point${s === 1 ? '' : 's'}`); break;
       case 'menace': { const last = ranked.length > 1 ? ranked[ranked.length - 1] : null; r = last ? { playerId: last.id, reason: `${last.points} points. Legendary effort. Somewhere.` } : { playerId: null, reason: 'Needs at least two legends.' }; break; }
       case 'funniest': r = pick((p) => p.laughs, (_p, s) => `${s} 😂`); break;
-      case 'lore': r = pick((p) => cat(p, 'lore'), (_p, s) => `${s} bit${s === 1 ? '' : 's'} of Jezza lore`); break;
+      case 'lore': r = pick((p) => cat(p, 'lore'), (_p, s) => `${s} bit${s === 1 ? '' : 's'} of {name} lore`); break;
       case 'photo': r = pick((p) => p.fires, (_p, s) => `${s} 🔥`); break;
-      case 'jezzafav': r = pick((p) => p.groomLoves, (_p, s) => `${s} ❤️ from Jezza`); break;
+      case 'jezzafav': r = pick((p) => p.groomLoves, (_p, s) => `${s} ❤️ from {name}`); break;
       case 'hypeman': r = pick((p) => p.witnessed * 2 + (p.reactionsGiven ?? 0), (p) => `${p.witnessed} confirmation${p.witnessed === 1 ? '' : 's'}, ${p.reactionsGiven ?? 0} reaction${(p.reactionsGiven ?? 0) === 1 ? '' : 's'}`); break;
       case 'roast': r = pick((p) => p.wallVotes, (_p, s) => `${s} laugh${s === 1 ? '' : 's'} on the Wall`); break;
       case 'choke': r = pick((p) => p.upsetLosses ?? 0, (_p, s) => `${s} upset loss${s === 1 ? '' : 'es'}`); break;

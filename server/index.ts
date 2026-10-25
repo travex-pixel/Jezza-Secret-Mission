@@ -136,7 +136,7 @@ app.get('/api/party/:code/exists', (req, res) => {
   const party = engine.state.parties[String(req.params.code).toUpperCase()];
   if (!party) return res.json({ exists: false });
   // what the invite screen shows: the party's name and how many lads are already in
-  res.json({ exists: true, name: party.name, lads: Object.values(party.players).filter((p) => !p.removed && p.creature).length });
+  res.json({ exists: true, name: party.name, theme: party.theme, lads: Object.values(party.players).filter((p) => !p.removed && p.creature).length });
 });
 // End-of-weekend export: one .zip with the keepsake page, every photo and spreadsheets. The link comes from the
 // host's phone (Host → Event → Download everything) and works for 15 minutes.

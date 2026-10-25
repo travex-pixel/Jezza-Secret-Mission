@@ -9,6 +9,7 @@ import { fmtClock, fmtTime, orderAwards, spotlightPhase } from '@shared/ceremony
 import { ROWDY_KINDS } from '@shared/rowdy';
 import { OLY_UNITS, ordinal, placeAwards } from '@shared/olympics';
 import { RUN_ACTIONS, nextItem } from '@shared/runsheet';
+import { themeFor } from '../theme';
 import { sortLeaderboard } from '@shared/progression';
 import { useStore } from '../store';
 import { Creature, LadPic } from '../components/Creature';
@@ -92,14 +93,14 @@ function CeremonyView({ party, now }: { party: PartyPublic; now: number }) {
     <div className="tv-cer tv-cer-wait" data-testid="tv-ceremony">
       <div className="tv-cer-eyebrow">THE FINALE</div>
       <div className="tv-cer-title">THE CEREMONY</div>
-      <div className="tv-cer-sub">{ordered.length} awards. The Weekend Menace first. The Jezza Legend last.</div>
+      <div className="tv-cer-sub">{ordered.length} awards. The Weekend Menace first. The {party.honourName} Legend last.</div>
       <div className="tv-parade">{board.slice(0, 8).map((p) => <Creature key={p.id} creature={p.creature!} level={p.level} colorway={p.equipped.colorway} equipped={p.equipped} state="idle" style={{ width: 'min(10vw, 110px)' }} />)}</div>
       <div className="tv-cer-sub dim">Waiting on the host…</div>
     </div>
   );
   if (done && legend) return (
     <div className="tv-cer tv-cer-legend" data-testid="tv-ceremony">
-      <div className="tv-cer-eyebrow">THE JEZZA LEGEND</div>
+      <div className="tv-cer-eyebrow">THE {party.honourName.toUpperCase()} LEGEND</div>
       <div className="tv-podium">
         {[board[1], board[0], board[2]].map((p, i) => p?.creature ? (
           <div key={p.id} className={`tv-podium-step step-${i === 1 ? 1 : i === 0 ? 2 : 3}`}>
@@ -110,7 +111,7 @@ function CeremonyView({ party, now }: { party: PartyPublic; now: number }) {
           </div>) : <div key={i} />)}
       </div>
       <div className="row" style={{ gap: 14, alignItems: 'center', justifyContent: 'center' }}>{legend.avatarUrl && <span className="tv-cer-face big"><LadPic p={legend} /></span>}<div className="tv-cer-title gold">{legend.nickname.toUpperCase()}</div></div>
-      <div className="tv-cer-sub">{ordered.find((a) => a.id === 'legend')?.reason}</div>
+      <div className="tv-cer-sub">{themeFor(party.theme, party.honourName).t(ordered.find((a) => a.id === 'legend')?.reason ?? '')}</div>
       <div className="tv-confetti" aria-hidden>{Array.from({ length: 36 }, (_, i) => <i key={i} style={{ left: `${(i * 37) % 100}%`, background: ['#E5AD48', '#F6EBDD', '#76243A', '#a8e58f', '#f07842'][i % 5], animationDelay: `${(i % 7) * 0.18}s`, animationDuration: `${2.4 + (i % 5) * 0.3}s` }} />)}</div>
     </div>
   );
@@ -118,17 +119,17 @@ function CeremonyView({ party, now }: { party: PartyPublic; now: number }) {
     <div className="tv-cer" data-testid="tv-ceremony">
       <div className="tv-cer-eyebrow">AWARD {shown.length} OF {ordered.length}</div>
       <div className="tv-cer-award" key={latest?.id}>
-        <div className="tv-cer-award-name">{latest?.name}</div>
+        <div className="tv-cer-award-name">{themeFor(party.theme, party.honourName).t(latest?.name ?? '')}</div>
         <div className="tv-cer-who">
           {who?.avatarUrl && <span className="tv-cer-face"><LadPic p={who} /></span>}
           {who?.creature && <Creature creature={who.creature} level={who.level} colorway={who.equipped.colorway} equipped={who.equipped} state={latest?.id === 'menace' ? 'defeat' : 'victory'} style={{ width: who?.avatarUrl ? 'min(16vw, 150px)' : 'min(24vw, 220px)' }} />}
           <div>
             <div className="tv-cer-title">{(who?.nickname ?? 'Nobody').toUpperCase()}</div>
-            <div className="tv-cer-sub">{latest?.reason}</div>
+            <div className="tv-cer-sub">{themeFor(party.theme, party.honourName).t(latest?.reason ?? '')}</div>
           </div>
         </div>
       </div>
-      <div className="tv-cer-prev">{shown.slice(0, -1).reverse().slice(0, 6).map((a) => <span key={a.id} className="tv-cer-chip"><b>{a.name}</b> {party.players.find((p) => p.id === a.playerId)?.nickname ?? 'Nobody'}</span>)}</div>
+      <div className="tv-cer-prev">{shown.slice(0, -1).reverse().slice(0, 6).map((a) => <span key={a.id} className="tv-cer-chip"><b>{themeFor(party.theme, party.honourName).t(a.name)}</b> {party.players.find((p) => p.id === a.playerId)?.nickname ?? 'Nobody'}</span>)}</div>
     </div>
   );
 }
@@ -236,6 +237,36 @@ function OlympicsView({ party }: { party: PartyPublic }) {
   );
 }
 
+function BookView({ party }: { party: PartyPublic }) {
+  const th = themeFor(party.theme, party.honourName);
+  const entries = [...party.wall].filter((w) => w.kind === 'toast').sort((a, b) => a.at - b.at);
+  const [i, setI] = useState(-1);
+  useEffect(() => { const t = setInterval(() => setI((n) => (n + 1 > entries.length ? -1 : n + 1)), 9000); return () => clearInterval(t); }, [entries.length]);
+  const e = i >= 0 && i < entries.length ? entries[i] : null;
+  const who = e ? party.players.find((p) => p.id === e.playerId) : undefined;
+  if (i === -1 || !entries.length) return (
+    <div className="tv-wall toast" data-testid="tv-book">
+      <div className="tv-cer-eyebrow">📖 THE BIRTHDAY BOOK</div>
+      <div className="tv-cer-title gold">FOR {th.name.toUpperCase()}</div>
+      <div className="tv-cer-sub">{entries.length ? `${entries.length} ${entries.length === 1 ? 'page' : 'pages'}, written quietly through the afternoon by the people who love you.` : 'Nothing written yet.'}</div>
+    </div>
+  );
+  if (!e) return (
+    <div className="tv-wall toast" data-testid="tv-book">
+      <div className="tv-cer-eyebrow">📖 THE BIRTHDAY BOOK</div>
+      <div className="tv-cer-title gold">HAPPY BIRTHDAY, {th.name.toUpperCase()}</div>
+      <div className="tv-cer-sub">From everyone here. It's all yours to keep.</div>
+    </div>
+  );
+  return (
+    <div className="tv-wall toast" key={e.id} data-testid="tv-book">
+      <div className="tv-wall-kind">📖 PAGE {i + 1} OF {entries.length} <span>· the Birthday Book</span></div>
+      <div className="tv-wall-text" style={{ fontSize: e.text.length > 160 ? 'clamp(18px, 2.6vw, 34px)' : e.text.length > 90 ? 'clamp(22px, 3.2vw, 42px)' : 'clamp(26px, 4vw, 54px)' }}>“{e.text}”</div>
+      <div className="tv-wall-by"><span className="avatar">{who ? <LadPic p={who} /> : '💌'}</span><span className="grow" style={{ minWidth: 0 }}><div className="tv-wall-name ellipsis">{who?.nickname ?? 'Someone'}</div><div className="tv-wall-sub">for {th.name}</div></span>{e.groomLove && <span className="tv-wall-votes"><span className="tv-wall-love">❤️ {th.name} loved it</span></span>}</div>
+    </div>
+  );
+}
+
 const REEL_MS = 2600;
 function ReelView({ party }: { party: PartyPublic }) {
   const photos = [...(party.gallery ?? [])].sort((a, b) => a.at - b.at); // the weekend in order
@@ -247,7 +278,7 @@ function ReelView({ party }: { party: PartyPublic }) {
     <div className="tv-reel-title" data-testid="tv-reel">
       <div className="tv-cer-eyebrow">THE PHOTO REEL</div>
       <div className="tv-cer-title gold">{photos.length} PHOTOS</div>
-      <div className="tv-cer-sub">The whole weekend, from the top. To Jezza.</div>
+      <div className="tv-cer-sub">The whole {themeFor(party.theme, party.honourName).theme.copy.partyWord}, from the top. To {party.honourName}.</div>
     </div>
   );
   return (
@@ -271,12 +302,12 @@ function WallCard({ post, party, withFights }: { post: WallPost; party: PartyPub
   const size = len > 160 ? 'clamp(18px, 2.6vw, 34px)' : len > 90 ? 'clamp(22px, 3.4vw, 44px)' : 'clamp(26px, 4.4vw, 58px)';
   return (
     <div className={`tv-wall ${roast ? 'roast' : 'toast'} ${withFights ? 'with-fights' : ''}`} key={post.id} data-testid="tv-wall">
-      <div className="tv-wall-kind">{roast ? '🔥 ROAST' : '🥂 TOAST'} <span>· off the Jezza Wall</span></div>
+      <div className="tv-wall-kind">{roast ? '🔥 ROAST' : '🥂 TOAST'} <span>· off the {themeFor(party.theme, party.honourName).t(themeFor(party.theme, party.honourName).theme.copy.wallTitle)}</span></div>
       <div className="tv-wall-text" style={{ fontSize: size }}>“{post.text}”</div>
       <div className="tv-wall-by">
         <span className="avatar">{who ? <LadPic p={who} /> : '🎤'}</span>
         <span className="grow" style={{ minWidth: 0 }}><div className="tv-wall-name ellipsis">{who?.nickname ?? 'Someone'}</div><div className="tv-wall-sub">{timeAgo(post.at)}</div></span>
-        <span className="tv-wall-votes">😂 {post.votes.length}{post.groomLove ? <span className="tv-wall-love"> · ❤️ Jezza approved</span> : null}</span>
+        <span className="tv-wall-votes">😂 {post.votes.length}{post.groomLove ? <span className="tv-wall-love"> · ❤️ {party.honourName} approved</span> : null}</span>
       </div>
     </div>
   );
@@ -320,7 +351,7 @@ export default function TV({ code }: { code?: string }) {
     .sort((a, b) => (a.status === 'active' ? 0 : 1) - (b.status === 'active' ? 0 : 1) || (b.startedAt ?? b.createdAt) - (a.startedAt ?? a.createdAt)).slice(0, 2);
   const spotState = spotlightPhase(party.spotlight, now);
   const ceremonyOn = party.phase === 'finale' || party.phase === 'ended';
-  const reelOn = party.tvMode === 'reel' && spotState !== 'running' && spotState !== 'done';
+  const reelOn = (party.tvMode === 'reel' || party.tvMode === 'book') && spotState !== 'running' && spotState !== 'done';
   const rowdyOn = !!party.rowdy && spotState !== 'running' && spotState !== 'done';
   const scoreOn = !!party.lastScore && now - party.lastScore.at < SCORE_SHOW_MS && spotState !== 'running' && spotState !== 'done';
   const olyOn = !!party.olympics?.current && spotState !== 'running' && spotState !== 'done';
@@ -330,7 +361,7 @@ export default function TV({ code }: { code?: string }) {
   return (
     <div className={`tv ${code ? 'standalone' : ''} ${reelOn ? 'reel-mode' : ''}`} onClick={() => { if (!code) setTab('party'); }} data-testid="tv">
       <div className="tv-photo">
-        {olyOn ? <OlyEventView party={party} /> : scoreOn ? <OlympicsView party={party} /> : rowdyOn ? <RowdyView party={party} /> : reelOn && <ReelView party={party} />}
+        {olyOn ? <OlyEventView party={party} /> : scoreOn ? <OlympicsView party={party} /> : rowdyOn ? <RowdyView party={party} /> : reelOn && (party.tvMode === 'book' ? <BookView party={party} /> : <ReelView party={party} />)}
         {!reelOn && !rowdyOn && !scoreOn && !olyOn && spotState !== 'running' && spotState !== 'done' && fights.length > 0 && <div className="tv-fights">{fights.map((b) => <FightCard key={b.id} b={b} party={party} now={now} />)}</div>}
         {spotState === 'upcoming' && !ceremonyOn && !reelOn && !rowdyOn && !scoreOn && !olyOn && <SpotlightView party={party} now={now} />}
         {spotState === 'running' || spotState === 'done' ? <SpotlightView party={party} now={now} /> : olyOn || scoreOn || rowdyOn || reelOn ? null : ceremonyOn ? <CeremonyView party={party} now={now} /> : wallPost ? <WallCard post={wallPost} party={party} withFights={fights.length > 0} /> : photo ? (
@@ -353,7 +384,7 @@ export default function TV({ code }: { code?: string }) {
         )}
       </div>
       <aside className="tv-side">
-        <div className="tv-brand">PROJECT JEZZA <span className="live-dot" /><span className="tv-live">LIVE</span></div>
+        <div className="tv-brand">{party.theme === 'bucks' && party.honourName === 'Jezza' ? 'PROJECT JEZZA' : party.name.toUpperCase()} <span className="live-dot" /><span className="tv-live">LIVE</span></div>
         <div className="tv-join">Join the game: code <b className="gold-text">{party.code}</b></div>
         {(() => { const n = nextItem(party.runSheet ?? [], now); return n ? <div className="tv-nextup" data-testid="tv-nextup">{RUN_ACTIONS[n.action].emoji} <b>{n.at <= now ? 'Now' : 'Next'}:</b> {n.label} · {fmtTime(n.at)}</div> : null; })()}
         {party.teams && (

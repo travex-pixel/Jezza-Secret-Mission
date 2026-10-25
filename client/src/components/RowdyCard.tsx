@@ -8,12 +8,14 @@ import { LadPic } from './Creature';
 import { useStore, useMe } from '../store';
 import { request } from '../net';
 import { sfx } from '../audio';
+import { useTheme } from '../theme';
 
 export default function RowdyCard() {
   const party = useStore((s) => s.party);
   const priv = useStore((s) => s.priv);
   const toast = useStore((s) => s.toast);
   const me = useMe();
+  const th = useTheme();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const r = party?.rowdy;
@@ -36,7 +38,7 @@ export default function RowdyCard() {
         <span className="grow" style={{ minWidth: 0, textAlign: 'left' }}>
           <div className="tiny bold" style={{ color: 'var(--gold)', letterSpacing: '.08em' }}>🍻 ROWDY ROUND · {def.label.toUpperCase()}</div>
           <div className="bold">{line}</div>
-          <div className="tiny" style={{ opacity: .85 }}>{r.revealed ? (def.vote ? (top ? `${nick(top.playerId)} with ${top.n} vote${top.n === 1 ? '' : 's'}. You know what to do.` : 'Nobody voted. Soft.') : 'Round over.') : def.vote ? (priv?.rowdyVote ? `You named ${nick(priv.rowdyVote)} · tap to change` : 'Tap to name a lad') : def.blurb}</div>
+          <div className="tiny" style={{ opacity: .85 }}>{r.revealed ? (def.vote ? (top ? `${nick(top.playerId)} with ${top.n} vote${top.n === 1 ? '' : 's'}. ${th.theme.features.drinks ? 'You know what to do.' : 'Dare time.'}` : 'Nobody voted. Soft.') : 'Round over.') : def.vote ? (priv?.rowdyVote ? `You named ${nick(priv.rowdyVote)} · tap to change` : 'Tap to name a lad') : def.blurb}</div>
         </span>
         {!r.revealed && <span className="spot-clock" style={{ fontSize: 22 }}>{fmtClock(left)}</span>}
       </button>
@@ -44,7 +46,7 @@ export default function RowdyCard() {
         <Sheet onClose={() => setOpen(false)}>
           <div className="stack-10">
             <div className="eyebrow center">👉 Most likely to {r.prompt}</div>
-            <div className="small center dim">Name a lad. The most-named lad takes the forfeit. {left}s left.</div>
+            <div className="small center dim">Name someone. The most-named person {th.theme.copy.forfeit}. {left}s left.</div>
             <div className="scroll-y stack-6" style={{ maxHeight: '48vh' }}>
               {party.players.filter((p) => p.creature).sort((a, b) => a.nickname.localeCompare(b.nickname)).map((p) => (
                 <button key={p.id} className={`list-row ${priv?.rowdyVote === p.id ? 'me' : ''}`} style={{ width: '100%', textAlign: 'left' }} disabled={busy} onClick={() => void vote(p.id)} data-testid="rowdy-pick">

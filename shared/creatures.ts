@@ -175,10 +175,28 @@ export const CREATURES: Record<CreatureId, CreatureDef> = {
     defaultName: 'Goldhorn',
     cry: 'HOOOO-RAH',
   },
+  melon: {
+    id: 'melon',
+    name: 'Watermelon Star',
+    species: 'Watermelon Star',
+    tagline: 'Sweet. Sporty. Unstoppable.',
+    personality: 'Half watermelon, half point guard. Runs the party, shares the slices, never misses a free throw.',
+    stats: { hp: 99, atk: 12, def: 7, spd: 10 }, // the guest of honour's edge, same tuning as the Stag
+    special: { name: 'Slice Dunk', blurb: 'A watermelon slam through any guard', tradeoff: 'Needs a breather after' },
+    colorways: [
+      { id: 'classic', name: 'Classic Slice', body: '#3f9d4a', belly: '#ff5e6c', accent: '#1f1a1a', eye: '#1f1a1a', glow: '#ff8fa0' },
+      { id: 'sunset', name: 'Sunset Melon', body: '#2e7d5b', belly: '#ff7a59', accent: '#fff3c4', eye: '#1f1a1a', glow: '#ffc36b' },
+      { id: 'mint', name: 'Mint Melon', body: '#6fd3a0', belly: '#ff9bb0', accent: '#1f1a1a', eye: '#1f1a1a', glow: '#bff5d8' },
+    ],
+    defaultName: 'Melly',
+    cry: 'SPLISH',
+  },
 };
 
 /** The groom's creature: never in the starter picks, given to whoever is the groom. */
 export const GROOM_CREATURE: CreatureId = 'stag';
+/** Mascots: one per theme, never in the starter picks. */
+export const MASCOTS: CreatureId[] = ['stag', 'melon'];
 
 /** The eight creatures anyone can adopt. */
 export const CREATURE_IDS: CreatureId[] = ['dragon', 'wombat', 'possum', 'owl', 'goblin', 'sprite', 'barrel', 'fox'];
@@ -196,6 +214,7 @@ export const FORMS: Record<CreatureId, [string, string, string]> = {
   barrel: ['Barrel Beast', 'Keg Titan', 'Cask Colossus'],
   fox: ['Hunter Fox', 'Silver Fox', 'Nine-Tail Fox'],
   stag: ['Golden Stag', 'Royal Stag', 'Stag King'],
+  melon: ['Watermelon Star', 'Watermelon Royalty', 'Watermelon Legend'],
 };
 
 /** Deterministic trio of starters for a given seed string; `offset` cycles to show the rest of the roster. */

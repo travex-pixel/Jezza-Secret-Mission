@@ -6,7 +6,7 @@ export const SELFIE_FILE = { name: 'selfie.png', mimeType: 'image/png', buffer: 
  *  Any step already done shows its "Next: …" button instead, which is pressed. */
 export async function finishIntro(page: import('playwright-core').Page) {
   for (let i = 0; i < 8; i++) {
-    const start = page.getByRole('button', { name: /start playing/i });
+    const start = page.getByRole('button', { name: /^start playing$/i });
     if (await start.count()) { await start.click(); return; }
     const next = page.getByTestId('intro-next');
     if (await next.count()) { await next.click(); await page.waitForTimeout(150); continue; }
@@ -14,5 +14,5 @@ export async function finishIntro(page: import('playwright-core').Page) {
     if (await skip.count()) { await skip.click(); await page.waitForTimeout(150); continue; }
     await page.waitForTimeout(250);
   }
-  await page.getByRole('button', { name: /start playing/i }).click();
+  await page.getByRole('button', { name: /^start playing$/i }).click();
 }

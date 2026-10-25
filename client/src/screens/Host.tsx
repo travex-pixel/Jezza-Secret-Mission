@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { defaultSpotlightAt, fmtTime, spotlightPhase } from '@shared/ceremony';
 import { ROWDY_KINDS, type RowdyKind } from '@shared/rowdy';
-import { RUN_ACTIONS, nextItem, typicalNight, type RunAction } from '@shared/runsheet';
+import { RUN_ACTIONS, nextItem, typicalNight, typicalAfternoon, type RunAction } from '@shared/runsheet';
+import { useTheme } from '../theme';
 import type { HostAction, Phase, PlayerPublic } from '@shared/types';
 import { GROUP_MISSIONS, MISSION_BY_ID } from '@shared/missions';
 import { AWARDS } from '@shared/progression';
@@ -14,13 +15,7 @@ import { downloadEverything, downloadKeepsake } from '../keepsake';
 import { EPIC_PRESETS, EPIC_TIERS, type EpicTier } from '@shared/epics';
 import { COSMETICS, COSMETIC_BY_ID, STARTER_COSMETICS } from '@shared/progression';
 
-const PHASES: { id: Phase; label: string; blurb: string }[] = [
-  { id: 'lobby', label: 'Paused', blurb: 'Everything on hold. Use it for speeches or dinner.' },
-  { id: 'friday', label: 'Friday', blurb: 'Starts on its own when you create the party.' },
-  { id: 'saturday', label: 'Saturday', blurb: 'Kicks in by itself at 5am Saturday. Final evolutions unlock.' },
-  { id: 'finale', label: 'Finale', blurb: 'Awards reveal. Challenges close.' },
-  { id: 'ended', label: 'Ended', blurb: 'Results final.' },
-];
+const PHASE_IDS: Phase[] = ['lobby', 'friday', 'saturday', 'finale', 'ended'];
 
 export default function Host() {
   const party = useStore((s) => s.party);
@@ -29,6 +24,9 @@ export default function Host() {
   const setTab = useStore((s) => s.setTab);
   const toast = useStore((s) => s.toast);
   const priv = useStore((s) => s.priv);
+  const th = useTheme();
+  const PHASES = PHASE_IDS.map((id) => ({ id, label: th.theme.copy.phases[id], blurb: th.theme.copy.phaseBlurbs[id] }));
+  const [honourEdit, setHonourEdit] = useState('');
   const [section, setSection] = useState<'event' | 'approvals' | 'players' | 'awards'>('event');
   const [target, setTarget] = useState<PlayerPublic | null>(null);
   const [rename, setRename] = useState('');
@@ -110,16 +108,20 @@ export default function Host() {
             <div className="stack-6">
               {PHASES.map((p) => <button key={p.id} className={`list-row ${party.phase === p.id ? 'me' : ''}`} style={{ width: '100%', textAlign: 'left' }} onClick={() => party.phase !== p.id && setConfirmPhase(p.id)}><span style={{ fontSize: 18 }}>{party.phase === p.id ? '📍' : '○'}</span><span className="grow"><div className="bold">{p.label}</div><div className="tiny faint">{p.blurb}</div></span>{party.phase === p.id && <span className="pill pill-xs pill-gold">current</span>}</button>)}
             </div>
-            <div className="tiny faint">The game runs itself: Friday starts straight away, Saturday at 5am, group challenges drop every 40 minutes, avatars auto-battle, the lads settle BS calls. Everything here is optional. Step in whenever you like.</div>
+            <div className="tiny faint">The game runs itself: {th.theme.copy.phases.friday} starts straight away{th.theme.features.autoSaturday ? ', Saturday at 5am' : ''}, group challenges drop every 40 minutes, avatars auto-battle, the lads settle BS calls. Everything here is optional. Step in whenever you like.</div>
             <div className="divider" />
-            <div className="row-between"><div><div className="bold">Boss raid</div><div className="tiny faint">{party.raid?.status === 'active' ? 'One is on right now.' : 'Turns up on its own once the lads have done enough challenges. Or summon one now.'}</div></div><Button size="sm" variant="secondary" disabled={party.raid?.status === 'active'} onClick={() => host({ kind: 'summonRaid' })}>Summon</Button></div>
+            {th.theme.features.raids && <div className="row-between"><div><div className="bold">Boss raid</div><div className="tiny faint">{party.raid?.status === 'active' ? 'One is on right now.' : 'Turns up on its own once the lads have done enough challenges. Or summon one now.'}</div></div><Button size="sm" variant="secondary" disabled={party.raid?.status === 'active'} onClick={() => host({ kind: 'summonRaid' })}>Summon</Button></div>}
             <div className="divider" />
             <div className="row-between"><div><div className="bold">Missions {party.missionsOpen ? 'open' : 'paused'}</div><div className="tiny faint">Pause during dinner, speeches, emergencies.</div></div><Button size="sm" variant={party.missionsOpen ? 'secondary' : 'primary'} onClick={() => host({ kind: 'setMissionsOpen', open: !party.missionsOpen })}>{party.missionsOpen ? 'Pause' : 'Open'}</Button></div>
+            <div className="divider" />
+            <div className="eyebrow">{th.theme.role.emoji} {th.theme.role.cap}</div>
+            <div className="row" style={{ gap: 6 }}><input className="input" style={{ minHeight: 44, fontSize: 15 }} value={honourEdit} onChange={(e) => setHonourEdit(e.target.value)} placeholder={th.name} maxLength={24} aria-label="Guest of honour's name" data-testid="honour-edit" /><Button size="sm" variant="secondary" disabled={honourEdit.trim().length < 2} onClick={() => { host({ kind: 'setHonourName', name: honourEdit }); setHonourEdit(''); }}>Rename</Button></div>
+            <div className="tiny faint">Every challenge, award and the Wall use this name. {party.groomId ? `${nickOf(party.groomId)} is ${th.theme.role.label} in the game.` : `Nobody is ${th.theme.role.label} yet: Players → tap them → "This is ${th.name}".`}</div>
             <div className="divider" />
             <div className="eyebrow">📋 Run sheet</div>
             <div className="tiny faint">The plan for the day, wired to buttons. Everyone sees what's next on their Lobby and the TV; you get a nudge when it's time and tap Start. Times are on this phone's clock.</div>
             <div className="panel pad stack-6" data-testid="runsheet-panel">
-              {party.runSheet.length === 0 && <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}><Button size="sm" variant="secondary" onClick={() => host({ kind: 'runSheetSet', items: typicalNight(Date.now()) })} data-testid="runsheet-typical">Load a typical night</Button><span className="tiny faint">then edit it, or add your own below</span></div>}
+              {party.runSheet.length === 0 && <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}><Button size="sm" variant="secondary" onClick={() => host({ kind: 'runSheetSet', items: th.theme.features.autoSaturday ? typicalNight(Date.now()) : typicalAfternoon(Date.now()) })} data-testid="runsheet-typical">{th.theme.features.autoSaturday ? 'Load a typical night' : 'Load a typical afternoon'}</Button><span className="tiny faint">then edit it, or add your own below</span></div>}
               {party.runSheet.map((it) => { const isNext = nextItem(party.runSheet, party.serverTime)?.id === it.id; return (
                 <div key={it.id} className={`rs-row ${it.done ? 'done' : isNext ? 'next' : ''}`} data-testid="runsheet-item">
                   <span className="rs-time">{fmtTime(it.at)}</span>
@@ -179,6 +181,7 @@ export default function Host() {
               </div>
               {spot && <div className="tiny bold" data-testid="spot-status">{spotlightPhase(spot, party.serverTime) === 'running' ? '⏱ Running on the TV now.' : `Scheduled: ${spot.label}${spot.playerId ? ` · ${nickOf(spot.playerId)}` : ''} · ${fmtTime(spot.at)} · ${spot.seconds / 60} min. Start it when the room is ready.`}</div>}
             </div>
+            {th.theme.features.wall === 'book' && <div className="row-between"><div><div className="bold">📖 The Birthday Book on the TV</div><div className="tiny faint">{party.bookOpen ? 'Open: everyone can read it, and the TV plays it page by page.' : `Sealed. Opening it plays every message for ${th.name} on the TV and lets everyone read them.`}</div></div><Button size="sm" variant={party.tvMode === 'book' ? 'danger' : 'primary'} onClick={() => host({ kind: 'setTvMode', mode: party.tvMode === 'book' ? 'auto' : 'book' })} data-testid="tv-book-toggle">{party.tvMode === 'book' ? 'Back to normal' : '📖 Open the book'}</Button></div>}
             <div className="row-between"><div><div className="bold">📽️ Photo reel on the TV</div><div className="tiny faint">{party.tvMode === 'reel' ? 'Rolling: every photo of the weekend, oldest first, full screen.' : 'Switch the TV to a full-screen run of every photo, oldest first. Good with the lights down.'}</div></div><Button size="sm" variant={party.tvMode === 'reel' ? 'danger' : 'secondary'} onClick={() => host({ kind: 'setTvMode', mode: party.tvMode === 'reel' ? 'auto' : 'reel' })} data-testid="tv-reel-toggle">{party.tvMode === 'reel' ? 'Back to normal' : '▶ Play the reel'}</Button></div>
             <div className="divider" />
             <div className="eyebrow">Photo checks</div>
@@ -234,9 +237,9 @@ export default function Host() {
               <Button size="sm" variant="secondary" onClick={() => host({ kind: 'giveDrops', rarity: dropRarity === 'any' ? undefined : dropRarity })} data-testid="give-drops">🎁 Drop one on every lad</Button>
               <div className="tiny faint">Everyone also earns one every third challenge and for each quest. Legendary for all is a big moment; save it.</div>
             </div>
-            <div className="panel pad stack-6">
+            {th.theme.features.mole && <div className="panel pad stack-6">
               <div className="small bold">🕵️ The Mole</div>
-              {(!party.mole || party.mole.revealed) && <><div className="tiny faint">Picks lads at random (not you, not the groom) and gives them secret sabotage missions. Everyone votes. Starts on its own at 5am Saturday. Only you see who they are.{moleEligible < 8 ? ' Two Moles needs eight eligible lads.' : ''}</div><div className="row" style={{ gap: 6, flexWrap: 'wrap' }}><Button size="sm" variant="secondary" disabled={moleEligible < 4} onClick={() => host({ kind: 'assignMole', count: 1 })} data-testid="assign-mole">🕵️ Pick 1 Mole</Button><Button size="sm" variant="secondary" disabled={moleEligible < 8} onClick={() => host({ kind: 'assignMole', count: 2 })} data-testid="assign-moles">🕵️🕵️ Pick 2 Moles</Button></div></>}
+              {(!party.mole || party.mole.revealed) && <><div className="tiny faint">Picks lads at random (not you, not {th.theme.role.label}) and gives them secret sabotage missions. Everyone votes. Starts on its own at 5am Saturday. Only you see who they are.{moleEligible < 8 ? ' Two Moles needs eight eligible lads.' : ''}</div><div className="row" style={{ gap: 6, flexWrap: 'wrap' }}><Button size="sm" variant="secondary" disabled={moleEligible < 4} onClick={() => host({ kind: 'assignMole', count: 1 })} data-testid="assign-mole">🕵️ Pick 1 Mole</Button><Button size="sm" variant="secondary" disabled={moleEligible < 8} onClick={() => host({ kind: 'assignMole', count: 2 })} data-testid="assign-moles">🕵️🕵️ Pick 2 Moles</Button></div></>}
               {party.mole && party.mole.voting && <>
                 <div className="tiny faint">{party.mole.count > 1 ? `${party.mole.count} Moles are` : 'A Mole is'} in play. {party.mole.votes} lad{party.mole.votes === 1 ? ' has' : 's have'} voted. Reveal at the finale, or whenever the room is ready.</div>
                 <div className="panel pad stack-6" style={{ borderColor: 'var(--rose)' }} data-testid="mole-host">
@@ -247,7 +250,7 @@ export default function Host() {
                 <Button size="sm" variant="danger" onClick={() => host({ kind: 'revealMole' })} data-testid="reveal-mole">🕵️ Reveal the Mole{party.mole.count > 1 ? 's' : ''}</Button>
               </>}
               {party.mole?.revealed && <div className="tiny bold">Revealed: {party.mole.revealed.moles.map((m) => `${nickOf(m.playerId)} (${m.caught ? 'caught' : 'got away'})`).join(', ')}. Pick again above for another round.</div>}
-            </div>
+            </div>}
             {!!party.xpBoostUntil && party.xpBoostUntil > party.serverTime && <div className="tiny bold">⚡ Double XP is on for another {Math.ceil((party.xpBoostUntil - party.serverTime) / 60_000)} min.</div>}
             <div className="divider" />
             <div className="eyebrow">🎁 Up for grabs</div>
@@ -280,7 +283,7 @@ export default function Host() {
               <select className="input" style={{ minHeight: 44, fontSize: 16 }} value={codeItem} onChange={(e) => setCodeItem(e.target.value)} aria-label="Accessory">
                 {COSMETICS.filter((c) => !STARTER_COSMETICS.includes(c.id)).map((c) => <option key={c.id} value={c.id}>{/^(Reward code|Lucky Drop)/.test(c.description) ? '⭐ ' : ''}{c.name}</option>)}
               </select>
-              <div className="tiny faint">{COSMETIC_BY_ID[codeItem]?.description}</div>
+              <div className="tiny faint">{th.t(COSMETIC_BY_ID[codeItem]?.description ?? '')}</div>
               <div className="row-between"><span className="small">Can be used by</span><span className="row" style={{ gap: 6 }}>{[1, 3, 15].map((n) => <button key={n} className={`pill ${codeUses === n ? 'pill-gold' : ''}`} onClick={() => setCodeUses(n)}>{n === 1 ? '1 lad' : n === 15 ? 'everyone' : `${n} lads`}</button>)}</span></div>
               <Button size="sm" onClick={makeCode}>🎁 Make a code</Button>
             </div>
@@ -346,8 +349,8 @@ export default function Host() {
             <div className="tiny dim">Awards come from real play: reactions, votes, challenges, battles and raids. Override any of them here. "Most Unhinged" is yours alone to give.</div>
             {AWARDS.map((a) => { const cur = party.awards?.find((x) => x.id === a.id); return (
               <div key={a.id} className="panel pad stack-6">
-                <div className="row-between"><span className="bold">{a.name}</span>{cur?.hostPick && <span className="pill pill-xs pill-gold">host pick</span>}</div>
-                <div className="tiny faint">{a.blurb}{cur ? ` · currently: ${party.players.find((p) => p.id === cur.playerId)?.nickname ?? 'nobody'}` : ' · visible once the Finale starts'}</div>
+                <div className="row-between"><span className="bold">{th.t(a.name)}</span>{cur?.hostPick && <span className="pill pill-xs pill-gold">host pick</span>}</div>
+                <div className="tiny faint">{th.t(a.blurb)}{cur ? ` · currently: ${party.players.find((p) => p.id === cur.playerId)?.nickname ?? 'nobody'}` : ' · visible once the Finale starts'}</div>
                 <select className="input" style={{ minHeight: 44, fontSize: 15 }} value={cur?.hostPick ? cur.playerId ?? '' : '__auto'} onChange={(e) => host({ kind: 'setAward', awardId: a.id, playerId: e.target.value === '__auto' ? null : e.target.value || null })}>
                   <option value="__auto">{a.hostPick ? 'Nobody (yet)' : 'Automatic (from play data)'}</option>
                   {players.map((p) => <option key={p.id} value={p.id}>{p.nickname}</option>)}
@@ -388,7 +391,7 @@ export default function Host() {
               <span><div className="bold small">📋 Scorer (Bucks Olympics)</div><div className="tiny faint">{target.isScorer ? 'On: they can enter points for anyone from the pad on their Lobby.' : 'Lets them enter Olympics points for anyone. You can always do it yourself from your Lobby.'}</div></span>
               <span className={`switch ${target.isScorer ? 'on' : ''}`} />
             </button>
-            {party.groomId !== target.id && <Button size="sm" variant="secondary" onClick={() => { host({ kind: 'setGroom', playerId: target.id }); setTarget(null); }}>🤵 This is Jezza (the groom)</Button>}
+            {party.groomId !== target.id && <Button size="sm" variant="secondary" onClick={() => { host({ kind: 'setGroom', playerId: target.id }); setTarget(null); }}>{th.theme.role.emoji} This is {th.name} ({th.theme.role.short})</Button>}
             <div className="btn-row">
               {!target.isHost && <Button size="sm" variant="secondary" onClick={() => { host({ kind: 'transferHost', playerId: target.id }); setTarget(null); }}>Make host</Button>}
               {!target.isHost && !confirmRemove && <Button size="sm" variant="danger" onClick={() => setConfirmRemove(true)}>Remove</Button>}

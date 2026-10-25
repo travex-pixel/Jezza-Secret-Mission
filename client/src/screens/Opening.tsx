@@ -40,9 +40,9 @@ export default function Opening() {
         <Creature creature={hero} bare />
       </div>
       <div className="hero-content">
-        <div className="hero-tag fade-up">HUNTER VALLEY LEGENDS</div>
-        <h1 className="hero-title gold-text fade-up delay-1">PROJECT<br />JEZZA</h1>
-        <p className="hero-sub fade-up delay-2">One weekend. Fifteen legends. Questionable decisions.</p>
+        <div className="hero-tag fade-up">THE PARTY GAME</div>
+        <h1 className="hero-title gold-text fade-up delay-1">ALL-<br />STARS</h1>
+        <p className="hero-sub fade-up delay-2">Your people. One party. A game to tie it together.</p>
         <div style={{ width: '100%', maxWidth: 380, marginTop: 8 }} className="fade-up delay-3">
           <Button onClick={enter} sound={false}>Enter the Vineyard</Button>
         </div>

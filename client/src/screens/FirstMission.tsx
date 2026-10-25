@@ -4,7 +4,8 @@
 // are skipped, so replaying the intro from ❓ never double-dips. The groom just gets the selfie.
 import { useRef, useState } from 'react';
 import { ACHIEVEMENT_BY_ID } from '@shared/progression';
-import { MISSION_BY_ID, STARTER_MISSION, rookieLeft } from '@shared/missions';
+import { useTheme } from '../theme';
+import { MISSION_BY_ID, starterFor, tutorialFor, rookieLeft } from '@shared/missions';
 import { Button } from '../components/ui';
 import { useStore, useIsGroom } from '../store';
 import { MissionCard, compressImage, faceFromPhoto } from '../components/MissionCard';
@@ -13,19 +14,23 @@ import { sfx } from '../audio';
 import CameraSheet, { canUseLiveCamera } from '../components/CameraSheet';
 
 type Step = 'selfie' | 'roast' | 'toast';
-const STEP_MISSION: Record<Step, string> = { selfie: 'm001', roast: 'm002', toast: 'm003' };
-const STEP_LABEL: Record<Step, string> = { selfie: 'Selfie', roast: 'Roast', toast: 'Toast' };
-const STEP_ICON: Record<Step, string> = { selfie: '📸', roast: '🔥', toast: '🥂' };
-const NEXT_LABEL: Record<Step, string> = { selfie: 'Next: roast Jezza →', roast: 'Next: toast Jezza →', toast: 'Next: start playing →' };
-const ROAST_IDEAS = ['Jezza\'s Year 9 haircut had its own postcode.', 'Jezza once did a whole UNSW group project. Allegedly.', 'Jezza says "five minutes away" from his couch.'];
-const TOAST_IDEAS = ['Jezza is the bloke who turns up when it counts.', 'Best mate you could ask for. Worst at parallel parking.', 'Never once let a mate walk home alone.'];
+const ROAST_IDEAS = ['{name}\'s Year 9 haircut had its own postcode.', '{name} once did a whole UNSW group project. Allegedly.', '{name} says "five minutes away" from {his} couch.'];
+const TOAST_IDEAS = ['{name} is the one who turns up when it counts.', 'Best mate you could ask for. Worst at parallel parking.', 'Never once let a mate walk home alone.'];
+const BOOK_IDEAS = ['The first time I met {name}, {he}…', 'Thank you for always…', 'Something I\'ve never told you: …'];
 
 export default function FirstMission() {
   const endIntro = useStore((s) => s.endIntro);
   const priv = useStore((s) => s.priv);
   const introRewards = useStore((s) => s.introRewards);
   const isGroom = useIsGroom();
-  const active = (id: string) => !!priv?.hand.some((h) => h.missionId === id && h.status === 'active');
+  const th = useTheme(); const book = th.theme.features.wall === 'book';
+  const deck = th.theme.deck;
+  const STARTER = starterFor(deck); const TUT = tutorialFor(deck);
+  const STEP_MISSION: Record<Step, string> = { selfie: STARTER.id, roast: TUT.find((m) => m.wall === 'roast')?.id ?? '', toast: TUT.find((m) => m.wall === 'toast')?.id ?? '' };
+  const STEP_LABEL: Record<Step, string> = { selfie: 'Selfie', roast: 'Roast', toast: book ? 'Book' : 'Toast' };
+  const STEP_ICON: Record<Step, string> = { selfie: '📸', roast: '🔥', toast: book ? '📖' : '🥂' };
+  const NEXT_LABEL: Record<Step, string> = { selfie: STEP_MISSION.roast ? `Next: roast ${th.name} →` : book ? 'Next: the Birthday Book →' : `Next: toast ${th.name} →`, roast: `Next: toast ${th.name} →`, toast: 'Next: start playing →' };
+  const active = (id: string) => !!id && !!priv?.hand.some((h) => h.missionId === id && h.status === 'active');
   // Only the steps still to do (fixed when the intro opens, so finishing one doesn't reshuffle the strip)
   const [steps] = useState<Step[]>(() => (isGroom ? ['selfie'] as Step[] : ['selfie', 'roast', 'toast'] as Step[]).filter((s) => active(STEP_MISSION[s])));
   const [i, setI] = useState(0);
@@ -49,7 +54,7 @@ export default function FirstMission() {
 
   const sendSelfie = async (photo: string) => {
     const avatar = await faceFromPhoto(photo); // becomes their face in the feed and the lists
-    await request({ type: 'claimMission', missionId: STARTER_MISSION.id, claimId: claimId.current, photo, avatar });
+    await request({ type: 'claimMission', missionId: STARTER.id, claimId: claimId.current, photo, avatar });
     sfx.mission(); setDone((d) => ({ ...d, selfie: 'done' }));
   };
   const onFile = async (f: File | undefined) => {
@@ -74,7 +79,7 @@ export default function FirstMission() {
   const earned = reward && (
     <div className="row" style={{ justifyContent: 'center', gap: 6, flexWrap: 'wrap' }}>
       <span className="pill pill-gold">+{reward.points} pts · +{reward.xp} XP{reward.levelUp ? ` · Level ${reward.levelUp}!` : ''}</span>
-      {reward.achievements?.map((a) => <span key={a} className="pill pill-ok">🏅 {ACHIEVEMENT_BY_ID[a]?.name ?? a}</span>)}
+      {reward.achievements?.map((a) => <span key={a} className="pill pill-ok">🏅 {th.t(ACHIEVEMENT_BY_ID[a]?.name ?? a)}</span>)}
     </div>
   );
   // A finished step: what you got, and one button that says where you're going
@@ -99,9 +104,9 @@ export default function FirstMission() {
     return (
       <div className="screen tut">
         <div className="center tut-done fade-up">
-          <div className="display title-lg gold-text">The roast is open.</div>
-          <div className="display title-md">The toast is locked in.</div>
-          <div className="small bold dim" style={{ marginTop: 4 }}>Let's see what the boys really know.</div>
+          <div className="display title-lg gold-text">{book ? 'You\'re in the book.' : 'The roast is open.'}</div>
+          <div className="display title-md">{book ? 'Now go meet someone.' : 'The toast is locked in.'}</div>
+          <div className="small bold dim" style={{ marginTop: 4 }}>{book ? `Challenges get you talking to people. ${th.name} reads the book at the end.` : 'Let\'s see what the boys really know.'}</div>
         </div>
         <div className="screen-body tut-body">
           {nextM && <><div className="eyebrow">Up next</div><MissionCard mission={nextM} assignment={nextUp} preview /></>}
@@ -128,11 +133,11 @@ export default function FirstMission() {
         <div className="screen-body tut-body">
           <div className="panel pad center stack-6">
             <div className="bold" style={{ fontSize: 17 }}>Selfie. Right now, wherever you are.</div>
-            <div className="small dim">Couch, car, servo, vineyard. Show the lads your pre-bucks face. Counts straight away: <b className="gold-text" style={{ whiteSpace: 'nowrap' }}>+{STARTER_MISSION.points} pts · +{STARTER_MISSION.xp} XP</b></div>
+            <div className="small dim">{book ? 'Show everyone your party face.' : 'Couch, car, servo, vineyard. Show the lads your pre-bucks face.'} Counts straight away: <b className="gold-text" style={{ whiteSpace: 'nowrap' }}>+{STARTER.points} pts · +{STARTER.xp} XP</b></div>
           </div>
           <input ref={cam} type="file" accept="image/*" capture="user" data-selfie hidden onChange={(e) => { void onFile(e.target.files?.[0]); e.target.value = ''; }} />
           <input ref={lib} type="file" accept="image/*" data-selfie-library hidden onChange={(e) => { void onFile(e.target.files?.[0]); e.target.value = ''; }} />
-          {camera && <CameraSheet facing="user" hint="Just you. Best pre-bucks face" onClose={() => setCamera(false)} onFallback={() => cam.current?.click()} onPhoto={async (photo) => { await sendSelfie(photo); setCamera(false); }} />}
+          {camera && <CameraSheet facing="user" hint={book ? 'Just you. Best party face' : 'Just you. Best pre-bucks face'} onClose={() => setCamera(false)} onFallback={() => cam.current?.click()} onPhoto={async (photo) => { await sendSelfie(photo); setCamera(false); }} />}
           {err && <div className="field-error center">{err}</div>}
           <Button onClick={() => (canUseLiveCamera() ? setCamera(true) : cam.current?.click())} disabled={busy}>{busy ? 'Sending…' : '📸 Take your selfie'}</Button>
           <div className="row" style={{ justifyContent: 'center', gap: 18, flexWrap: 'wrap' }}>
@@ -149,14 +154,14 @@ export default function FirstMission() {
   const roast = step === 'roast';
   return (
     <div className="screen tut">
-      {head(roast ? 'Roast Jezza' : 'Toast Jezza')}
-      {done[step] === 'done' ? doneCard(roast ? 'Roast posted 🔥' : 'Toast posted 🥂', 'It\'s on the Jezza Wall for the lads to vote on.') : (
+      {head(roast ? `Roast ${th.name}` : book ? 'The Birthday Book' : `Toast ${th.name}`)}
+      {done[step] === 'done' ? doneCard(roast ? 'Roast posted 🔥' : book ? 'In the book 📖' : 'Toast posted 🥂', book ? `Only you can see it until the host opens the book for ${th.name}.` : `It's on the ${th.t(th.theme.copy.wallTitle)} for the lads to vote on.`) : (
         <div className="screen-body tut-body">
-          <div className="small center" style={{ fontWeight: 700 }}>{mission?.instruction}</div>
-          <textarea className="input" data-intro={step} style={{ minHeight: 84, padding: 12, fontSize: 16, resize: 'none' }} maxLength={140} value={text} onChange={(e) => setText(e.target.value)} placeholder={(roast ? ROAST_IDEAS : TOAST_IDEAS)[idea]} />
-          <div className="row-between tiny faint" style={{ gap: 8 }}><span>{roast ? 'Jezza can bin any roast, no questions asked.' : 'The best toasts get read out at the finale.'}</span><span>{text.length}/140</span></div>
+          <div className="small center" style={{ fontWeight: 700 }}>{th.t(mission?.instruction ?? '')}</div>
+          <textarea className="input" data-intro={step} style={{ minHeight: 84, padding: 12, fontSize: 16, resize: 'none' }} maxLength={book ? 280 : 140} value={text} onChange={(e) => setText(e.target.value)} placeholder={th.t((roast ? ROAST_IDEAS : book ? BOOK_IDEAS : TOAST_IDEAS)[idea])} />
+          <div className="row-between tiny faint" style={{ gap: 8 }}><span>{roast ? `${th.name} can bin any roast, no questions asked.` : book ? 'Genuine beats clever. It goes on the TV at the end.' : 'The best toasts get read out at the finale.'}</span><span>{text.length}/{book ? 280 : 140}</span></div>
           {err && <div className="field-error center">{err}</div>}
-          <Button onClick={() => void postWall(step)} disabled={busy || text.trim().length < 6}>{busy ? '…' : roast ? `🔥 Post the roast · +${mission?.points ?? 15}` : `🥂 Post the toast · +${mission?.points ?? 15}`}</Button>
+          <Button onClick={() => void postWall(step)} disabled={busy || text.trim().length < 6}>{busy ? '…' : roast ? `🔥 Post the roast · +${mission?.points ?? 15}` : book ? `📖 Add to the book · +${mission?.points ?? 15}` : `🥂 Post the toast · +${mission?.points ?? 15}`}</Button>
           <div className="row" style={{ justifyContent: 'center', gap: 18 }}>
             {backLink}
             <button className="small bold dim" disabled={busy} onClick={pass}>Skip for now</button>

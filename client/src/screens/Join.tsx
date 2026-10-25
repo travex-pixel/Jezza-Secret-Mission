@@ -1,3 +1,4 @@
+import { THEMES, type ThemeId } from '@shared/themes';
 import { useEffect, useState } from 'react';
 import { VineyardFallback } from '../components/VineyardScene';
 import { Button, ConnectionPill } from '../components/ui';
@@ -17,16 +18,18 @@ export default function Join() {
   const [code, setCode] = useState(pendingCode ?? '');
   const [mode, setMode] = useState<'join' | 'host' | 'reclaim'>('join');
   const [pin, setPin] = useState('');
+  const [theme, setTheme] = useState<ThemeId>('bucks');
+  const [honour, setHonour] = useState('');
   // Opened from a host's share link (…?p=CODE): no code box, just "you're joining X".
   const [viaLink, setViaLink] = useState(() => !isDemo() && !!new URLSearchParams(location.search).get('p'));
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   // The invite screen shows whose party it is and how many lads are already in (and catches a dead link early)
-  const [invite, setInvite] = useState<{ name: string; lads: number } | null>(null);
+  const [invite, setInvite] = useState<{ name: string; lads: number; theme: ThemeId } | null>(null);
   useEffect(() => {
     if (!viaLink || !code) return;
     fetch(`/api/party/${encodeURIComponent(code)}/exists`).then((r) => r.json()).then((j) => {
-      if (j?.exists) setInvite({ name: String(j.name ?? ''), lads: Number(j.lads ?? 0) });
+      if (j?.exists) setInvite({ name: String(j.name ?? ''), lads: Number(j.lads ?? 0), theme: j.theme === 'birthday' ? 'birthday' : 'bucks' });
       else { setViaLink(false); setErr('That invite link isn\'t live any more. Ask the host for the party code.'); }
     }).catch(() => undefined);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -50,7 +53,7 @@ export default function Join() {
     try {
       if (mode === 'host') {
         if (pin && !/^\d{4,6}$/.test(pin)) throw new Error('Host PIN must be 4 to 6 digits.');
-        const r = await request<{ code: string }>({ type: 'createParty', nickname: nick, partyName: "Jezza's Bucks Weekend", hostPin: pin || undefined });
+        const r = await request<{ code: string }>({ type: 'createParty', nickname: nick, hostPin: pin || undefined, theme, honourName: honour.trim() || undefined });
         if (r?.code) settle(r.code);
       } else {
         if (!code.trim() && !isDemo()) throw new Error('Enter the party code from your host.');
@@ -65,18 +68,18 @@ export default function Join() {
     finally { setBusy(false); }
   };
 
-  const title = mode === 'host' ? 'Host the weekend' : mode === 'reclaim' ? 'Take back host' : viaLink ? "You're invited" : 'Who are you, legend?';
-  const eyebrow = mode === 'host' ? 'Open the cellar' : mode === 'reclaim' ? 'Lost your phone?' : 'Join the party';
+  const title = mode === 'host' ? 'Host a party' : mode === 'reclaim' ? 'Take back host' : viaLink ? "You're invited" : 'Who are you, legend?';
+  const eyebrow = mode === 'host' ? 'Set it up' : mode === 'reclaim' ? 'Lost your phone?' : 'Join the party';
 
   if (mode === 'join' && viaLink) {
-    const nameLine = invite?.name || "Jezza's bucks weekend";
+    const nameLine = invite?.name || 'the party';
     return (
       <div className="screen invite">
         <VineyardFallback /><div className="hero-vignette" />
         <div className="invite-body">
           <div className="hero-tag fade-up">YOU'RE INVITED</div>
-          <h1 className="hero-title gold-text fade-up delay-1">PROJECT<br />JEZZA</h1>
-          <p className="hero-sub fade-up delay-2" data-testid="invite-line">{nameLine}{invite && invite.lads > 0 ? <> · <b>{invite.lads} lad{invite.lads === 1 ? '' : 's'} already in</b></> : null}</p>
+          <h1 className="hero-title gold-text fade-up delay-1" style={{ fontSize: 'clamp(26px, 8vw, 44px)' }}>{(invite?.name || 'Project Jezza').toUpperCase()}</h1>
+          <p className="hero-sub fade-up delay-2" data-testid="invite-line">{nameLine}{invite && invite.lads > 0 ? <> · <b>{invite.lads} {invite.theme === 'bucks' ? 'lad' : 'guest'}{invite.lads === 1 ? '' : 's'} already in</b></> : null}</p>
           {kicked && <div className="panel pad small bold" style={{ borderColor: 'rgba(240,120,66,.6)' }}>🚪 {kicked}</div>}
           <div className="panel pad stack-10 fade-up delay-3" style={{ width: '100%', maxWidth: 380 }}>
             <input className="input" value={nick} onChange={(e) => setNick(e.target.value)} placeholder="Your name, e.g. Big Dave" maxLength={16} autoComplete="off" autoCapitalize="words" enterKeyHint="go" aria-label="Your nickname" onKeyDown={(e) => e.key === 'Enter' && nick.trim().length >= 2 && submit()} />
@@ -115,6 +118,19 @@ export default function Join() {
               <span className="label">Party code</span>
               <input className="input input-code" value={code} onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6))} placeholder={isDemo() ? 'DEMO' : 'ABCD'} autoComplete="off" autoCapitalize="characters" enterKeyHint="go" onKeyDown={(e) => e.key === 'Enter' && submit()} />
             </label>
+          )}
+          {mode === 'host' && (
+            <>
+              <div>
+                <span className="label">What kind of party</span>
+                <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>{(Object.keys(THEMES) as ThemeId[]).map((k) => <button key={k} className={`pill pill-tap ${theme === k ? 'pill-gold' : ''}`} onClick={() => setTheme(k)} data-testid={`theme-${k}`}>{THEMES[k].role.emoji} {THEMES[k].label}</button>)}</div>
+              </div>
+              <label>
+                <span className="label">{THEMES[theme].role.cap}'s name</span>
+                <input className="input" value={honour} onChange={(e) => setHonour(e.target.value)} placeholder={THEMES[theme].defaultHonour === 'Jezza' ? 'e.g. Jezza' : 'e.g. Vicky'} maxLength={24} autoComplete="off" autoCapitalize="words" data-testid="honour-name" />
+                <span className="tiny faint" style={{ display: 'block', marginTop: 6 }}>Goes into every challenge and award. The party is called "{THEMES[theme].defaultTitle(honour.trim() || THEMES[theme].defaultHonour)}".</span>
+              </label>
+            </>
           )}
           {(mode === 'host' || mode === 'reclaim') && (
             <label>

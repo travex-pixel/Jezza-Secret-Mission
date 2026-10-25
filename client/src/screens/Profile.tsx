@@ -6,6 +6,7 @@ import { Creature, HatIcon, type CreatureState } from '../components/Creature';
 import { GiveawayCard } from '../components/GiveawayCard';
 import { Button, XPBar } from '../components/ui';
 import { isMuted, toggleMuted } from '../audio';
+import { useTheme } from '../theme';
 import { useStore, useMe } from '../store';
 import { request } from '../net';
 import { sfx } from '../audio';
@@ -15,6 +16,7 @@ const SLOTS: { slot: CosmeticSlot; label: string; ico: string }[] = [
 ];
 
 export default function Profile() {
+  const th = useTheme();
   const me = useMe();
   const toast = useStore((s) => s.toast);
   const [slot, setSlot] = useState<CosmeticSlot | 'colour' | 'badges'>('colour');
@@ -111,7 +113,7 @@ export default function Profile() {
               {ACHIEVEMENTS.filter((a) => !a.retired || me.achievements.includes(a.id)).map((a) => { const got = me.achievements.includes(a.id); return (
                 <div key={a.id} className="list-row" style={{ opacity: got ? 1 : 0.5 }}>
                   <span style={{ fontSize: 22 }}>{got ? '🏅' : '🔒'}</span>
-                  <span className="grow"><div className="bold">{a.name}</div><div className="tiny dim">{a.blurb}{a.cosmetic ? ` · unlocks ${COSMETIC_BY_ID[a.cosmetic].name}` : ''}</div></span>
+                  <span className="grow"><div className="bold">{th.t(a.name)}</div><div className="tiny dim">{th.t(a.blurb)}{a.cosmetic ? ` · unlocks ${COSMETIC_BY_ID[a.cosmetic].name}` : ''}</div></span>
                   <span className="tiny faint nowrap">+{a.xp} XP</span>
                 </div>); })}
             </div>

@@ -283,7 +283,7 @@ function fox(c: Colorway): Parts {
   };
 }
 
-/** The groom's Golden Stag: gold antlers, a tux, light rays and twinkles. Deliberately the flashiest thing in the game. */
+/** The groom's Golden Stag (the bucks mascot): gold antlers, a tux, light rays and twinkles. Deliberately the flashiest thing in the game. */
 function stag(c: Colorway): Parts {
   const dark = shade(c.body, -40);
   const antler = (m: 1 | -1) => {
@@ -332,7 +332,34 @@ function stag(c: Colorway): Parts {
 
 // worn on the body, so drawn over it (a cape proper hangs behind)
 const FRONT_CAPES = new Set(['cape_groomsman', 'cape_apron', 'cape_hivis', 'cape_singlet', 'cape_sarong', 'cape_chain']);
-const BUILDERS: Record<CreatureId, (c: Colorway) => Parts> = { dragon, wombat, possum, owl, goblin, sprite, barrel, fox, stag };
+
+/** The birthday girl's Watermelon Star: a slice of watermelon with legs, a headband, seeds for freckles and a basketball. */
+function melon(c: Colorway): Parts {
+  const rind = c.body; const flesh = c.belly; const seed = c.accent; const dark = shade(c.body, -40);
+  return {
+    anchors: { headTop: { x: 100, y: 54, w: 64 }, eyes: { lx: 88, rx: 112, y: 96, r: 7 }, shoulders: { y: 118, w: 76 } },
+    back: (<g><circle cx="146" cy="150" r="13" fill="#e8742a" stroke="#7a3a10" strokeWidth="1.5" /><path d="M133 150 h26 M146 137 v26 M137 141 q9 9 18 18 M155 141 q-9 9 -18 18" stroke="#7a3a10" strokeWidth="1.2" fill="none" /></g>),
+    body: (
+      <g>
+        <ellipse cx="84" cy="170" rx="9" ry="5" fill={dark} /><ellipse cx="116" cy="170" rx="9" ry="5" fill={dark} />
+        {/* the slice: rind, pale rim, flesh */}
+        <path d="M44 72 A58 58 0 0 0 156 72 L156 128 A56 56 0 0 1 44 128 Z" fill={rind} />
+        <path d="M44 72 A58 58 0 0 0 156 72" fill="none" stroke={shade(c.body, 40)} strokeWidth="5" />
+        <path d="M52 72 A50 50 0 0 0 148 72 L148 124 A48 48 0 0 1 52 124 Z" fill="#f4f7e6" />
+        <path d="M58 72 A44 44 0 0 0 142 72 L142 122 A42 42 0 0 1 58 122 Z" fill={flesh} />
+        {/* seeds as freckles */}
+        {[[78, 116], [122, 116], [100, 128], [70, 100], [130, 100]].map(([x, y], i) => <ellipse key={i} cx={x} cy={y} rx="3" ry="4.5" fill={seed} transform={`rotate(${i % 2 ? 20 : -20} ${x} ${y})`} />)}
+        {/* headband */}
+        <path d="M58 62 Q100 50 142 62" stroke="#fff" strokeWidth="7" fill="none" strokeLinecap="round" /><path d="M58 62 Q100 50 142 62" stroke={seed} strokeWidth="2" strokeDasharray="6 5" fill="none" strokeLinecap="round" />
+        <Eye x={88} y={96} r={7} c={c} /><Eye x={112} y={96} r={7} c={c} />
+        <path d="M90 110 Q100 120 110 110" stroke={dark} strokeWidth="2.5" fill="none" strokeLinecap="round" />
+        <ellipse cx="78" cy="108" rx="6" ry="3.5" fill="#ff9bb0" opacity=".7" /><ellipse cx="122" cy="108" rx="6" ry="3.5" fill="#ff9bb0" opacity=".7" />
+      </g>
+    ),
+  };
+}
+
+const BUILDERS: Record<CreatureId, (c: Colorway) => Parts> = { dragon, wombat, possum, owl, goblin, sprite, barrel, fox, stag, melon };
 
 // ---------------- cosmetics ----------------
 function Hat({ id, a }: { id: string; a: Anchors }) {

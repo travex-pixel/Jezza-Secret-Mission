@@ -23,7 +23,7 @@ export default function Party() {
   const link = `${location.origin}${location.pathname}?p=${party.code}${isDemo() ? '&demo=1' : ''}`;
   const share = async () => {
     try {
-      if (navigator.share) await navigator.share({ title: 'Project Jezza', text: `Join the vineyard. Party code ${party.code}`, url: link });
+      if (navigator.share) await navigator.share({ title: party.name, text: `Join the party. Code ${party.code}`, url: link });
       else { await navigator.clipboard.writeText(link); toast('Join link copied', '📋', 'success'); }
     } catch { try { await navigator.clipboard.writeText(link); toast('Join link copied', '📋', 'success'); } catch { toast(`Code: ${party.code}`, '🔑'); } }
   };

@@ -10,11 +10,11 @@ const BASICS = [
 ];
 const MORE = [
   { ico: '✅', text: <>Some challenges just need a tap. Some need a <b>photo</b> (the lads vote it in) or <b>a mate who saw it</b> to confirm.</> },
-  { ico: '📜', text: <><b>Jezza Lore</b> challenges dig up old stories: school, UNSW, first impressions. Jezza can veto any topic, and anyone can skip anything.</> },
+  { ico: '📜', text: <><b>Lore</b> challenges dig up old stories: school, first impressions. The guest of honour can veto any topic, and anyone can skip anything.</> },
   { ico: '🟣', text: <><b>EPIC jobs</b> are real chores (cooking, food runs, the esky). Tap "I'm on it" to grab one for big points.</> },
   { ico: '⚔️', text: <><b>Battles are optional.</b> Fight a mate for bonus points: pick a plan, one tap, watch 10 seconds. Your creature also fights on its own while you're away.</> },
   { ico: '👹', text: <><b>Boss raids</b> pop up now and then. Tap the banner and hit it: everyone who hits gets loot.</> },
-  { ico: '🎤', text: <><b>The Jezza Wall</b> is for roasts and toasts. Jezza hearts his favourites.</> },
+  { ico: '🎤', text: <><b>The Wall</b> is for roasts and toasts (or the Birthday Book, for messages). The guest of honour hearts their favourites.</> },
   { ico: '🎩', text: <><b>Dress your creature</b> on the Me tab. Everyone starts with eight hats; more come from levels, badges, raids and EPIC jobs.</> },
   { ico: '🎁', text: <><b>Up for grabs:</b> when the host drops a few items, a card pops up on the Lobby. Tap <b>Claim</b> quick, one each.</> },
   { ico: '🚩', text: <><b>Reckon someone's lying?</b> Tap 🚩 BS on their post in the live feed. Two calls freeze the points until the host decides.</> },

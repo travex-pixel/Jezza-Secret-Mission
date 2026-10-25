@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { CREATURES, GROOM_CREATURE, starterTrio } from '@shared/creatures';
+import { CREATURES, starterTrio } from '@shared/creatures';
+import { useTheme } from '../theme';
 import type { CreatureId } from '@shared/types';
 import { Creature } from '../components/Creature';
 import { Button, Sparkles } from '../components/ui';
@@ -13,8 +14,9 @@ export default function ChooseCreature() {
   const setFlow = useStore((s) => s.setFlow);
   const [offset, setOffset] = useState(0);
   const isGroom = useIsGroom();
-  // the groom doesn't choose: the Golden Stag was always his
-  const trio = isGroom ? [GROOM_CREATURE] : starterTrio(playerId, offset);
+  const th = useTheme();
+  // the guest of honour doesn't choose: the mascot was always theirs
+  const trio = isGroom ? [th.theme.mascot] : starterTrio(playerId, offset);
   const [picked, setPicked] = useState<CreatureId>(trio[0]);
   const [animKey, setAnimKey] = useState(0);
   const [busy, setBusy] = useState(false);

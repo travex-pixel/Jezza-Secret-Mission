@@ -1,6 +1,6 @@
 // Shared domain + protocol types used by client and server.
 
-export type CreatureId = 'dragon' | 'wombat' | 'possum' | 'owl' | 'goblin' | 'sprite' | 'barrel' | 'fox' | 'stag'; // stag: the groom's only
+export type CreatureId = 'dragon' | 'wombat' | 'possum' | 'owl' | 'goblin' | 'sprite' | 'barrel' | 'fox' | 'stag' | 'melon'; // stag and melon: mascots reserved for the guest of honour
 export type Phase = 'lobby' | 'friday' | 'saturday' | 'finale' | 'ended';
 export type MissionCategory = 'laugh' | 'dance' | 'sing' | 'photo' | 'jezza' | 'cheers' | 'sneaky' | 'chill' | 'group' | 'lore';
 export type Reaction = '😂' | '🔥' | '❤️';
@@ -324,7 +324,10 @@ export interface PartyPublic {
   spotlight: Spotlight | null;
   /** How many awards the host has revealed in the ceremony (phones and the TV follow it) */
   ceremony: number;
-  tvMode: 'auto' | 'reel';   // the host can switch the TV to the photo reel (every photo, oldest first, no sidebar)
+  tvMode: 'auto' | 'reel' | 'book';   // the host can switch the TV to the photo reel, or the Birthday Book
+  theme: import('./themes').ThemeId;   // what kind of party this is
+  honourName: string;                  // the guest of honour's name, filled into every {name}
+  bookOpen: boolean;                   // Birthday Book entries are private until the host opens the book
   rowdy: import('./rowdy').RowdyPublic | null; // the Rowdy Round in play, if any
   lastScore: { playerId: string; points: number; reason: string; by: string; at: number } | null; // the latest scorer entry, for the TV
   olympics: { current: import('./olympics').OlyEvent | null; done: { id: string; name: string; unit: import('./olympics').OlyUnit; winnerId?: string; lockedAt: number }[] };
@@ -384,6 +387,7 @@ export interface Keepsake {
   code: string;
   board: { nickname: string; creatureName: string; level: number; points: number; missions: number; wins: number; losses: number }[];
   awards: { name: string; winner: string; reason: string }[];
+  honourName?: string; wallTitle?: string;
   wall: { author: string; kind: 'roast' | 'toast'; text: string; votes: number; groomLove: boolean; at: number }[];
   cellar: { author: string; drink: string; stars: number; note?: string; fires: number; at: number }[];
   photos: { url: string; caption: string; author: string; at: number }[];
@@ -408,7 +412,7 @@ export interface ClientHello {
 
 export type ClientMessage =
   | ClientHello
-  | { type: 'createParty'; reqId: string; nickname: string; partyName?: string; hostPin?: string }
+  | { type: 'createParty'; reqId: string; nickname: string; partyName?: string; hostPin?: string; theme?: import('./themes').ThemeId; honourName?: string }
   | { type: 'claimHost'; reqId: string; pin: string }
   | { type: 'joinParty'; reqId: string; code: string; nickname: string }
   | { type: 'leaveParty'; reqId: string }
@@ -472,7 +476,8 @@ export type HostAction =
   | { kind: 'finalize'; finalized: boolean }
   | { kind: 'setSpotlight'; label?: string; at?: number; seconds?: number; playerId?: string | null; start?: boolean; stop?: boolean; clear?: boolean }
   | { kind: 'setCeremony'; revealed: number }
-  | { kind: 'setTvMode'; mode: 'auto' | 'reel' }
+  | { kind: 'setTvMode'; mode: 'auto' | 'reel' | 'book' }
+  | { kind: 'setHonourName'; name: string }
   | { kind: 'startRowdy'; rowdy?: import('./rowdy').RowdyKind }
   | { kind: 'endRowdy' }
   | { kind: 'setScorer'; playerId: string; on: boolean }

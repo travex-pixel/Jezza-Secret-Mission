@@ -189,7 +189,7 @@ describe('the long grind', () => {
     const { makeCreatureState } = await import('../shared/battle');
     expect(levelForXp(2200)).toBe(10); expect(levelForXp(3099)).toBe(10); expect(levelForXp(3100)).toBe(11);
     expect(levelForXp(9600)).toBe(15); expect(levelForXp(999_999)).toBe(15); expect(MAX_LEVEL).toBe(15);
-    expect(titleForLevel(15)).toBe('JEZZA TIER'); expect(titleForLevel(10)).toBe('Hunter Valley Legend');
+    expect(titleForLevel(15)).toBe('{name} TIER'); expect(titleForLevel(10)).toBe('Hunter Valley Legend');
     expect(makeCreatureState('x', 'dragon', 15).maxHp).toBe(makeCreatureState('x', 'dragon', 10).maxHp);
   });
 });

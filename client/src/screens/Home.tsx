@@ -13,13 +13,14 @@ import MoleReveal, { useMoleReveal } from '../components/MoleReveal';
 import { fmtClock, fmtTime, spotlightPhase } from '@shared/ceremony';
 import RowdyCard from '../components/RowdyCard';
 import { RUN_ACTIONS, nextItem } from '@shared/runsheet';
+import { useTheme } from '../theme';
 import { RARITY } from '@shared/saturday';
 import HowItWorksSheet from '../components/HowItWorks';
 import { Button, ConnectionPill, FeedItem, XPBar, useCountdown } from '../components/ui';
 import { useStore, useMe, useIsHost } from '../store';
 import { request } from '../net';
 
-const PHASE_LABEL: Record<string, string> = { lobby: 'Paused', friday: 'Friday night', saturday: 'Saturday', finale: 'The Finale', ended: 'Wrapped' };
+
 
 /** Room on the Lobby for banners + feed items: 1 on short phones, 2 on most, 3 on tall ones. */
 function useSlots() {
@@ -43,6 +44,8 @@ export default function Home() {
   const fighting = party?.battles.find((b) => b.status === 'active' && !b.auto && (b.a.playerId === me?.id || b.b.playerId === me?.id));
   const awayN = priv?.away?.length ?? 0;
   const setAwayOpen = useStore((s) => s.setAwayOpen);
+  const th = useTheme();
+  const PHASE_LABEL: Record<string, string> = { lobby: 'Paused', friday: th.theme.copy.phases.friday, saturday: th.theme.copy.phases.saturday, finale: 'The Finale', ended: 'Wrapped' };
   const voteEv = party?.feed.slice().reverse().find((f) => f.kind === 'vote' && f.playerId !== me?.id && party.pendingPhotos?.some((x) => x.claimId === f.claimId && !x.up.includes(me?.id ?? '') && !x.down.includes(me?.id ?? '')));
   const witnessReq = priv?.pendingWitness?.[0];
   // An EPIC job you're on (to tick off), else one with spots still open
@@ -88,7 +91,7 @@ export default function Home() {
       {help && <HowItWorksSheet onClose={() => setHelp(false)} />}
       <div className="topbar">
         <span className="row" style={{ gap: 8 }}>
-          <span className="brand">PROJECT JEZZA</span>
+          <span className="brand">{party.theme === 'bucks' && th.name === 'Jezza' ? 'PROJECT JEZZA' : th.product.toUpperCase()}</span>
           <span className={`pill pill-xs ${party.phase === 'lobby' ? '' : 'pill-gold'}`}>{PHASE_LABEL[party.phase]}</span>
           {party.xpBoostUntil && party.xpBoostUntil > party.serverTime && <span className="pill pill-xs pill-ember" data-testid="xp-boost">⚡ 2× XP · {Math.max(1, Math.ceil((party.xpBoostUntil - party.serverTime) / 60_000))} min</span>}
         </span>
@@ -140,7 +143,7 @@ export default function Home() {
         )}
         {opening && <DropOverlay drop={opening} onClose={() => setOpening(null)} />}
         {voting && <MoleVote onClose={() => setVoting(false)} />}
-        {party.phase === 'saturday' && !opening && <SaturdayBriefing code={party.code} moles={party.mole?.count ?? 0} isMole={!!priv?.mole} />}
+        {party.phase === 'saturday' && th.theme.features.autoSaturday && !opening && <SaturdayBriefing code={party.code} moles={party.mole?.count ?? 0} isMole={!!priv?.mole} />}
         {alert === 'grab' && grab && <GiveawayCard g={grab} />}
         {priv?.mole && reveal.open && <MoleReveal missions={priv.mole.missions} onClose={reveal.close} />}
         {priv?.mole && (
@@ -173,7 +176,7 @@ export default function Home() {
           <div className="panel pad-lg center stack-10 grow" style={{ justifyContent: 'center', display: 'flex', flexDirection: 'column' }}>
             <div style={{ fontSize: 34 }}>⏸️</div>
             <div className="display title-md">Game's paused</div>
-            <div className="small dim bold">{isHost ? 'You paused it. Kick it back off when the lads are ready.' : 'The host has paused things. Back shortly.'}</div>
+            <div className="small dim bold">{isHost ? `You paused it. Kick it back off when ${th.theme.copy.crowd} are ready.` : 'The host has paused things. Back shortly.'}</div>
             {isHost && <Button onClick={() => request({ type: 'host', action: { kind: 'setPhase', phase: 'friday' } })}>Back on</Button>}
           </div>
         ) : nextMission ? (
@@ -187,15 +190,15 @@ export default function Home() {
         )}
 
         <div className="quick-row">
-          <button className="quick-btn" onClick={() => setTab('wall')}><span className="ico">🎤</span>Wall</button>
+          <button className="quick-btn" onClick={() => setTab('wall')}><span className="ico">{th.theme.features.wall === 'book' ? '📖' : '🎤'}</span>{th.theme.features.wall === 'book' ? 'Book' : 'Wall'}</button>
           <button className="quick-btn" onClick={() => setTab('gallery')}><span className="ico">📸</span>Photos</button>
-          <button className="quick-btn" onClick={() => setTab('cellar')}><span className="ico">🍷</span>Cellar</button>
+          {th.theme.features.cellar ? <button className="quick-btn" onClick={() => setTab('cellar')}><span className="ico">🍷</span>Cellar</button> : <button className="quick-btn" onClick={() => setTab('ranks')}><span className="ico">🏆</span>Ranks</button>}
           <button className="quick-btn" onClick={() => setTab(raid ? 'raid' : 'party')}><span className="ico">{raid ? '👹' : '👥'}</span>{raid ? 'Raid' : 'Party'}</button>
         </div>
 
         {feed.length > 0 && (
           <div className="stack-6" style={{ minHeight: 0, flex: '0 1 auto', overflow: 'hidden' }}>{/* gives way on short phones instead of pushing the page */}
-            <div className="row-between"><span className="eyebrow"><span className="live-dot" />Live · the lads</span><button className="tiny bold" style={{ color: 'var(--rose)' }} onClick={() => { useStore.setState({ partyView: 'feed' }); setTab('party'); }}>See all →</button></div>
+            <div className="row-between"><span className="eyebrow"><span className="live-dot" />Live · {th.theme.copy.crowd}</span><button className="tiny bold" style={{ color: 'var(--rose)' }} onClick={() => { useStore.setState({ partyView: 'feed' }); setTab('party'); }}>See all →</button></div>
             {feed.map((f) => <FeedItem key={f.id} f={f} compact />)}
           </div>
         )}

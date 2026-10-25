@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button, timeAgo } from '../components/ui';
 import { useStore, useMe, useIsGroom } from '../store';
+import { useTheme } from '../theme';
 import { request } from '../net';
 import { sfx } from '../audio';
 import { WALL_PER_PHASE } from '@shared/engine';
@@ -11,7 +12,8 @@ export default function Wall() {
   const isGroom = useIsGroom();
   const setTab = useStore((s) => s.setTab);
   const toast = useStore((s) => s.toast);
-  const [kind, setKind] = useState<'roast' | 'toast'>('roast');
+  const th = useTheme(); const book = th.theme.features.wall === 'book';
+  const [kind, setKind] = useState<'roast' | 'toast'>(book ? 'toast' : 'roast');
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [sort, setSort] = useState<'top' | 'new'>('top');
@@ -24,15 +26,16 @@ export default function Wall() {
   const post = () => run(() => request({ type: 'wallPost', kind, text }), () => setText(''));
   return (
     <div className="screen with-nav">
-      <div className="topbar"><button className="display title-md" onClick={() => setTab('home')}>‹ The Jezza Wall</button><span className="pill">{mineToday}/{WALL_PER_PHASE} today</span></div>
+      <div className="topbar"><button className="display title-md" onClick={() => setTab('home')}>‹ {th.t(th.theme.copy.wallTitle)}</button><span className="pill">{mineToday}/{WALL_PER_PHASE} today</span></div>
       {!isGroom && (
         <div className="panel pad stack-6" style={{ marginBottom: 8 }}>
-          <div className="tabs"><button className={`tab ${kind === 'roast' ? 'on' : ''}`} onClick={() => setKind('roast')}>🔥 Roast</button><button className={`tab ${kind === 'toast' ? 'on' : ''}`} onClick={() => setKind('toast')}>🥂 Toast</button></div>
-          <textarea className="input" style={{ minHeight: 64, padding: 12, fontSize: 16, resize: 'none' }} maxLength={140} value={text} onChange={(e) => setText(e.target.value)} placeholder={kind === 'roast' ? 'Jezza parallel parks like it\'s a group project…' : 'Jezza is the only bloke who…'} />
-          <div className="row-between"><span className="tiny faint">Roast, don't wound. Nothing he wouldn't laugh at in front of his mum.</span><Button size="sm" disabled={busy || text.trim().length < 6 || mineToday >= 3} onClick={post}>Post +5</Button></div>
+          {!book && <div className="tabs"><button className={`tab ${kind === 'roast' ? 'on' : ''}`} onClick={() => setKind('roast')}>🔥 Roast</button><button className={`tab ${kind === 'toast' ? 'on' : ''}`} onClick={() => setKind('toast')}>🥂 Toast</button></div>}
+          <textarea className="input" style={{ minHeight: book ? 96 : 64, padding: 12, fontSize: 16, resize: 'none' }} maxLength={book ? 280 : 140} value={text} onChange={(e) => setText(e.target.value)} placeholder={book ? `Dear ${th.name}…` : kind === 'roast' ? `${th.name} parallel parks like it's a group project…` : `${th.name} is the only one who…`} data-testid="wall-text" />
+          <div className="row-between"><span className="tiny faint">{book ? 'Genuine beats clever. It goes on the TV at the end.' : th.t("Roast, don't wound. Nothing {he} wouldn't laugh at in front of {his} mum.")}</span><Button size="sm" disabled={busy || text.trim().length < 6 || mineToday >= 3} onClick={post}>Post +5</Button></div>
         </div>
       )}
-      {isGroom && <div className="panel pad small bold" style={{ marginBottom: 8 }}>🤵 This is your wall, Jezza. Tap ❤️ on your favourites (+10 to them) and 🗑️ anything that's too far.</div>}
+      {isGroom && !book && <div className="panel pad small bold" style={{ marginBottom: 8 }}>{th.theme.role.emoji} This is your wall, {th.name}. Tap ❤️ on your favourites (+10 to them) and 🗑️ anything that's too far.</div>}
+      {book && <div className="panel pad small" style={{ marginBottom: 8, borderColor: 'var(--gold)' }}>📖 <b>{th.t(th.theme.copy.wallPrompt)}</b> {party.bookOpen ? 'The book is open: everyone can read it now.' : `Entries stay private until the host opens the book on the TV. ${isGroom ? 'No peeking: you see yours only.' : 'Only you can see yours.'}`}</div>}
       <div className="tabs" style={{ marginBottom: 8 }}><button className={`tab ${sort === 'top' ? 'on' : ''}`} onClick={() => setSort('top')}>Top</button><button className={`tab ${sort === 'new' ? 'on' : ''}`} onClick={() => setSort('new')}>New</button></div>
       <div className="screen-body scroll-y stack-6">
         {!posts.length && <div className="panel pad center dim bold">Nothing yet. Someone's gotta go first.</div>}
@@ -42,7 +45,7 @@ export default function Wall() {
             <div key={w.id} className={`wall-post wall-${w.kind}`}>
               <div className="bold" style={{ fontSize: 15 }}>"{w.text}"</div>
               <div className="row-between" style={{ marginTop: 6 }}>
-                <span className="tiny faint">{w.kind === 'roast' ? '🔥' : '🥂'} {nick(w.playerId)} · {timeAgo(w.at)}{w.groomLove ? ' · ❤️ Jezza loved it' : ''}</span>
+                <span className="tiny faint">{book ? '📖' : w.kind === 'roast' ? '🔥' : '🥂'} {nick(w.playerId)} · {timeAgo(w.at)}{w.groomLove ? ` · ❤️ ${th.name} loved it` : ''}</span>
                 <span className="row" style={{ gap: 6 }}>
                   {isGroom
                     ? <button className={`react-btn ${w.groomLove ? 'on' : ''}`} disabled={busy || w.groomLove} onClick={() => run(() => request({ type: 'wallVote', postId: w.id }))}>❤️</button>

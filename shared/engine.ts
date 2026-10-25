@@ -13,8 +13,10 @@ import { RUN_ACTIONS, nextItem, type RunItem } from './runsheet';
 import { TEAM_LOOKS, snakeDraft, teamScore, type TeamsState } from './teams';
 import { ROWDY_KINDS, ROWDY_PROMPTS, ROWDY_VOTE_POINTS, type RowdyKind, type RowdyPublic, type RowdyState } from './rowdy';
 import { DROP_EVERY, MOLE_MAX, MOLE_MISSIONS, MOLE_POINTS, molesFor, QUESTS_PER_DAY, QUEST_BY_ID, QUEST_DEFS, RARITIES, RARITY, questProgress, rollDrop, type Drop, type MoleState, type Quest, type Rarity } from './saturday';
-import { CREATURES, CREATURE_IDS, FORMS, GROOM_CREATURE, starterTrio } from './creatures';
-import { MISSIONS, MISSION_BY_ID, STARTER_MISSION, TUTORIAL_MISSIONS, TUTORIAL_IDS, GROUP_MISSIONS, missionAvailableInPhase, rookieLeft, type Mission } from './missions';
+import { CREATURES, CREATURE_IDS, FORMS, MASCOTS, starterTrio } from './creatures';
+import { MISSIONS, MISSION_BY_ID, TUTORIAL_IDS, GROUP_MISSIONS, missionAvailableInPhase, rookieLeft, tutorialFor, starterFor, inDeck, type Mission } from './missions';
+import { THEMES, fill, isTheme, type ThemeId } from './themes';
+import { ROWDY_PROMPTS_WHOLESOME } from './rowdy';
 import {
   ACHIEVEMENTS, COSMETIC_BY_ID, STARTER_COSMETICS, colorwaysUnlocked, computeAwards, cosmeticsForLevel, levelForXp, titleForLevel,
   xpCapFor, stageForLevel, eloUpdate, START_RATING, sortLeaderboard,
@@ -67,7 +69,10 @@ export interface PartyState {
   seq: number;
   hostPinHash?: string;
   pinAttempts?: { playerId: string; at: number }[];
-  groomId: string | null;
+  groomId: string | null;   // the guest of honour (the groom, the birthday girl…); the field name is historical
+  theme: ThemeId;
+  honourName: string;
+  bookOpen: boolean;
   autoSaturdayAt: number | null;
   nextGroupAt: number | null;
   raids: Raid[];
@@ -85,7 +90,7 @@ export interface PartyState {
   mole: MoleState | null;
   spotlight: Spotlight | null;
   ceremony: number;
-  tvMode: 'auto' | 'reel';
+  tvMode: 'auto' | 'reel' | 'book';
   rowdy: RowdyState | null;
   lastScore: { playerId: string; points: number; reason: string; by: string; at: number } | null;
   olympics: { current: OlyEvent | null; done: { id: string; name: string; unit: OlyUnit; winnerId?: string; lockedAt: number }[] };
@@ -177,7 +182,9 @@ export function nextSaturdayMorning(from: number): number {
   }
   return from + 7 * 86400_000;
 }
-const isJezza = (nick: string) => nick.toLowerCase().replace(/[^a-z]/g, '').includes('jezza');
+const slug = (x: string) => x.toLowerCase().replace(/[^a-z]/g, '');
+/** Does this nickname look like the guest of honour's name? ("Jezza 🔥", "jezzaaa") */
+const isHonouree = (nick: string, honourName: string) => { const h = slug(honourName); return h.length >= 3 && slug(nick).includes(h); };
 const FEED_LIMIT = 60;
 const RAID_WEAK_MS = 25_000;
 const TAUNT_GAP_MS = 2500;
@@ -212,7 +219,8 @@ export class Engine {
   /** Fill in fields added after a party was saved, so an older state.json keeps working. */
   private migrate() {
     for (const party of Object.values(this.state.parties)) {
-      party.groomId ??= Object.values(party.players).find((p) => isJezza(p.nickname))?.id ?? null;
+      party.theme = isTheme(party.theme) ? party.theme : 'bucks'; party.honourName ??= THEMES[party.theme].defaultHonour; party.bookOpen ??= false;
+      party.groomId ??= Object.values(party.players).find((p) => isHonouree(p.nickname, party.honourName))?.id ?? null;
       this.crownGroom(party); // a groom who adopted before the Golden Stag existed gets it now
       party.autoSaturdayAt ??= party.phase === 'friday' || party.phase === 'lobby' ? nextSaturdayMorning(party.createdAt) : null;
       party.nextGroupAt ??= null;
@@ -245,7 +253,7 @@ export class Engine {
         party.mole = { ...party.mole!, moles: [{ playerId: legacy.playerId, missions: legacy.missions ?? [] }], votes: Object.fromEntries(Object.entries(legacy.votes ?? {}).map(([v, x]) => [v, Array.isArray(x) ? x : [x]])), caught: party.mole!.revealed ? { [legacy.playerId]: !!legacy.caught } : undefined };
         delete (party.mole as unknown as Record<string, unknown>).playerId; delete (party.mole as unknown as Record<string, unknown>).missions;
       }
-      if (party.phase === 'saturday') { for (const p of Object.values(party.players)) if (p.creature && !p.removed && !p.quests.length) this.assignQuests(party, p); if (!party.mole) this.assignMole(party, undefined, []); }
+      if (party.phase === 'saturday') { for (const p of Object.values(party.players)) if (p.creature && !p.removed && !p.quests.length) this.assignQuests(party, p); if (!party.mole && this.th(party).features.mole) this.assignMole(party, undefined, []); }
     }
   }
 
@@ -281,6 +289,12 @@ export class Engine {
     return true;
   }
 
+  // ---------- theme helpers ----------
+  private th(party: PartyState) { return THEMES[party.theme] ?? THEMES.bucks; }
+  private n(party: PartyState) { return party.honourName || this.th(party).defaultHonour; }
+  private t(party: PartyState, text: string) { return fill(text, party.theme, this.n(party)); }
+  private mascot(party: PartyState): CreatureId { return this.th(party).mascot; }
+
   // ---------- views ----------
   publicView(party: PartyState, viewerId?: string): PartyPublic {
     const now = this.now();
@@ -299,6 +313,9 @@ export class Engine {
     return {
       code: party.code,
       name: party.name,
+      theme: party.theme,
+      honourName: this.n(party),
+      bookOpen: party.bookOpen,
       hostId: party.hostId,
       phase: party.phase,
       missionsOpen: party.missionsOpen,
@@ -323,7 +340,8 @@ export class Engine {
       groomId: party.groomId,
       raid: party.raids[party.raids.length - 1] ?? null,
       raidsDone: party.raids.map((r) => r.phase),
-      wall: party.wall.filter((w) => !w.hidden).slice(-40),
+      // the Birthday Book is sealed until the host opens it: each person sees only their own entries (the host sees all)
+      wall: party.wall.filter((w) => !w.hidden && (this.th(party).features.wall !== 'book' || party.bookOpen || w.playerId === viewerId || viewerId === party.hostId)).slice(-40),
       cellar: party.cellar.slice(-30),
       gallery,
       photoMode: party.photoMode,
@@ -393,7 +411,7 @@ export class Engine {
     const res: HandleResult = { changed: false, direct: [] };
     try {
       switch (msg.type) {
-        case 'createParty': return this.createParty(playerId, msg.nickname, msg.partyName, msg.hostPin);
+        case 'createParty': return this.createParty(playerId, msg.nickname, msg.partyName, msg.hostPin, msg.theme, msg.honourName);
         case 'claimHost': return this.claimHost(playerId, msg.pin);
         case 'joinParty': return this.joinParty(playerId, msg.code, msg.nickname);
         case 'leaveParty': return this.leaveParty(playerId);
@@ -463,7 +481,7 @@ export class Engine {
     return 'P' + Math.floor(this.rng() * 1e6).toString(36).toUpperCase();
   }
 
-  private createParty(playerId: string, nickname: string, partyName?: string, hostPin?: string): HandleResult {
+  private createParty(playerId: string, nickname: string, partyName?: string, hostPin?: string, themeRaw?: unknown, honourRaw?: string): HandleResult {
     const v = validateNickname(nickname ?? '');
     if (!v.ok) return this.fail(v.error);
     const pin = (hostPin ?? '').trim();
@@ -471,17 +489,20 @@ export class Engine {
     if (this.partyOf(playerId)) this.leaveParty(playerId);
     const now = this.now();
     const code = this.newCode();
+    const theme: ThemeId = isTheme(themeRaw) ? themeRaw : 'bucks';
+    const honourName = String(honourRaw ?? '').replace(/\s+/g, ' ').trim().slice(0, 24) || THEMES[theme].defaultHonour;
+    if (!isClean(honourName)) return this.fail('Keep the name clean.');
     const party: PartyState = {
-      code, name: (partyName ?? '').trim().slice(0, 40) || "Jezza's Bucks Weekend", hostId: playerId, phase: 'friday', missionsOpen: true,
+      code, name: (partyName ?? '').trim().slice(0, 40) || THEMES[theme].defaultTitle(honourName), hostId: playerId, phase: 'friday', missionsOpen: true, theme, honourName, bookOpen: false,
       createdAt: now, players: {}, feed: [], claims: {}, revealedGroupMissions: [], battles: {}, awardOverrides: {}, finalized: false, fridayPoints: null, seq: 0,
-      groomId: isJezza(v.name) ? playerId : null, autoSaturdayAt: nextSaturdayMorning(now), nextGroupAt: now + FIRST_GROUP_DELAY_MS,
-      raids: [], wall: [], cellar: [], phaseMissions: { friday: 0, saturday: 0 }, photoMode: 'vote', nextAutoAt: now + FIRST_AUTO_DELAY_MS, epics: [], codes: [], giveaways: [], log: [], xpBoostUntil: null, capLifted: false, mole: null, spotlight: null, ceremony: 0, tvMode: 'auto', rowdy: null, rowdyUsed: {}, lastScore: null, olympics: { current: null, done: [] }, runSheet: [], teams: null,
+      groomId: isHonouree(v.name, honourName) ? playerId : null, autoSaturdayAt: THEMES[theme].features.autoSaturday ? nextSaturdayMorning(now) : null, capLifted: !THEMES[theme].features.autoSaturday, nextGroupAt: now + FIRST_GROUP_DELAY_MS,
+      raids: [], wall: [], cellar: [], phaseMissions: { friday: 0, saturday: 0 }, photoMode: 'vote', nextAutoAt: now + FIRST_AUTO_DELAY_MS, epics: [], codes: [], giveaways: [], log: [], xpBoostUntil: null,  mole: null, spotlight: null, ceremony: 0, tvMode: 'auto', rowdy: null, rowdyUsed: {}, lastScore: null, olympics: { current: null, done: [] }, runSheet: [], teams: null,
     };
     party.players[playerId] = newPlayer(playerId, v.name, now, true, 'friday');
     if (pin) party.hostPinHash = hashPin(code, pin);
     this.state.parties[code] = party;
     this.state.playerParty[playerId] = code;
-    this.feed(party, { kind: 'join', text: `${v.name} opened the cellar door. The party begins.`, playerId, emoji: '🍷' });
+    this.feed(party, { kind: 'join', text: party.theme === 'bucks' ? `${v.name} opened the cellar door. The party begins.` : `${v.name} started the party.`, playerId, emoji: party.theme === 'bucks' ? '🍷' : '🎉' });
     return this.ok(party, { code });
   }
 
@@ -533,7 +554,7 @@ export class Engine {
       const np = newPlayer(playerId, v.name, now, false, party.phase);
       if (party.phase === 'saturday') { np.freshLegs = FRESH_LEGS; np.catchUp = true; }
       party.players[playerId] = np;
-      if (!party.groomId && isJezza(v.name)) party.groomId = playerId;
+      if (!party.groomId && isHonouree(v.name, this.n(party))) party.groomId = playerId;
       this.feed(party, { kind: 'join', text: party.phase === 'saturday' ? `${v.name} rocked up for Saturday. Fresh legs: double points on their first ${FRESH_LEGS} challenges.` : `${v.name} wandered into the vineyard.`, playerId, emoji: '🍇' });
     }
     this.state.playerParty[playerId] = code;
@@ -558,16 +579,16 @@ export class Engine {
   /** The groom (and only the groom) has the Golden Stag. Moving the title hands the old groom his creature back. */
   crownGroom(party: PartyState) {
     for (const p of Object.values(party.players)) {
-      if (p.id === party.groomId || p.creature !== GROOM_CREATURE) continue;
+      if (p.id === party.groomId || !MASCOTS.includes(p.creature as CreatureId)) continue;
       p.creature = p.creatureBefore ?? starterTrio(p.id)[0];
       p.creatureBefore = undefined;
     }
     const g = party.groomId ? party.players[party.groomId] : undefined;
-    if (!g || g.removed || !g.creature || g.creature === GROOM_CREATURE) return;
+    if (!g || g.removed || !g.creature || g.creature === this.mascot(party)) return;
     const was = g.creature;
     g.creatureBefore = was;
-    if (g.creatureName === CREATURES[was].defaultName) g.creatureName = CREATURES[GROOM_CREATURE].defaultName;
-    g.creature = GROOM_CREATURE;
+    if (g.creatureName === CREATURES[was].defaultName) g.creatureName = CREATURES[this.mascot(party)].defaultName;
+    g.creature = this.mascot(party);
     this.feed(party, { kind: 'host', text: `✨ ${g.nickname}'s ${CREATURES[was].name} has transformed into the GOLDEN STAG. The groom's own creature. Bow, lads.`, playerId: g.id, emoji: '🦌' });
   }
 
@@ -575,10 +596,10 @@ export class Engine {
     const party = this.partyOf(playerId); const p = party?.players[playerId];
     if (!party || !p || p.removed) return this.fail('Join a party first.');
     const isGroom = party.groomId === playerId;
-    if (creature === GROOM_CREATURE && !isGroom) return this.fail('The Golden Stag is reserved for the groom.');
-    if (!CREATURE_IDS.includes(creature) && creature !== GROOM_CREATURE) return this.fail('Unknown creature.');
+    if (MASCOTS.includes(creature) && !isGroom) return this.fail(`${CREATURES[this.mascot(party)].name} is reserved for ${this.th(party).role.label}.`);
+    if (!CREATURE_IDS.includes(creature) && !MASCOTS.includes(creature)) return this.fail('Unknown creature.');
     if (p.creature) return this.fail('You already adopted a creature. Loyalty matters.');
-    if (isGroom) creature = GROOM_CREATURE; // the groom always gets his own
+    if (isGroom) creature = this.mascot(party); // the guest of honour always gets the mascot
     const nm = validateCreatureName(creatureName || CREATURES[creature].defaultName);
     if (!nm.ok) return this.fail(nm.error);
     p.creature = creature; p.creatureName = nm.name;
@@ -588,9 +609,10 @@ export class Engine {
     // A Saturday joiner is online already (hello came before joinParty), so the wake-up drop and the Fresh Legs welcome
     // drop land here rather than waiting for their next reconnect
     if (party.phase === 'saturday') { this.morningDrop(party, p); if (p.catchUp && !p.welcomeDrop) { p.welcomeDrop = true; this.addDrop(party, p, 'gift', 'rare', []); } }
-    p.title = titleForLevel(1);
+    p.title = this.t(party, titleForLevel(1));
     // The intro straight away, regardless of phase: your selfie, roast Jezza, toast Jezza. The groom just gets the selfie.
-    p.hand = (isGroom ? [STARTER_MISSION] : TUTORIAL_MISSIONS).map((m) => ({ missionId: m.id, assignedAt: this.now(), status: 'active' as const }));
+    const deck = this.th(party).deck;
+    p.hand = (isGroom ? [starterFor(deck)] : tutorialFor(deck)).map((m) => ({ missionId: m.id, assignedAt: this.now(), status: 'active' as const }));
     this.refillHand(party, p);
     this.feed(party, { kind: 'join', text: `${p.nickname} adopted ${nm.name} the ${CREATURES[creature].name}. ${CREATURES[creature].cry}!`, playerId, emoji: '✨' });
     const direct: Outbound[] = [];
@@ -640,8 +662,9 @@ export class Engine {
     const phase = this.activePhase(party) ?? 'friday';
     const inHand = new Set(p.hand.map((h) => h.missionId));
     const secretInHand = p.hand.some((h) => MISSION_BY_ID[h.missionId]?.secret && h.status !== 'done');
+    const deck = this.th(party).deck;
     return MISSIONS.filter((m) =>
-      m.scope === 'private' && !m.tutorial && !m.retired && m.method !== 'host' && missionAvailableInPhase(m, phase)
+      m.scope === 'private' && !m.tutorial && !m.retired && m.method !== 'host' && inDeck(m, deck) && missionAvailableInPhase(m, phase)
       && !inHand.has(m.id) && !p.completedMissionIds.includes(m.id) && !m.free
       && !(m.secret && secretInHand) && !(p.lowKey && m.loud),
     );
@@ -681,7 +704,7 @@ export class Engine {
     }
     const mission = MISSION_BY_ID[missionId];
     if (!mission) return this.fail('Unknown challenge.');
-    if (mission.wall) return this.fail(`Write your ${mission.wall} and it posts to the Jezza Wall.`);
+    if (mission.wall) return this.fail(this.th(party).features.wall === 'book' ? 'Write it in the Birthday Book and it counts.' : `Write your ${mission.wall} and it posts to the ${this.t(party, this.th(party).copy.wallTitle)}.`);
     if (p.completedMissionIds.includes(missionId) && !mission.free) return this.fail('Already done that one. No double dipping.');
     const now = this.now();
     const isGroup = mission.scope === 'group';
@@ -787,7 +810,7 @@ export class Engine {
     // 5. drops ride a counter that disputes and resets never lower, so the third-challenge line can't be re-crossed
     if (!mission.tutorial) { p.realMissions += 1; if (p.realMissions % DROP_EVERY === 0) this.addDrop(party, p, 'challenge', undefined, direct); }
     this.checkQuests(party, p, direct); // the approver is often someone else; the owner's quest still lands now
-    const label = mission.secret ? 'a sneaky one' : `"${mission.title}"`;
+    const label = mission.secret ? 'a sneaky one' : `"${this.t(party, mission.title)}"`;
     this.feed(party, { kind: 'mission', text: `${p.nickname} did ${label} (+${points})`, playerId: p.id, photoUrl: claim.photoUrl, emoji: mission.secret ? '🕵️' : CATEGORY_EMOJI[mission.category], claimId: claim.id, flags: 0 });
     direct.push({ to: p.id, msg: { type: 'reward', points, xp, ...reward, title: mission.title, bonus, quiet: !immediate || undefined } });
     // Raid + phase progress
@@ -811,7 +834,7 @@ export class Engine {
     const unlocked: string[] = [];
     if (p.level > before) {
       for (const c of cosmeticsForLevel(p.level)) if (!p.unlocked.includes(c)) { p.unlocked.push(c); unlocked.push(c); }
-      p.title = titleForLevel(p.level);
+      p.title = this.t(party, titleForLevel(p.level));
     }
     return { unlocked, capped };
   }
@@ -853,7 +876,7 @@ export class Engine {
         p.points += a.points;
         cosmetics.push(...this.applyXp(party, p, a.xp).unlocked);
         if (a.cosmetic && !p.unlocked.includes(a.cosmetic)) { p.unlocked.push(a.cosmetic); cosmetics.push(a.cosmetic); }
-        this.feed(party, { kind: 'achievement', text: `${p.nickname} unlocked "${a.name}"`, playerId: p.id, emoji: '🏅' });
+        this.feed(party, { kind: 'achievement', text: `${p.nickname} unlocked "${this.t(party, a.name)}"`, playerId: p.id, emoji: '🏅' });
         direct.push({ to: p.id, msg: { type: 'toast', text: `Achievement: ${a.name}`, emoji: '🏅', tone: 'success' } });
       }
       if (!any) break;
@@ -1013,7 +1036,7 @@ export class Engine {
     if (!ev) return this.fail('That one has scrolled off the feed. React to something newer.');
     if (ev.kind !== 'mission' || !ev.playerId) return this.fail('Can\'t react to that.');
     if (ev.playerId === playerId) return this.fail('Reacting to your own? Bold.');
-    if (emoji === '❤️' && playerId !== party.groomId) return this.fail('Only Jezza gives out hearts.');
+    if (emoji === '❤️' && playerId !== party.groomId) return this.fail(`Only ${this.n(party)} gives out hearts.`);
     ev.reactions = ev.reactions ?? {};
     const list = (ev.reactions[emoji] = ev.reactions[emoji] ?? []);
     if (list.includes(playerId)) return { ack: { ok: true, data: { already: true } }, changed: false, direct: [] };
@@ -1027,7 +1050,7 @@ export class Engine {
       if (emoji === '❤️') {
         owner.groomLoves += 1;
         this.grant(party, owner, 5, 0, direct);
-        direct.push({ to: owner.id, msg: { type: 'toast', text: 'Jezza gave your challenge a ❤️ (+5)', emoji: '❤️', tone: 'success' } });
+        direct.push({ to: owner.id, msg: { type: 'toast', text: `${this.n(party)} gave your challenge a ❤️ (+5)`, emoji: '❤️', tone: 'success' } });
       }
       this.checkAchievements(party, owner, direct);
       this.checkQuests(party, owner, direct);
@@ -1039,11 +1062,13 @@ export class Engine {
   private wallPost(playerId: string, kind: 'roast' | 'toast', textRaw: string): HandleResult {
     const party = this.partyOf(playerId); const p = party?.players[playerId];
     if (!party || !p || p.removed || !p.creature) return this.fail('Adopt a creature first.');
+    const book = this.th(party).features.wall === 'book';
+    if (book) kind = 'toast'; // the Birthday Book has no roasts
     if (kind !== 'roast' && kind !== 'toast') return this.fail('Roast or toast?');
     const text = String(textRaw ?? '').replace(/\s+/g, ' ').trim();
     if (text.length < 6) return this.fail('Give it a bit more than that.');
-    if (text.length > 140) return this.fail('Keep it under 140 characters. Punchlines are short.');
-    if (!isClean(text)) return this.fail('Too far, mate. Keep it to stuff Jezza would laugh at in front of his mum.');
+    if (text.length > (book ? 280 : 140)) return this.fail(book ? 'Keep it under 280 characters.' : 'Keep it under 140 characters. Punchlines are short.');
+    if (!isClean(text)) return this.fail(`Too far, mate. Keep it to stuff ${this.n(party)} would laugh at in front of ${this.th(party).role.his} mum.`);
     const mine = party.wall.filter((w) => w.playerId === playerId && w.phase === party.phase && !w.hidden).length;
     if (mine >= WALL_PER_PHASE) return this.fail(`You've had your ${WALL_PER_PHASE} for today. Save some material for the speech.`);
     const now = this.now();
@@ -1054,13 +1079,13 @@ export class Engine {
     const r = this.grant(party, p, 5, 10, direct);
     // The intro "Roast Jezza" / "Toast Jezza" is done by posting one (its reward pop-up says it all, so no extra toast)
     const intro = p.hand.find((h) => h.status === 'active' && MISSION_BY_ID[h.missionId]?.wall === kind);
-    if (!intro) direct.push({ to: playerId, msg: { type: 'toast', text: `Posted (+5). ${r.achievements.length ? '' : 'Now get the lads to vote it up.'}`, emoji: kind === 'roast' ? '🔥' : '🥂', tone: 'success' } });
+    if (!intro) direct.push({ to: playerId, msg: { type: 'toast', text: `Posted (+5). ${r.achievements.length ? '' : `Now get ${this.th(party).copy.crowd} to vote it up.`}`, emoji: kind === 'roast' ? '🔥' : '🥂', tone: 'success' } });
     if (intro) {
       const claim: Claim = { id: `wall_${post.id}`, playerId, missionId: intro.missionId, method: 'self', status: 'pending', createdAt: now, group: false, note: text };
       party.claims[claim.id] = claim;
       this.approveClaim(party, claim, direct, true);
-    } else this.feed(party, { kind: 'wall', text: `${p.nickname} ${kind === 'roast' ? 'roasted' : 'toasted'} Jezza on the Wall`, playerId: p.id, emoji: kind === 'roast' ? '🎤' : '🥂' });
-    if (party.groomId && party.groomId !== playerId) direct.push({ to: party.groomId, msg: { type: 'toast', text: kind === 'roast' ? 'Someone just roasted you on the Jezza Wall 👀' : 'Someone just toasted you on the Jezza Wall 🥂', emoji: '🎤', tone: 'info' } });
+    } else this.feed(party, { kind: 'wall', text: book ? this.th(party).copy.wallFeed(p.nickname) : `${p.nickname} ${kind === 'roast' ? 'roasted' : 'toasted'} ${this.n(party)} on the Wall`, playerId: p.id, emoji: book ? '📖' : kind === 'roast' ? '🎤' : '🥂' });
+    if (!book && party.groomId && party.groomId !== playerId) direct.push({ to: party.groomId, msg: { type: 'toast', text: kind === 'roast' ? `Someone just roasted you on the ${this.t(party, this.th(party).copy.wallTitle)} 👀` : `Someone just toasted you on the ${this.t(party, this.th(party).copy.wallTitle)} 🥂`, emoji: '🎤', tone: 'info' } });
     return this.ok(party, { id: post.id }, direct);
   }
 
@@ -1070,12 +1095,13 @@ export class Engine {
     const post = party.wall.find((w) => w.id === postId && !w.hidden);
     if (!post) return this.fail('That post is gone.');
     if (post.playerId === playerId) return this.fail('Voting for yourself? Classic.');
+    if (this.th(party).features.wall === 'book' && playerId !== party.groomId) return this.fail('The book is for reading, not voting.');
     const author = party.players[post.playerId];
     const direct: Outbound[] = [];
     if (playerId === party.groomId) {
       if (post.groomLove) return { ack: { ok: true, data: { already: true } }, changed: false, direct: [] };
       post.groomLove = true;
-      if (author) { author.groomLoves += 1; this.grant(party, author, 10, 0, direct); direct.push({ to: author.id, msg: { type: 'toast', text: 'Jezza ❤️ your Wall post (+10)', emoji: '❤️', tone: 'success' } }); }
+      if (author) { author.groomLoves += 1; this.grant(party, author, 10, 0, direct); direct.push({ to: author.id, msg: { type: 'toast', text: `${this.n(party)} ❤️ your post (+10)`, emoji: '❤️', tone: 'success' } }); }
       return this.ok(party, undefined, direct);
     }
     if (post.votes.includes(playerId)) return { ack: { ok: true, data: { already: true } }, changed: false, direct: [] };
@@ -1093,7 +1119,7 @@ export class Engine {
     const party = this.partyOf(playerId);
     const post = party?.wall.find((w) => w.id === postId);
     if (!party || !post) return this.fail('That post is gone.');
-    if (post.playerId !== playerId && party.groomId !== playerId && party.hostId !== playerId) return this.fail('Only the author, Jezza or the host can take a post down.');
+    if (post.playerId !== playerId && party.groomId !== playerId && party.hostId !== playerId) return this.fail(`Only the author, ${this.n(party)} or the host can take a post down.`);
     post.hidden = true;
     return this.ok(party);
   }
@@ -1102,6 +1128,7 @@ export class Engine {
   private cellarAdd(playerId: string, drinkRaw: string, starsRaw: number, noteRaw?: string, photo?: string): HandleResult {
     const party = this.partyOf(playerId); const p = party?.players[playerId];
     if (!party || !p || p.removed || !p.creature) return this.fail('Adopt a creature first.');
+    if (!this.th(party).features.cellar) return this.fail('No Cellar at this party.');
     const drink = String(drinkRaw ?? '').replace(/\s+/g, ' ').trim().slice(0, 40);
     const note = String(noteRaw ?? '').replace(/\s+/g, ' ').trim().slice(0, 90) || undefined;
     const stars = Math.round(Number(starsRaw));
@@ -1410,7 +1437,7 @@ export class Engine {
   private maybeSpawnRaid(party: PartyState, direct: Outbound[]) {
     const phase = this.activePhase(party);
     if (!phase || this.liveRaid(party) || party.raids.some((r) => r.phase === phase)) return;
-    if (party.phaseMissions[phase] >= RAID_THRESHOLD[phase]) this.spawnRaid(party, phase, direct);
+    if (party.phaseMissions[phase] >= RAID_THRESHOLD[phase] && this.th(party).features.raids) this.spawnRaid(party, phase, direct);
   }
 
   private spawnRaid(party: PartyState, phase: 'friday' | 'saturday', direct: Outbound[]): Raid {
@@ -1711,7 +1738,7 @@ export class Engine {
       // A new group challenge every so often
       if (party.nextGroupAt && now >= party.nextGroupAt && this.activePhase(party)) {
         const phase = this.activePhase(party)!;
-        const next = GROUP_MISSIONS.find((m) => !party.revealedGroupMissions.includes(m.id) && missionAvailableInPhase(m, phase));
+        const next = GROUP_MISSIONS.find((m) => !party.revealedGroupMissions.includes(m.id) && inDeck(m, this.th(party).deck) && missionAvailableInPhase(m, phase));
         if (next) { this.revealGroup(party, next.id, direct); party.nextGroupAt = now + GROUP_EVERY_MS; }
         else party.nextGroupAt = null;
         dirty = true;
@@ -1742,7 +1769,7 @@ export class Engine {
     const m = MISSION_BY_ID[missionId];
     if (!m || party.revealedGroupMissions.includes(m.id)) return;
     party.revealedGroupMissions.push(m.id);
-    this.feed(party, { kind: 'group', text: `GROUP CHALLENGE LIVE: ${m.title}. Optional, everyone who's in claims it.`, emoji: '🫂' });
+    this.feed(party, { kind: 'group', text: `GROUP CHALLENGE LIVE: ${this.t(party, m.title)}. Optional, everyone who's in claims it.`, emoji: '🫂' });
     direct.push({ to: 'party', msg: { type: 'toast', text: `Group challenge live: ${m.title}`, emoji: '🫂', tone: 'info' } });
   }
 
@@ -1755,7 +1782,7 @@ export class Engine {
       if (p.completedMissionIds.filter((id) => !TUTORIAL_IDS.has(id)).length >= LATE_ARRIVAL_BELOW) continue;
       this.giveCatchUp(p, party, direct);
       names.push(p.nickname);
-      direct.push({ to: p.id, msg: { type: 'toast', text: `🦵 Fresh Legs: double points on your next ${FRESH_LEGS} challenges, double XP till you catch the lads.`, emoji: '🦵', tone: 'success' } });
+      direct.push({ to: p.id, msg: { type: 'toast', text: `🦵 Fresh Legs: double points on your next ${FRESH_LEGS} challenges, double XP till you catch ${this.th(party).copy.crowd}.`, emoji: '🦵', tone: 'success' } });
     }
     if (names.length) this.feed(party, { kind: 'host', text: `🦵 Fresh Legs for ${names.join(', ')}: double points on their first ${FRESH_LEGS} challenges.`, emoji: '🦵' });
   }
@@ -1782,7 +1809,7 @@ export class Engine {
       this.lateArrivalsCatchUp(party, direct);
       for (const p of Object.values(party.players)) if (p.creature && !p.removed && !p.quests.length) this.assignQuests(party, p);
       this.feed(party, { kind: 'phase', text: '📜 SATURDAY QUESTS are out: three each, big points and a Lucky Drop for every one you finish.', emoji: '📜' });
-      if (!party.mole) this.assignMole(party, undefined, direct);
+      if (!party.mole && this.th(party).features.mole) this.assignMole(party, undefined, direct);
       for (const p of Object.values(party.players)) if (p.online) this.morningDrop(party, p);
     }
     const labels: Record<Phase, string> = {
@@ -1802,9 +1829,9 @@ export class Engine {
     const nick = (id: string) => party.players[id]?.nickname ?? 'Someone';
     const players = Object.values(party.players).filter((x) => !x.removed && x.creature);
     return {
-      name: party.name, code: party.code,
+      name: party.name, code: party.code, honourName: this.n(party), wallTitle: this.t(party, this.th(party).copy.wallTitle),
       board: sortLeaderboard(players).map((x) => ({ nickname: x.nickname, creatureName: x.creatureName, level: x.level, points: x.points, missions: x.missionsCompleted, wins: x.wins, losses: x.losses })),
-      awards: computeAwards(players.map(toPublic), Object.values(party.battles), party.awardOverrides).map((a) => ({ name: a.name, winner: a.playerId ? nick(a.playerId) : 'Nobody', reason: a.reason })),
+      awards: computeAwards(players.map(toPublic), Object.values(party.battles), party.awardOverrides).map((a) => ({ name: this.t(party, a.name), winner: a.playerId ? nick(a.playerId) : 'Nobody', reason: this.t(party, a.reason) })),
       wall: party.wall.filter((w) => !w.hidden).map((w) => ({ author: nick(w.playerId), kind: w.kind, text: w.text, votes: w.votes.length, groomLove: w.groomLove, at: w.at })).sort((a, b) => b.votes + (b.groomLove ? 3 : 0) - (a.votes + (a.groomLove ? 3 : 0))),
       cellar: party.cellar.map((e) => ({ author: nick(e.playerId), drink: e.drink, stars: e.stars, note: e.note, fires: e.fires.length, at: e.at })),
       photos: [
@@ -1897,7 +1924,7 @@ export class Engine {
         p.points = Math.max(0, p.points - m.points); p.xp = Math.max(0, p.xp - m.xp); p.level = levelForXp(p.xp);
         p.hand = p.hand.filter((h) => h.missionId !== m.id);
         if (m.scope === 'private') { p.hand.push({ missionId: m.id, assignedAt: this.now(), status: 'active' }); p.hand = p.hand.slice(-HAND_SIZE); }
-        this.feed(party, { kind: 'host', text: `The host reset "${m.title}" for ${p.nickname}.`, emoji: '↩️' });
+        this.feed(party, { kind: 'host', text: `The host reset "${this.t(party, m.title)}" for ${p.nickname}.`, emoji: '↩️' });
         direct.push({ to: p.id, msg: { type: 'toast', text: `The host reset "${m.title}". It's back in your hand.`, emoji: '↩️', tone: 'warn' } });
         return this.ok(party, undefined, direct);
       }
@@ -1933,7 +1960,7 @@ export class Engine {
         if (action.on) {
           this.giveCatchUp(t, party, direct);
           this.feed(party, { kind: 'host', text: `🦵 The host gave ${t.nickname} Fresh Legs: double points on their next ${FRESH_LEGS} challenges.`, emoji: '🦵' });
-          direct.push({ to: t.id, msg: { type: 'toast', text: `🦵 Fresh Legs from the host: double points on your next ${FRESH_LEGS} challenges, double XP till you catch the lads.`, emoji: '🦵', tone: 'success' } });
+          direct.push({ to: t.id, msg: { type: 'toast', text: `🦵 Fresh Legs from the host: double points on your next ${FRESH_LEGS} challenges, double XP till you catch ${this.th(party).copy.crowd}.`, emoji: '🦵', tone: 'success' } });
         } else { t.catchUp = false; t.freshLegs = 0; }
         return this.ok(party, undefined, direct);
       }
@@ -1941,7 +1968,7 @@ export class Engine {
         const g = party.players[action.playerId];
         if (!g || g.removed) return this.fail('No such player.');
         party.groomId = g.id;
-        this.feed(party, { kind: 'host', text: `🤵 ${g.nickname} is officially the groom. Hearts unlocked.`, emoji: '🤵' });
+        this.feed(party, { kind: 'host', text: `${this.th(party).role.emoji} ${g.nickname} is officially ${this.th(party).role.label}. Hearts unlocked.`, emoji: this.th(party).role.emoji });
         this.crownGroom(party);
         return this.ok(party);
       }
@@ -2055,7 +2082,7 @@ export class Engine {
           return this.ok(party, { playerIds: party.mole.moles.map((m) => m.playerId) }, direct);
         }
         const ok = this.assignMole(party, action.playerId, direct, action.count);
-        if (!ok) return this.fail('Need at least four lads with creatures (not the host or the groom) for a Mole.');
+        if (!ok) return this.fail(`Need at least four lads with creatures (not the host or ${this.th(party).role.label}) for a Mole.`);
         return this.ok(party, { playerIds: party.mole!.moles.map((m) => m.playerId) }, direct);
       }
       case 'revealMole': {
@@ -2100,10 +2127,11 @@ export class Engine {
         return this.ok(party, { spotlight: next }, direct);
       }
       case 'setTvMode': {
-        const mode = action.mode === 'reel' ? 'reel' : 'auto';
+        const mode = action.mode === 'reel' ? 'reel' : action.mode === 'book' ? 'book' : 'auto';
         if (mode === party.tvMode) return { ack: { ok: true }, changed: false, direct: [] };
         party.tvMode = mode;
-        if (mode === 'reel') this.feed(party, { kind: 'phase', text: '📽️ THE PHOTO REEL is rolling on the TV: every photo of the weekend, from the top.', emoji: '📽️' });
+        if (mode === 'reel') this.feed(party, { kind: 'phase', text: `📽️ THE PHOTO REEL is rolling on the TV: every photo of the ${this.th(party).copy.partyWord}, from the top.`, emoji: '📽️' });
+        if (mode === 'book') { party.bookOpen = true; this.feed(party, { kind: 'phase', text: `📖 THE BIRTHDAY BOOK is open on the TV. Everything everyone wrote for ${this.n(party)}, one page at a time.`, emoji: '📖' }); direct.push({ to: 'party', msg: { type: 'toast', text: `📖 The Birthday Book is open. Eyes on the TV.`, emoji: '📖', tone: 'success' } }); }
         return this.ok(party, { mode }, direct);
       }
       case 'startRowdy': {
@@ -2111,10 +2139,12 @@ export class Engine {
         const kind = action.rowdy && ROWDY_KINDS[action.rowdy] ? action.rowdy : kinds[Math.floor(this.rng() * kinds.length)];
         if (party.rowdy && !party.rowdy.revealed && this.now() < party.rowdy.endsAt) return this.fail('One is already running. End it first.');
         const used = party.rowdyUsed[kind] ?? [];
-        let pool = ROWDY_PROMPTS[kind].filter((x) => !used.includes(x));
-        if (!pool.length) { party.rowdyUsed[kind] = []; pool = ROWDY_PROMPTS[kind]; }
-        const prompt = pool[Math.floor(this.rng() * pool.length)];
-        party.rowdyUsed[kind] = [...(party.rowdyUsed[kind] ?? []), prompt];
+        const src = this.th(party).features.drinks ? ROWDY_PROMPTS : ROWDY_PROMPTS_WHOLESOME;
+        let pool = src[kind].filter((x) => !used.includes(x));
+        if (!pool.length) { party.rowdyUsed[kind] = []; pool = src[kind]; }
+        const raw = pool[Math.floor(this.rng() * pool.length)];
+        party.rowdyUsed[kind] = [...(party.rowdyUsed[kind] ?? []), raw];
+        const prompt = this.t(party, raw);
         const def = ROWDY_KINDS[kind]; const now = this.now();
         party.rowdy = { id: `rw_${now.toString(36)}_${Math.floor(this.rng() * 1e6).toString(36)}`, kind, prompt, startedAt: now, endsAt: now + def.seconds * 1000, votes: {}, revealed: false, used: [] };
         const line = this.rowdyLine(kind, prompt);
@@ -2180,6 +2210,14 @@ export class Engine {
         party.teams = null;
         this.feed(party, { kind: 'phase', text: '👥 Teams are dissolved. Every lad for himself again.', emoji: '👥' });
         return this.ok(party, undefined, direct);
+      }
+      case 'setHonourName': {
+        const name = String(action.name ?? '').replace(/\s+/g, ' ').trim().slice(0, 24);
+        if (name.length < 2) return this.fail('Give them a name.');
+        if (!isClean(name)) return this.fail('Keep the name clean.');
+        party.honourName = name;
+        if (!party.groomId) { const g = Object.values(party.players).find((p) => !p.removed && isHonouree(p.nickname, name)); if (g) { party.groomId = g.id; this.crownGroom(party); } }
+        return this.ok(party, { name }, direct);
       }
       case 'setCeremony': {
         const n = Math.max(0, Math.min(40, Math.round(Number(action.revealed)) || 0));
@@ -2283,8 +2321,8 @@ export class Engine {
       q.done = true; q.doneAt = this.now();
       const reward = this.grant(party, p, def.points, 0, direct);
       this.addDrop(party, p, 'quest', def.drop, direct);
-      this.feed(party, { kind: 'achievement', text: `${p.nickname} finished the quest "${def.title}" (+${def.points})`, playerId: p.id, emoji: def.emoji });
-      direct.push({ to: p.id, msg: { type: 'reward', points: def.points, xp: 0, ...reward, title: `Quest done: ${def.title}`, bonus: `🎁 A ${RARITY[def.drop].label} drop is waiting on your Lobby`, quiet: true } });
+      this.feed(party, { kind: 'achievement', text: `${p.nickname} finished the quest "${this.t(party, def.title)}" (+${def.points})`, playerId: p.id, emoji: def.emoji });
+      direct.push({ to: p.id, msg: { type: 'reward', points: def.points, xp: 0, ...reward, title: `Quest done: ${this.t(party, def.title)}`, bonus: `🎁 A ${RARITY[def.drop].label} drop is waiting on your Lobby`, quiet: true } });
     }
   }
 
@@ -2371,6 +2409,7 @@ export class Engine {
     const via = (action: HostAction) => { const r = this.hostAction(host, action); direct.push(...r.direct); return r.ack?.ok === false ? r : null; };
     switch (item.action) {
       case 'reel': return via({ kind: 'setTvMode', mode: 'reel' });
+      case 'book': return via({ kind: 'setTvMode', mode: 'book' });
       case 'awards': return party.phase === 'finale' || party.phase === 'ended' ? null : via({ kind: 'setPhase', phase: 'finale' });
       case 'spotlight': return via({ kind: 'setSpotlight', label: party.spotlight?.label ?? item.label, start: true });
       case 'rowdy': return via({ kind: 'startRowdy' });

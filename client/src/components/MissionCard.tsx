@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTheme } from '../theme';
 import { CATEGORY_META, METHOD_META, MISSION_BY_ID, type Mission } from '@shared/missions';
 import type { MissionAssignment, PlayerPublic } from '@shared/types';
 import { Button, Sheet, useCountdown } from './ui';
@@ -36,6 +37,7 @@ export async function faceFromPhoto(dataUrl: string, side = 160): Promise<string
 }
 
 export function MissionCard({ mission, assignment, compact, onDone, showReroll, group, preview }: { mission: Mission; assignment?: MissionAssignment; compact?: boolean; onDone?: () => void; showReroll?: boolean; group?: boolean; preview?: boolean }) {
+  const th = useTheme();
   const meta = CATEGORY_META[mission.category];
   const method = METHOD_META[mission.method];
   const status = assignment?.status ?? 'active';
@@ -84,7 +86,7 @@ export function MissionCard({ mission, assignment, compact, onDone, showReroll, 
       if (extra.photo && mission.starter && mission.selfie) extra.avatar = await faceFromPhoto(extra.photo);
       const res = await request<{ status: string }>({ type: 'claimMission', missionId: mission.id, claimId: claimIdRef.current, note: note || undefined, ...extra });
       claimIdRef.current = newClaimId();
-      if (res.status === 'pending') { sfx.select(); toast('Photo sent. The lads vote it in.', '🗳️', 'success'); } else sfx.mission();
+      if (res.status === 'pending') { sfx.select(); toast(th.t('Photo sent. {crowd} vote it in.').replace(/^the /, 'The '), '🗳️', 'success'); } else sfx.mission();
       onDone?.();
     } finally { setBusy(false); }
   };
@@ -130,7 +132,7 @@ export function MissionCard({ mission, assignment, compact, onDone, showReroll, 
     <div className={`mission-card ${compact ? 'compact' : ''} ${mission.secret ? 'secret' : ''} ${completed ? 'done' : ''} ${status === 'pending' ? 'pending' : ''}`} style={{ ['--hue' as any]: meta.hue }}>
       <div className="mc-head">
         <span className="row" style={{ gap: 6 }}>
-          <span className="pill pill-xs" style={{ borderColor: meta.hue, color: 'var(--cream)' }}>{meta.emoji} {mission.secret ? 'SECRET' : meta.label}</span>
+          <span className="pill pill-xs" style={{ borderColor: meta.hue, color: 'var(--cream)' }}>{meta.emoji} {mission.secret ? 'SECRET' : th.t(meta.label)}</span>
           {group && <span className="pill pill-xs pill-ok">GROUP</span>}
         </span>
         <span className="row" style={{ gap: 6 }}>
@@ -138,15 +140,15 @@ export function MissionCard({ mission, assignment, compact, onDone, showReroll, 
           <span className="pill pill-xs pill-gold">+{mission.points} pts · {mission.xp} XP</span>
         </span>
       </div>
-      <div className="mc-title">{mission.title}</div>
-      <div className={`mc-body ${compact ? 'clamp' : ''}`}>{mission.instruction}</div>
+      <div className="mc-title">{th.t(mission.title)}</div>
+      <div className={`mc-body ${compact ? 'clamp' : ''}`}>{th.t(mission.instruction)}</div>
       {err && <div className="field-error" style={{ padding: '0 14px' }}>{err}</div>}
       {!preview && <div className="mc-foot">
-        <span className="tiny faint" style={{ maxWidth: '45%', lineHeight: 1.2 }}>{mission.wall ? 'Posts to the Jezza Wall' : method.label}{showReroll && status === 'active' && !mission.starter ? <><br /><button className="bold" style={{ color: 'var(--rose)', textDecoration: 'underline' }} onClick={reroll} disabled={busy || (!freeSkip && (priv?.rerollsLeft ?? 0) <= 0)}>{isGroom ? 'Veto' : freeSkip ? 'Skip' : `Skip (${priv?.rerollsLeft ?? 0} left)`}</button></> : null}</span>
+        <span className="tiny faint" style={{ maxWidth: '45%', lineHeight: 1.2 }}>{mission.wall ? `Posts to ${th.t(th.theme.copy.wallTitle)}` : method.label}{showReroll && status === 'active' && !mission.starter ? <><br /><button className="bold" style={{ color: 'var(--rose)', textDecoration: 'underline' }} onClick={reroll} disabled={busy || (!freeSkip && (priv?.rerollsLeft ?? 0) <= 0)}>{isGroom ? 'Veto' : freeSkip ? 'Skip' : `Skip (${priv?.rerollsLeft ?? 0} left)`}</button></> : null}</span>
         <span className="row" style={{ gap: 6 }}>{cta()}</span>
       </div>}
-      {writing && mission.wall && <WallSheet kind={mission.wall} title={mission.title} hint={mission.instruction} onClose={() => setWriting(false)} />}
-      {camera && <CameraSheet facing={mission.selfie ? 'user' : 'environment'} hint={mission.title} onClose={() => setCamera(false)} onFallback={() => fileRef.current?.click()} onPhoto={async (photo) => { await submitOrThrow({ photo }); setCamera(false); }} />}
+      {writing && mission.wall && <WallSheet kind={mission.wall} title={th.t(mission.title)} hint={th.t(mission.instruction)} onClose={() => setWriting(false)} />}
+      {camera && <CameraSheet facing={mission.selfie ? 'user' : 'environment'} hint={th.t(mission.title)} onClose={() => setCamera(false)} onFallback={() => fileRef.current?.click()} onPhoto={async (photo) => { await submitOrThrow({ photo }); setCamera(false); }} />}
       {pickWitness && (
         <Sheet onClose={() => setPickWitness(false)}>
           <div className="eyebrow center">Who saw it?</div>

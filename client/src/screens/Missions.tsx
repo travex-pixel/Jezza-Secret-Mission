@@ -4,6 +4,7 @@ import { MissionCard } from '../components/MissionCard';
 import { EpicCard } from '../components/EpicCard';
 import { Button, useCountdown } from '../components/ui';
 import { useMe } from '../store';
+import { useTheme } from '../theme';
 import { useStore } from '../store';
 import { request } from '../net';
 import { sfx } from '../audio';
@@ -12,6 +13,7 @@ import MoleReveal from '../components/MoleReveal';
 
 export default function Missions() {
   const priv = useStore((s) => s.priv);
+  const th = useTheme();
   const party = useStore((s) => s.party);
   const [tab, setTab] = useState<'mine' | 'group' | 'done' | 'quests'>(() => useStore.getState().missionsTab ?? 'mine');
   useEffect(() => { if (useStore.getState().missionsTab) useStore.setState({ missionsTab: null }); }, []);
@@ -56,7 +58,7 @@ export default function Missions() {
           <div key={w.claimId} className="panel panel-gold pad stack-6">
             <div className="eyebrow">Did you see it?</div>
             <div className="bold"><span className="gold-text">{w.fromNickname}</span> reckons you saw them do “{MISSION_BY_ID[w.missionId]?.title}”.</div>
-            <div className="small dim">{MISSION_BY_ID[w.missionId]?.instruction}</div>
+            <div className="small dim">{th.t(MISSION_BY_ID[w.missionId]?.instruction ?? '')}</div>
             <div className="btn-row"><Button size="sm" variant="secondary" onClick={() => witness(w.claimId, false)}>Nope</Button><Button size="sm" onClick={() => witness(w.claimId, true)}>I saw it ✓</Button></div>
           </div>
         ))}
@@ -96,8 +98,8 @@ export default function Missions() {
               <div key={q.defId} className={`quest-card ${q.done ? 'done' : ''}`} data-testid="quest">
                 <span className="quest-emoji">{q.done ? '✅' : d.emoji}</span>
                 <span className="grow" style={{ minWidth: 0 }}>
-                  <div className="row-between"><span className="bold">{d.title}</span><span className="tiny bold" style={{ color: RARITY[d.drop].color }}>+{d.points} · {RARITY[d.drop].label} drop</span></div>
-                  <div className="tiny dim">{d.blurb}</div>
+                  <div className="row-between"><span className="bold">{th.t(d.title)}</span><span className="tiny bold" style={{ color: RARITY[d.drop].color }}>+{d.points} · {RARITY[d.drop].label} drop</span></div>
+                  <div className="tiny dim">{th.t(d.blurb)}</div>
                   <div className="quest-bar"><i style={{ width: `${pct}%` }} /></div>
                   <div className="tiny faint">{q.done ? 'Done. Drop\'s on your Lobby.' : `${q.progress} / ${d.target}`}</div>
                 </span>
@@ -115,7 +117,7 @@ export default function Missions() {
           <>
             {!done.length && !myDoneEpics.length && <div className="panel pad center dim bold">Nothing yet. Get amongst it.</div>}
             {myDoneEpics.map((e) => <div key={e.id} className="list-row epic-row"><span style={{ fontSize: 20 }}>🟣</span><span className="grow"><div className="bold">EPIC: {e.title}</div><div className="tiny faint">with {e.crew.filter((id) => id !== me?.id).map((id) => party?.players.find((p) => p.id === id)?.nickname).join(', ') || 'just you'}</div></span></div>)}
-            {done.map((id) => { const m = MISSION_BY_ID[id]; return m ? <div key={id} className="list-row"><span style={{ fontSize: 20 }}>✅</span><span className="grow"><div className="bold">{m.title}</div><div className="tiny faint">+{m.points} pts · {m.xp} XP</div></span></div> : null; })}
+            {done.map((id) => { const m = MISSION_BY_ID[id]; return m ? <div key={id} className="list-row"><span style={{ fontSize: 20 }}>✅</span><span className="grow"><div className="bold">{th.t(m.title)}</div><div className="tiny faint">+{m.points} pts · {m.xp} XP</div></span></div> : null; })}
           </>
         )}
       </div>
