@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { defaultSpotlightAt, fmtTime, spotlightPhase } from '@shared/ceremony';
 import { ROWDY_KINDS, type RowdyKind } from '@shared/rowdy';
+import { RUN_ACTIONS, nextItem, typicalNight, type RunAction } from '@shared/runsheet';
 import type { HostAction, Phase, PlayerPublic } from '@shared/types';
 import { GROUP_MISSIONS, MISSION_BY_ID } from '@shared/missions';
 import { AWARDS } from '@shared/progression';
@@ -51,6 +52,12 @@ export default function Host() {
   const [closing, setClosing] = useState<string | null>(null);
   const [dropRarity, setDropRarity] = useState<'common' | 'rare' | 'epic' | 'legendary' | 'any'>('any');
   const [confirmRemove, setConfirmRemove] = useState(false);
+  // run sheet editing
+  const [rsLabel, setRsLabel] = useState('');
+  const [rsTime, setRsTime] = useState('20:00');
+  const [rsAction, setRsAction] = useState<RunAction>('none');
+  const [swapPick, setSwapPick] = useState<string | null>(null);
+  const [teamCount, setTeamCount] = useState(2);
   // the spotlight (loser's speech): defaults to 10pm tonight on this phone's clock, 2 minutes, the lad in last place
   const spot = party?.spotlight ?? null;
   const toHHMM = (t: number) => { const d = new Date(t); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
@@ -108,6 +115,49 @@ export default function Host() {
             <div className="row-between"><div><div className="bold">Boss raid</div><div className="tiny faint">{party.raid?.status === 'active' ? 'One is on right now.' : 'Turns up on its own once the lads have done enough challenges. Or summon one now.'}</div></div><Button size="sm" variant="secondary" disabled={party.raid?.status === 'active'} onClick={() => host({ kind: 'summonRaid' })}>Summon</Button></div>
             <div className="divider" />
             <div className="row-between"><div><div className="bold">Missions {party.missionsOpen ? 'open' : 'paused'}</div><div className="tiny faint">Pause during dinner, speeches, emergencies.</div></div><Button size="sm" variant={party.missionsOpen ? 'secondary' : 'primary'} onClick={() => host({ kind: 'setMissionsOpen', open: !party.missionsOpen })}>{party.missionsOpen ? 'Pause' : 'Open'}</Button></div>
+            <div className="divider" />
+            <div className="eyebrow">📋 Run sheet</div>
+            <div className="tiny faint">The plan for the day, wired to buttons. Everyone sees what's next on their Lobby and the TV; you get a nudge when it's time and tap Start. Times are on this phone's clock.</div>
+            <div className="panel pad stack-6" data-testid="runsheet-panel">
+              {party.runSheet.length === 0 && <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}><Button size="sm" variant="secondary" onClick={() => host({ kind: 'runSheetSet', items: typicalNight(Date.now()) })} data-testid="runsheet-typical">Load a typical night</Button><span className="tiny faint">then edit it, or add your own below</span></div>}
+              {party.runSheet.map((it) => { const isNext = nextItem(party.runSheet, party.serverTime)?.id === it.id; return (
+                <div key={it.id} className={`rs-row ${it.done ? 'done' : isNext ? 'next' : ''}`} data-testid="runsheet-item">
+                  <span className="rs-time">{fmtTime(it.at)}</span>
+                  <span className="grow" style={{ minWidth: 0 }}><div className="bold small ellipsis">{RUN_ACTIONS[it.action].emoji} {it.label}</div><div className="tiny faint">{it.done ? `Done ${fmtTime(it.doneAt ?? it.at)}` : RUN_ACTIONS[it.action].label}</div></span>
+                  {!it.done && <Button size="sm" variant={isNext ? 'primary' : 'secondary'} onClick={() => host({ kind: 'runSheetFire', id: it.id })} data-testid="runsheet-start">▶ Start</Button>}
+                  {!it.done && <button className="react-btn" onClick={() => host({ kind: 'runSheetSet', items: party.runSheet.filter((x) => x.id !== it.id) })} aria-label="Remove">✕</button>}
+                </div>); })}
+              <div className="row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                <input className="input" type="time" style={{ minHeight: 44, fontSize: 15, width: 140, flex: '0 0 140px' }} value={rsTime} onChange={(e) => setRsTime(e.target.value)} aria-label="Time" data-testid="rs-time" />
+                <input className="input grow" style={{ minHeight: 44, fontSize: 15, minWidth: 120 }} value={rsLabel} maxLength={40} onChange={(e) => setRsLabel(e.target.value)} placeholder="What" data-testid="rs-label" />
+              </div>
+              <select className="input" style={{ minHeight: 44, fontSize: 15 }} value={rsAction} onChange={(e) => setRsAction(e.target.value as RunAction)} aria-label="What it starts" data-testid="rs-action">
+                {(Object.keys(RUN_ACTIONS) as RunAction[]).map((k) => <option key={k} value={k}>{RUN_ACTIONS[k].emoji} {RUN_ACTIONS[k].label}</option>)}
+              </select>
+              <Button size="sm" variant="secondary" disabled={rsLabel.trim().length < 2} onClick={() => { host({ kind: 'runSheetSet', items: [...party.runSheet, { at: fromHHMM(rsTime), label: rsLabel, action: rsAction }] }); setRsLabel(''); }} data-testid="rs-add">+ Add to the run sheet</Button>
+            </div>
+            <div className="divider" />
+            <div className="eyebrow">👥 Teams</div>
+            <div className="tiny faint">Even sides from the ladder (best, 2nd, 3rd across, then back). Team score is the average points each member has earned since the teams were made. Tap two lads to swap them.</div>
+            <div className="panel pad stack-6" data-testid="teams-panel">
+              {!party.teams ? (
+                <div className="row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                  {[2, 3, 4].map((n) => <button key={n} className={`pill pill-tap ${teamCount === n ? 'pill-gold' : ''}`} onClick={() => setTeamCount(n)}>{n} teams</button>)}
+                  <Button size="sm" variant="secondary" onClick={() => host({ kind: 'teamsMake', count: teamCount })} data-testid="teams-make">👥 Make teams</Button>
+                </div>
+              ) : (
+                <>
+                  {party.teams.teams.map((t) => (
+                    <div key={t.id} className="team-card" style={{ borderColor: t.color }} data-testid="team-card">
+                      <div className="row-between"><span className="bold">{t.emoji} {t.name}</span><span className="bold" style={{ color: t.color }}>{t.score} avg · {t.total} total</span></div>
+                      <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>{t.members.map((m) => { const p = party.players.find((x) => x.id === m); return <button key={m} className={`pill pill-tap ${swapPick === m ? 'pill-gold' : ''}`} onClick={() => { if (!swapPick) setSwapPick(m); else if (swapPick === m) setSwapPick(null); else { host({ kind: 'teamsSwap', a: swapPick, b: m }); setSwapPick(null); } }} data-testid="team-member">{p?.nickname ?? '?'}</button>; })}</div>
+                    </div>
+                  ))}
+                  {swapPick && <div className="tiny bold">Now tap a lad on another team to swap with {nickOf(swapPick)}.</div>}
+                  <Button size="sm" variant="danger" onClick={() => host({ kind: 'teamsClear' })} data-testid="teams-clear">Dissolve teams</Button>
+                </>
+              )}
+            </div>
             <div className="divider" />
             <div className="eyebrow">🎤 Spotlight on the TV</div>
             <div className="tiny faint">A scheduled countdown for the big moment: the loser's speech, the toast, the trophy. Shows on every Lobby and takes over the TV when you start it. Change anything, any time.</div>

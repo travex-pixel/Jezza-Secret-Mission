@@ -12,6 +12,7 @@ import SaturdayBriefing from '../components/SaturdayBriefing';
 import MoleReveal, { useMoleReveal } from '../components/MoleReveal';
 import { fmtClock, fmtTime, spotlightPhase } from '@shared/ceremony';
 import RowdyCard from '../components/RowdyCard';
+import { RUN_ACTIONS, nextItem } from '@shared/runsheet';
 import { RARITY } from '@shared/saturday';
 import HowItWorksSheet from '../components/HowItWorks';
 import { Button, ConnectionPill, FeedItem, XPBar, useCountdown } from '../components/ui';
@@ -56,6 +57,8 @@ export default function Home() {
   const questsDone = quests.filter((q) => q.done).length;
   const moleOpen = !!party?.mole?.voting && !priv?.mole && !priv?.moleHost; // the Mole doesn't vote on themselves, and the host can see the answer
   const reveal = useMoleReveal(party?.code, priv?.mole?.missions);
+  const nextUp = party ? nextItem(party.runSheet ?? [], party.serverTime) : null;
+  const myTeam = party?.teams?.teams.find((t) => t.members.includes(me?.id ?? ''));
   const spot = party?.spotlight ?? null;
   const spotEnd = spot?.startedAt ? spot.startedAt + spot.seconds * 1000 : undefined;
   const spotLeft = useCountdown(spotEnd);
@@ -71,7 +74,7 @@ export default function Home() {
   // One alert at a time, most urgent first. Everything else is a tab away.
   const alert = fighting ? 'fight' : incoming ? 'incoming' : raid ? 'raid' : witnessReq ? 'witness' : drop ? 'drop' : voteEv ? 'vote' : grab ? 'grab' : epic?.crew.includes(me.id) ? 'epic' : awayN > 0 ? 'away' : epic ? 'epic' : null;
   // every strip above the feed costs it a slot, so the column never overflows the screen
-  const extras = (party?.olympics?.current?.status === 'open' ? 1 : 0) + (me?.isScorer || me?.isHost ? 1 : 0) + (party?.rowdy ? 1 : 0) + (alert ? 1 : 0) + (quests.length > 0 || moleOpen ? 1 : 0) + (priv?.mole ? 1 : 0) + (spot && spotState !== 'none' ? 1 : 0);
+  const extras = (nextUp ? 1 : 0) + (party?.olympics?.current?.status === 'open' ? 1 : 0) + (me?.isScorer || me?.isHost ? 1 : 0) + (party?.rowdy ? 1 : 0) + (alert ? 1 : 0) + (quests.length > 0 || moleOpen ? 1 : 0) + (priv?.mole ? 1 : 0) + (spot && spotState !== 'none' ? 1 : 0);
   const feed = [...party.feed].reverse().filter((f) => f.kind !== 'achievement' && f.kind !== 'levelup' && f.id !== voteEv?.id).slice(0, Math.max(1, slots - extras));
   // Evolution nudge, only when it's close
   const evoAt = nextEvolveLevel(me.level);
@@ -106,6 +109,13 @@ export default function Home() {
           </span>
         </button>
 
+        {nextUp && (
+          <div className={`panel spot-strip ${nextUp.at <= party.serverTime ? 'running' : ''}`} data-testid="nextup-strip">
+            <span style={{ fontSize: 22 }}>{RUN_ACTIONS[nextUp.action].emoji}</span>
+            <span className="grow" style={{ minWidth: 0 }}><div className="bold ellipsis">{nextUp.at <= party.serverTime ? 'Now: ' : 'Next up: '}{nextUp.label}</div><div className="tiny" style={{ opacity: .85 }}>{fmtTime(nextUp.at)}{myTeam ? ` · you're on ${myTeam.emoji} ${myTeam.name}` : ''}</div></span>
+            {me.isHost && <Button size="sm" onClick={() => request({ type: 'host', action: { kind: 'runSheetFire', id: nextUp.id } }).catch(() => undefined)} data-testid="nextup-start">▶ Start</Button>}
+          </div>
+        )}
         {(me.isScorer || me.isHost) && <button className="panel quest-strip" style={{ width: '100%', borderColor: 'rgba(229,173,72,.55)' }} onClick={() => setTab('scorer')} data-testid="scorer-strip"><span>🏅</span><span className="grow ellipsis"><b>Scorer's pad</b> · enter Olympics points</span><span className="tiny bold" style={{ color: 'var(--rose)' }}>→</span></button>}
         {party.olympics?.current && party.olympics.current.status === 'open' && (() => { const ev = party.olympics.current!; const mine = ev.results.find((r) => r.playerId === me.id); return (
           <div className="panel spot-strip" data-testid="oly-strip"><span style={{ fontSize: 22 }}>🏅</span><span className="grow" style={{ minWidth: 0 }}><div className="bold ellipsis">Olympics: {ev.name}</div><div className="tiny" style={{ opacity: .85 }}>{mine ? `Your result: ${mine.value}` : `${ev.results.length} result${ev.results.length === 1 ? '' : 's'} in · eyes on the TV`}</div></span></div>); })()}

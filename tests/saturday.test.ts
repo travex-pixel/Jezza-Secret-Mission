@@ -593,3 +593,64 @@ describe('Bucks Olympics events', () => {
     expect(party().players[ids[2]].points).toBe(b2); expect(eng.publicView(party()).olympics.current).toBeNull();
   });
 });
+
+describe('the run sheet', () => {
+  it('host sets items, the next one is nudged at its time, Start fires the wired action, lads cannot', async () => {
+    const { typicalNight, nextItem } = await import('../shared/runsheet');
+    const { eng, ids, party, host, advance } = setup(8);
+    const t0 = 7_000_000;
+    expect(eng.handle(ids[1], { type: 'host', reqId: 'h', action: { kind: 'runSheetSet', items: [] } }).ack?.ok).toBe(false);
+    const items = [{ at: t0 + 3600_000, label: 'Photo reel', action: 'reel' as const }, { at: t0 + 600_000, label: 'Rowdy', action: 'rowdy' as const }, { at: t0 + 7200_000, label: 'Speech', action: 'spotlight' as const }];
+    expect(host({ kind: 'runSheetSet', items }).ack?.ok).toBe(true);
+    let rs = eng.publicView(party()).runSheet;
+    expect(rs.map((i) => i.label)).toEqual(['Rowdy', 'Photo reel', 'Speech']); // sorted by time
+    expect(nextItem(rs, t0)!.label).toBe('Rowdy');
+    // nudge at the time, once, to the host only
+    advance(599_000); let tk = eng.tick(); expect(tk.direct.some((d) => d.to === ids[0] && /Run sheet/.test((d.msg as any).text))).toBe(false);
+    advance(2_000); tk = eng.tick(); expect(tk.direct.filter((d) => d.to === ids[0] && /Run sheet: Rowdy/.test((d.msg as any).text)).length).toBe(1);
+    tk = eng.tick(); expect(tk.direct.some((d) => /Run sheet/.test((d.msg as any).text))).toBe(false);
+    // start fires the action and marks it done
+    rs = eng.publicView(party()).runSheet;
+    const r = host({ kind: 'runSheetFire', id: rs[0].id });
+    expect(r.ack?.ok).toBe(true); expect(eng.publicView(party()).rowdy).not.toBeNull(); expect(eng.publicView(party()).runSheet[0].done).toBe(true);
+    expect(host({ kind: 'runSheetFire', id: rs[0].id }).ack?.ok).toBe(false); // not twice
+    expect(nextItem(eng.publicView(party()).runSheet, t0 + 601_000)!.label).toBe('Photo reel');
+    // the reel item flips the TV; the speech item refuses politely if there is no spotlight set... no: it starts one with the item's label
+    host({ kind: 'runSheetFire', id: rs[1].id }); expect(eng.publicView(party()).tvMode).toBe('reel');
+    host({ kind: 'runSheetFire', id: rs[2].id }); expect(eng.publicView(party()).spotlight?.startedAt).toBeTruthy(); expect(eng.publicView(party()).spotlight?.label).toBe('Speech');
+    // editing keeps ids and done flags; removing works
+    const kept = eng.publicView(party()).runSheet;
+    host({ kind: 'runSheetSet', items: [{ id: kept[0].id, at: kept[0].at, label: 'Rowdy renamed', action: 'rowdy' }] });
+    const after = eng.publicView(party()).runSheet; expect(after.length).toBe(1); expect(after[0].id).toBe(kept[0].id); expect(after[0].done).toBe(true);
+    expect(typicalNight(t0).length).toBe(7);
+  });
+});
+
+describe('teams', () => {
+  it('snake draft makes even sides, scores average points since creation, swap and dissolve work', async () => {
+    const { snakeDraft } = await import('../shared/teams');
+    expect(snakeDraft(['a', 'b', 'c', 'd', 'e', 'f', 'g'], 3)).toEqual([['a', 'f', 'g'], ['b', 'e'], ['c', 'd']]);
+    const { eng, ids, party, host } = setup(8);
+    ids.forEach((id, i) => { party().players[id].points = (8 - i) * 100; });
+    expect(host({ kind: 'teamsMake', count: 5 }).ack?.ok).toBe(false); // needs 10 lads
+    const r = host({ kind: 'teamsMake', count: 2 }); expect(r.ack?.ok).toBe(true);
+    let pub = eng.publicView(party()).teams!;
+    expect(pub.teams.length).toBe(2); expect(pub.teams[0].members).toEqual([ids[0], ids[3], ids[4], ids[7]]); expect(pub.teams[1].members).toEqual([ids[1], ids[2], ids[5], ids[6]]);
+    expect(pub.teams.every((t) => t.score === 0)).toBe(true); // nothing earned yet since creation
+    expect(r.direct.filter((d) => d.to !== 'party').length).toBe(8); // every lad told his team
+    host({ kind: 'grantPoints', playerId: ids[3], points: 100, reason: 't' }); host({ kind: 'grantPoints', playerId: ids[1], points: 40, reason: 't' });
+    pub = eng.publicView(party()).teams!;
+    expect(pub.teams[0].total).toBe(100); expect(pub.teams[0].score).toBe(25); expect(pub.teams[1].score).toBe(10);
+    expect(host({ kind: 'teamsSwap', a: ids[3], b: ids[4] }).ack?.ok).toBe(false); // same team
+    expect(host({ kind: 'teamsSwap', a: ids[3], b: ids[1] }).ack?.ok).toBe(true);
+    pub = eng.publicView(party()).teams!;
+    expect(pub.teams[0].members).toContain(ids[1]); expect(pub.teams[1].members).toContain(ids[3]);
+    expect(pub.teams[1].total).toBe(100); // the 100 went with the lad
+    expect(eng.handle(ids[1], { type: 'host', reqId: 'h', action: { kind: 'teamsClear' } }).ack?.ok).toBe(false);
+    expect(host({ kind: 'teamsClear' }).ack?.ok).toBe(true); expect(eng.publicView(party()).teams).toBeNull();
+    // the run sheet can make teams too
+    host({ kind: 'runSheetSet', items: [{ at: 1, label: 'Teams', action: 'teams' }] });
+    host({ kind: 'runSheetFire', id: eng.publicView(party()).runSheet[0].id });
+    expect(eng.publicView(party()).teams?.teams.length).toBe(2);
+  });
+});

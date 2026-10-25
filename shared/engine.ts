@@ -9,6 +9,8 @@ import type { Spotlight,
 import { EPIC_CUSTOM_ITEM, EPIC_MAX_CREW, EPIC_PRESET_BY_ID, EPIC_TIERS, isEpicTier } from './epics';
 import { drinkEmoji } from './drinks';
 import { OLY_UNITS, placeAwards, type OlyEvent, type OlyUnit } from './olympics';
+import { RUN_ACTIONS, nextItem, type RunItem } from './runsheet';
+import { TEAM_LOOKS, snakeDraft, teamScore, type TeamsState } from './teams';
 import { ROWDY_KINDS, ROWDY_PROMPTS, ROWDY_VOTE_POINTS, type RowdyKind, type RowdyPublic, type RowdyState } from './rowdy';
 import { DROP_EVERY, MOLE_MAX, MOLE_MISSIONS, MOLE_POINTS, molesFor, QUESTS_PER_DAY, QUEST_BY_ID, QUEST_DEFS, RARITIES, RARITY, questProgress, rollDrop, type Drop, type MoleState, type Quest, type Rarity } from './saturday';
 import { CREATURES, CREATURE_IDS, FORMS, GROOM_CREATURE, starterTrio } from './creatures';
@@ -87,6 +89,8 @@ export interface PartyState {
   rowdy: RowdyState | null;
   lastScore: { playerId: string; points: number; reason: string; by: string; at: number } | null;
   olympics: { current: OlyEvent | null; done: { id: string; name: string; unit: OlyUnit; winnerId?: string; lockedAt: number }[] };
+  runSheet: RunItem[];
+  teams: TeamsState | null;
   rowdyUsed: Partial<Record<RowdyKind, string[]>>;
 }
 
@@ -215,7 +219,7 @@ export class Engine {
       party.raids ??= []; party.wall ??= []; party.cellar ??= [];
       party.phaseMissions ??= { friday: 0, saturday: 0 };
       party.photoMode ??= 'vote';
-      party.epics ??= []; party.codes ??= []; party.giveaways ??= []; party.log ??= [...party.feed]; party.xpBoostUntil ??= null; party.capLifted ??= false; party.mole ??= null; party.spotlight ??= null; party.ceremony ??= 0; party.tvMode ??= 'auto'; party.rowdy ??= null; party.rowdyUsed ??= {}; party.lastScore ??= null; party.olympics ??= { current: null, done: [] };
+      party.epics ??= []; party.codes ??= []; party.giveaways ??= []; party.log ??= [...party.feed]; party.xpBoostUntil ??= null; party.capLifted ??= false; party.mole ??= null; party.spotlight ??= null; party.ceremony ??= 0; party.tvMode ??= 'auto'; party.rowdy ??= null; party.rowdyUsed ??= {}; party.lastScore ??= null; party.olympics ??= { current: null, done: [] }; party.runSheet ??= []; party.teams ??= null;
       for (const e of party.epics) { e.tier ??= 'medium'; e.points ??= EPIC_TIERS[e.tier].points; e.xp ??= EPIC_TIERS[e.tier].xp; }
       for (const b of Object.values(party.battles)) if (b.status === 'active' && !b.quick && !b.auto) { b.quick = true; b.roundDeadline = Math.min(b.roundDeadline ?? Infinity, this.now() + PLAN_SECONDS * 1000); }
       party.nextAutoAt ??= this.now() + FIRST_AUTO_DELAY_MS;
@@ -312,6 +316,8 @@ export class Engine {
       rowdy: this.rowdyPublic(party),
       lastScore: party.lastScore,
       olympics: party.olympics,
+      runSheet: party.runSheet,
+      teams: party.teams ? { createdAt: party.teams.createdAt, label: party.teams.label, teams: party.teams.teams.map((t) => ({ ...t, ...teamScore(t, players, party.teams!.baseline) })) } : null,
       build: this.build,
       hasHostPin: !!party.hostPinHash,
       groomId: party.groomId,
@@ -469,7 +475,7 @@ export class Engine {
       code, name: (partyName ?? '').trim().slice(0, 40) || "Jezza's Bucks Weekend", hostId: playerId, phase: 'friday', missionsOpen: true,
       createdAt: now, players: {}, feed: [], claims: {}, revealedGroupMissions: [], battles: {}, awardOverrides: {}, finalized: false, fridayPoints: null, seq: 0,
       groomId: isJezza(v.name) ? playerId : null, autoSaturdayAt: nextSaturdayMorning(now), nextGroupAt: now + FIRST_GROUP_DELAY_MS,
-      raids: [], wall: [], cellar: [], phaseMissions: { friday: 0, saturday: 0 }, photoMode: 'vote', nextAutoAt: now + FIRST_AUTO_DELAY_MS, epics: [], codes: [], giveaways: [], log: [], xpBoostUntil: null, capLifted: false, mole: null, spotlight: null, ceremony: 0, tvMode: 'auto', rowdy: null, rowdyUsed: {}, lastScore: null, olympics: { current: null, done: [] },
+      raids: [], wall: [], cellar: [], phaseMissions: { friday: 0, saturday: 0 }, photoMode: 'vote', nextAutoAt: now + FIRST_AUTO_DELAY_MS, epics: [], codes: [], giveaways: [], log: [], xpBoostUntil: null, capLifted: false, mole: null, spotlight: null, ceremony: 0, tvMode: 'auto', rowdy: null, rowdyUsed: {}, lastScore: null, olympics: { current: null, done: [] }, runSheet: [], teams: null,
     };
     party.players[playerId] = newPlayer(playerId, v.name, now, true, 'friday');
     if (pin) party.hostPinHash = hashPin(code, pin);
@@ -1694,6 +1700,9 @@ export class Engine {
       if (party.rowdy && !party.rowdy.revealed && now >= party.rowdy.endsAt) { this.revealRowdy(party, direct); dirty = true; }
       if (party.rowdy?.revealed && now - party.rowdy.endsAt > 90_000) { party.rowdy = null; dirty = true; }
       if (party.olympics.current?.status === 'locked' && now - (party.olympics.current.lockedAt ?? now) > 40_000) { party.olympics.current = null; dirty = true; }
+      // run sheet: nudge the host once when an item's time arrives (they still press the button)
+      const due = nextItem(party.runSheet, now);
+      if (due && now >= due.at && !due.nudgedAt) { due.nudgedAt = now; direct.push({ to: party.hostId, msg: { type: 'toast', text: `⏰ Run sheet: ${due.label}. Tap it on your Lobby when ready.`, emoji: RUN_ACTIONS[due.action].emoji, tone: 'warn' } }); dirty = true; }
       // Saturday turns up on its own at 5am Sydney time
       if (party.autoSaturdayAt && now >= party.autoSaturdayAt) {
         if (party.phase === 'friday' || party.phase === 'lobby') { this.applyPhase(party, 'saturday', direct, true); }
@@ -2126,6 +2135,52 @@ export class Engine {
         if (t.isScorer) { this.feed(party, { kind: 'host', text: `📋 ${t.nickname} is a Scorer: they enter the Bucks Olympics points.`, emoji: '📋' }); direct.push({ to: t.id, msg: { type: 'toast', text: '📋 You are a Scorer. The points pad is on your Lobby.', emoji: '📋', tone: 'success' } }); }
         return this.ok(party, { on: t.isScorer }, direct);
       }
+      case 'runSheetSet': {
+        const items = (Array.isArray(action.items) ? action.items : []).slice(0, 30).map((it) => {
+          const label = String(it.label ?? '').replace(/\s+/g, ' ').trim().slice(0, 40) || 'Next thing';
+          const act = RUN_ACTIONS[it.action] ? it.action : 'none';
+          const at = Number(it.at); const old = party.runSheet.find((x) => x.id === it.id);
+          return { id: old?.id ?? `ri_${this.now().toString(36)}_${Math.floor(this.rng() * 1e6).toString(36)}`, at: Number.isFinite(at) ? at : this.now(), label, action: act, done: old?.done, doneAt: old?.doneAt, nudgedAt: old?.nudgedAt } as RunItem;
+        });
+        if (items.some((i) => !isClean(i.label))) return this.fail('Keep it clean.');
+        party.runSheet = items.sort((a, b) => a.at - b.at);
+        return this.ok(party, { count: items.length }, direct);
+      }
+      case 'runSheetFire': {
+        const item = party.runSheet.find((i) => i.id === action.id);
+        if (!item) return this.fail('No such item.');
+        if (item.done) return this.fail('Already done.');
+        const r = this.fireRunItem(party, item, direct);
+        if (r) return r; // the underlying action refused: say why, leave the item open
+        item.done = true; item.doneAt = this.now();
+        return this.ok(party, { id: item.id }, direct);
+      }
+      case 'teamsMake': {
+        const count = Math.max(2, Math.min(6, Math.round(Number(action.count)) || 2));
+        const lads = Object.values(party.players).filter((p) => !p.removed && p.creature).sort((a, b) => b.points - a.points);
+        if (lads.length < count * 2) return this.fail(`Need at least ${count * 2} lads for ${count} teams.`);
+        const label = String(action.label ?? '').replace(/\s+/g, ' ').trim().slice(0, 30) || 'Teams';
+        if (!isClean(label)) return this.fail('Keep it clean.');
+        const groups = snakeDraft(lads.map((p) => p.id), count);
+        party.teams = { createdAt: this.now(), label, baseline: Object.fromEntries(lads.map((p) => [p.id, p.points])), teams: groups.map((members, i) => ({ id: `tm_${i}`, ...TEAM_LOOKS[i], members })) };
+        this.feed(party, { kind: 'phase', text: `👥 TEAMS: ${party.teams.teams.map((t) => `${t.emoji} ${t.name}: ${t.members.map((m) => party.players[m]?.nickname ?? '?').join(', ')}`).join(' · ')}. Points from now count for your team.`, emoji: '👥' });
+        for (const t of party.teams.teams) for (const m of t.members) direct.push({ to: m, msg: { type: 'toast', text: `${t.emoji} You're on ${t.name} with ${t.members.filter((x) => x !== m).map((x) => party.players[x]?.nickname ?? '?').join(', ')}.`, emoji: '👥', tone: 'success' } });
+        return this.ok(party, { teams: party.teams.teams.map((t) => t.members) }, direct);
+      }
+      case 'teamsSwap': {
+        const ts = party.teams; if (!ts) return this.fail('No teams yet.');
+        const ta = ts.teams.find((t) => t.members.includes(action.a)); const tb = ts.teams.find((t) => t.members.includes(action.b));
+        if (!ta || !tb) return this.fail('Pick two lads who are on teams.');
+        if (ta === tb) return this.fail('They are already on the same team.');
+        ta.members = ta.members.map((m) => (m === action.a ? action.b : m)); tb.members = tb.members.map((m) => (m === action.b ? action.a : m));
+        return this.ok(party, undefined, direct);
+      }
+      case 'teamsClear': {
+        if (!party.teams) return this.fail('No teams.');
+        party.teams = null;
+        this.feed(party, { kind: 'phase', text: '👥 Teams are dissolved. Every lad for himself again.', emoji: '👥' });
+        return this.ok(party, undefined, direct);
+      }
       case 'setCeremony': {
         const n = Math.max(0, Math.min(40, Math.round(Number(action.revealed)) || 0));
         if (n === party.ceremony) return { ack: { ok: true }, changed: false, direct: [] };
@@ -2307,6 +2362,34 @@ export class Engine {
     this.feed(party, { kind: 'host', text: `🏅 ${reason}: ${t.nickname} ${pts > 0 ? '+' : ''}${pts} (scored by ${by.nickname})`, playerId: t.id, emoji: '🏅' });
     direct.push({ to: t.id, msg: { type: 'toast', text: `🏅 ${reason}: ${pts > 0 ? '+' : ''}${pts} points`, emoji: '🏅', tone: pts > 0 ? 'success' : 'warn' } });
     return this.ok(party, { points: pts, total: t.olympics }, direct);
+  }
+
+  // ---------- the run sheet ----------
+  /** Runs the item's action through the ordinary host actions. Returns a failure result if that action refused. */
+  private fireRunItem(party: PartyState, item: RunItem, direct: Outbound[]): HandleResult | null {
+    const host = party.hostId;
+    const via = (action: HostAction) => { const r = this.hostAction(host, action); direct.push(...r.direct); return r.ack?.ok === false ? r : null; };
+    switch (item.action) {
+      case 'reel': return via({ kind: 'setTvMode', mode: 'reel' });
+      case 'awards': return party.phase === 'finale' || party.phase === 'ended' ? null : via({ kind: 'setPhase', phase: 'finale' });
+      case 'spotlight': return via({ kind: 'setSpotlight', label: party.spotlight?.label ?? item.label, start: true });
+      case 'rowdy': return via({ kind: 'startRowdy' });
+      case 'raid': return via({ kind: 'summonRaid' });
+      case 'drops': return via({ kind: 'giveDrops', rarity: 'rare' });
+      case 'xpBoost': return via({ kind: 'xpBoost', minutes: 30 });
+      case 'mole': return via({ kind: 'revealMole' });
+      case 'teams': return party.teams ? null : via({ kind: 'teamsMake', count: 2 });
+      case 'olympics': {
+        for (const p of Object.values(party.players)) if (p.isScorer && !p.removed) direct.push({ to: p.id, msg: { type: 'toast', text: `🏅 ${item.label}: time to open the scorer's pad.`, emoji: '🏅', tone: 'warn' } });
+        this.feed(party, { kind: 'phase', text: `🏅 ${item.label.toUpperCase()} is on. Scorers, open your pads. Eyes on the TV.`, emoji: '🏅' });
+        direct.push({ to: 'party', msg: { type: 'toast', text: `🏅 ${item.label}. Eyes on the TV.`, emoji: '🏅', tone: 'warn' } });
+        return null;
+      }
+      default:
+        this.feed(party, { kind: 'phase', text: `📌 ${item.label.toUpperCase()}. Now.`, emoji: '📌' });
+        direct.push({ to: 'party', msg: { type: 'toast', text: `📌 ${item.label}`, emoji: '📌', tone: 'info' } });
+        return null;
+    }
   }
 
   // ---------- Bucks Olympics events ----------

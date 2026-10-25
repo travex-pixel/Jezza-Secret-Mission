@@ -8,6 +8,7 @@ import { CREATURES } from '@shared/creatures';
 import { fmtClock, fmtTime, orderAwards, spotlightPhase } from '@shared/ceremony';
 import { ROWDY_KINDS } from '@shared/rowdy';
 import { OLY_UNITS, ordinal, placeAwards } from '@shared/olympics';
+import { RUN_ACTIONS, nextItem } from '@shared/runsheet';
 import { sortLeaderboard } from '@shared/progression';
 import { useStore } from '../store';
 import { Creature, LadPic } from '../components/Creature';
@@ -354,6 +355,13 @@ export default function TV({ code }: { code?: string }) {
       <aside className="tv-side">
         <div className="tv-brand">PROJECT JEZZA <span className="live-dot" /><span className="tv-live">LIVE</span></div>
         <div className="tv-join">Join the game: code <b className="gold-text">{party.code}</b></div>
+        {(() => { const n = nextItem(party.runSheet ?? [], now); return n ? <div className="tv-nextup" data-testid="tv-nextup">{RUN_ACTIONS[n.action].emoji} <b>{n.at <= now ? 'Now' : 'Next'}:</b> {n.label} · {fmtTime(n.at)}</div> : null; })()}
+        {party.teams && (
+          <>
+            <div className="eyebrow">Teams</div>
+            <div className="tv-teams" data-testid="tv-teams">{[...party.teams.teams].sort((a, b) => b.score - a.score).map((t, i) => <div key={t.id} className="tv-team" style={{ borderColor: t.color }}><span>{i === 0 ? '👑' : t.emoji}</span><span className="grow ellipsis bold">{t.name}</span><span className="bold" style={{ color: t.color }}>{t.score}</span></div>)}</div>
+          </>
+        )}
         <div className="eyebrow">Leaderboard</div>
         <div className="stack-6">
           {board.map((p, k) => (

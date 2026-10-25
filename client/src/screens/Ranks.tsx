@@ -10,7 +10,7 @@ export default function Ranks() {
   const party = useStore((s) => s.party);
   const me = useMe();
   const setTab = useStore((s) => s.setTab);
-  const [view, setView] = useState<'board' | 'battles' | 'awards'>('board');
+  const [view, setView] = useState<'board' | 'battles' | 'awards' | 'teams'>('board');
   if (!party) return null;
   if (party.phase === 'finale' || party.phase === 'ended') return <Finale />;
   const board = sortLeaderboard(party.players).filter((p) => p.creature);
@@ -22,7 +22,18 @@ export default function Ranks() {
   return (
     <div className="screen with-nav">
       <div className="topbar"><h2 className="display title-md">Leaderboard</h2><span className="pill pill-gold">{party.phase === 'saturday' ? 'Saturday' : 'Friday'}</span></div>
-      <div className="tabs" style={{ marginBottom: 8 }}><button className={`tab ${view === 'board' ? 'on' : ''}`} onClick={() => setView('board')}>Points</button><button className={`tab ${view === 'battles' ? 'on' : ''}`} onClick={() => setView('battles')}>Battles</button><button className={`tab ${view === 'awards' ? 'on' : ''}`} onClick={() => setView('awards')}>Award race</button></div>
+      <div className="tabs" style={{ marginBottom: 8 }}><button className={`tab ${view === 'board' ? 'on' : ''}`} onClick={() => setView('board')}>Points</button><button className={`tab ${view === 'battles' ? 'on' : ''}`} onClick={() => setView('battles')}>Battles</button><button className={`tab ${view === 'awards' ? 'on' : ''}`} onClick={() => setView('awards')}>Award race</button>{party.teams && <button className={`tab ${view === 'teams' ? 'on' : ''}`} onClick={() => setView('teams')} data-testid="teams-tab">Teams</button>}</div>
+      {view === 'teams' && party.teams && (
+        <div className="screen-body scroll-y stack-10" data-testid="teams-board">
+          <div className="tiny faint center">Average points per member since the teams were made, so sizes don't matter.</div>
+          {[...party.teams.teams].sort((a, b) => b.score - a.score).map((t, i) => (
+            <div key={t.id} className="team-card" style={{ borderColor: t.color }}>
+              <div className="row-between"><span className="bold" style={{ fontSize: 16 }}>{i === 0 ? '👑 ' : `#${i + 1} `}{t.emoji} {t.name}</span><span className="bold" style={{ color: t.color, fontSize: 18 }}>{t.score}</span></div>
+              <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>{t.members.map((m) => { const p = party.players.find((x) => x.id === m); return p ? <span key={m} className="row" style={{ gap: 4 }}><span className="avatar sm"><LadPic p={p} /></span><span className="small bold">{p.nickname}</span></span> : null; })}</div>
+            </div>
+          ))}
+        </div>
+      )}
       {view === 'board' ? (
         <div className="screen-body" style={{ gap: 8 }}>
           {board.length === 0 && <div className="panel pad center dim">Nobody's on the board yet.</div>}

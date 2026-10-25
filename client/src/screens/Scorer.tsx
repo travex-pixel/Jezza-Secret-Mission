@@ -77,6 +77,12 @@ export default function Scorer() {
               <div className="panel pad stack-6" data-testid="oly-entry">
                 <div className="row-between"><span className="eyebrow">{u.emoji} {ev.name} · live on the TV</span><span className="tiny faint">{ev.results.length}/{lads.length} in</span></div>
                 <div className="tiny faint">{ev.unit === 'seconds' ? 'Tap ▶ when a lad starts, ■ when he drops: the time fills in. Or type the seconds.' : u.blurb} Every entry shows on the TV straight away.</div>
+                {ev.unit === 'place' && party.teams && (
+                  <div className="panel pad stack-6" style={{ borderColor: 'var(--gold)' }} data-testid="oly-by-team">
+                    <div className="small bold">By team: tap a team's place and every member gets it</div>
+                    {party.teams.teams.map((t) => <div key={t.id} className="row" style={{ gap: 6, alignItems: 'center' }}><span className="grow small bold">{t.emoji} {t.name}</span>{[1, 2, 3, 4].slice(0, party.teams!.teams.length).map((pl) => <button key={pl} className="pill pill-tap" disabled={busy} onClick={async () => { for (const m of t.members) { try { await request({ type: 'olyResult', playerId: m, value: pl }); } catch { /* skip */ } } sfx.select(); }} data-testid="oly-team-place">{ordinal(pl)}</button>)}</div>)}
+                  </div>
+                )}
                 {ev.timer && <div className="oly-sw" data-testid="oly-stopwatch"><span className="grow bold ellipsis">⏱ {nick(ev.timer.playerId)}</span><span className="spot-clock">{fmtSw(timerMs)}</span><Button size="sm" variant="danger" disabled={busy} onClick={() => { const secs = Math.round(timerMs / 100) / 10; void send({ type: 'olyResult', playerId: ev.timer!.playerId, value: secs }, () => { sfx.reward(); buzz([40]); }); }}>■ Stop</Button></div>}
                 <div className="stack-6">
                   {lads.map((p) => { const r = resultOf(p.id); const d = draft[p.id] ?? ''; return (

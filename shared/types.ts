@@ -328,6 +328,8 @@ export interface PartyPublic {
   rowdy: import('./rowdy').RowdyPublic | null; // the Rowdy Round in play, if any
   lastScore: { playerId: string; points: number; reason: string; by: string; at: number } | null; // the latest scorer entry, for the TV
   olympics: { current: import('./olympics').OlyEvent | null; done: { id: string; name: string; unit: import('./olympics').OlyUnit; winnerId?: string; lockedAt: number }[] };
+  runSheet: import('./runsheet').RunItem[];   // the host's plan for the day, wired to buttons
+  teams: import('./teams').TeamsPublic | null; // teams in play, with scores
   build: string;               // which build this server is running (short commit + deploy time)
   hasHostPin: boolean;
   groomId: string | null;
@@ -474,6 +476,11 @@ export type HostAction =
   | { kind: 'startRowdy'; rowdy?: import('./rowdy').RowdyKind }
   | { kind: 'endRowdy' }
   | { kind: 'setScorer'; playerId: string; on: boolean }
+  | { kind: 'runSheetSet'; items: { id?: string; at: number; label: string; action: import('./runsheet').RunAction }[] }
+  | { kind: 'runSheetFire'; id: string }
+  | { kind: 'teamsMake'; count: number; label?: string }
+  | { kind: 'teamsSwap'; a: string; b: string }
+  | { kind: 'teamsClear' }
   | { kind: 'transferHost'; playerId: string }
   | { kind: 'purgePhotos' }
   | { kind: 'setHostPin'; pin: string }
