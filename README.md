@@ -369,6 +369,13 @@ once a save exists in the bucket) a copy that finds no readable save waits up to
 exits rather than serve a blank game. And a copy that never loaded the save will exit instead of writing over a real
 one it finds on disk later. To restore by hand: copy a backup over `state.json` in the bucket and restart the service.
 
+### Privacy page
+
+`/privacy.html` (linked from the opening screen and Host → Event) says in plain English what is collected (a
+nickname, the photos you post, what you do in the game, a browser key), who sees it (the party, via the code),
+where it lives (Google Cloud, Sydney), how long (until the host deletes it; no automatic deletion) and who to ask.
+Edit `client/public/privacy.html` if any of that changes.
+
 ### Security model (what the server enforces)
 
 * Anonymous identity: `playerId` + random `secret` generated on the device, stored in `localStorage`.

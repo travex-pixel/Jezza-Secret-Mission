@@ -293,6 +293,8 @@ export default function Host() {
             <div className="eyebrow">Group challenges</div>
             {GROUP_MISSIONS.map((m) => { const on = party.revealedGroupMissions.includes(m.id); return <div key={m.id} className="list-row"><span className="grow"><div className="bold">{m.title} <span className="tiny faint">+{m.points}</span></div><div className="tiny dim">{m.instruction}</div></span>{on ? <span className="pill pill-xs pill-ok">live</span> : <Button size="xs" onClick={() => host({ kind: 'revealGroupMission', missionId: m.id })}>Reveal</Button>}</div>; })}
             <div className="divider" />
+            <div className="tiny faint">Privacy, in plain English, for anyone who asks: <a href="/privacy.html" style={{ color: 'var(--gold)' }}>/privacy.html</a>. Photos and scores stay until you delete them; nothing is shared outside the party.</div>
+            <div className="divider" />
             <div className="eyebrow">Host PIN</div>
             <div className="small dim">{party.hasHostPin ? 'Set. Anyone in the party can use it on Party → Claim host, so keep it to yourself.' : 'Not set. Set one so you can take back host from another phone if yours dies.'}</div>
             <div className="row" style={{ gap: 6 }}><input className="input" style={{ minHeight: 44, fontSize: 16 }} value={newPin} onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="4–6 digits" inputMode="numeric" type="password" /><Button size="sm" variant="secondary" disabled={newPin.length < 4} onClick={() => { host({ kind: 'setHostPin', pin: newPin }); setNewPin(''); toast('Host PIN saved', '🔐', 'success'); }}>{party.hasHostPin ? 'Change' : 'Set PIN'}</Button></div>

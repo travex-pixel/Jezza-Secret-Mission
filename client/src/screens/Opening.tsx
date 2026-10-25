@@ -46,7 +46,7 @@ export default function Opening() {
         <div style={{ width: '100%', maxWidth: 380, marginTop: 8 }} className="fade-up delay-3">
           <Button onClick={enter} sound={false}>Enter the Vineyard</Button>
         </div>
-        <div className="faint tiny fade-up delay-4">No sign-up. No app. Just legends.</div>
+        <div className="faint tiny fade-up delay-4">No sign-up. No app. Just legends. <a href="/privacy.html" style={{ color: 'inherit', textDecoration: 'underline' }}>Privacy</a></div>
       </div>
     </div>
   );
